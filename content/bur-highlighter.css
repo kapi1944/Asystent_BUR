@@ -1,0 +1,17 @@
+.bur-asystent-pole-poprawne {
+  border: 2px solid #2e9f58 !important;
+  background: rgba(46, 159, 88, 0.12) !important;
+  box-shadow: 0 0 0 2px rgba(46, 159, 88, 0.14) !important;
+}
+
+.bur-asystent-pole-ostrzeżenie {
+  border: 2px solid #f59f00 !important;
+  background: rgba(245, 159, 0, 0.14) !important;
+  box-shadow: 0 0 0 2px rgba(245, 159, 0, 0.16) !important;
+}
+
+.bur-asystent-pole-błąd {
+  border: 2px solid #d93025 !important;
+  background: rgba(217, 48, 37, 0.13) !important;
+  box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.16) !important;
+}

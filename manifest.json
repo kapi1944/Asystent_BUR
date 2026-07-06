@@ -46,12 +46,18 @@
       "matches": [
         "https://uslugirozwojowe.parp.gov.pl/*"
       ],
+      "css": [
+        "content/bur-highlighter.css"
+      ],
       "js": [
         "shared/komunikaty.js",
+        "shared/model-walidacji.js",
         "shared/normalizacja-tytulu.js",
         "shared/daty.js",
         "shared/bur-program-harmonogram.js",
         "shared/wyszukiwarka-semper.js",
+        "shared/selektory-bur.js",
+        "shared/walidatory-bur.js",
         "content/bur-content.js"
       ],
       "run_at": "document_idle"

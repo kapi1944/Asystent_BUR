@@ -11,6 +11,11 @@
     przyciskUzupełnijZLinku: document.getElementById("przycisk-uzupelnij-z-linku"),
     linkLubFrazaSemper: document.getElementById("link-lub-fraza-semper"),
     wynikiSemper: document.getElementById("wyniki-semper"),
+    wybórTerminuSemper: document.getElementById("wybor-terminu-semper"),
+    przyciskWalidujBur: document.getElementById("przycisk-waliduj-bur"),
+    przyciskWyczyśćPodświetlenia: document.getElementById("przycisk-wyczysc-podswietlenia"),
+    statusWalidacjiBur: document.getElementById("status-walidacji-bur"),
+    wynikWalidacjiBur: document.getElementById("wynik-walidacji-bur"),
     ostrzeżeniaKarta: document.getElementById("ostrzezenia-karta"),
     listaOstrzeżeń: document.getElementById("lista-ostrzezen"),
     tytułOryginalny: document.getElementById("tytul-oryginalny"),
@@ -32,6 +37,7 @@
     przyciskImportujHarmonogramXml: document.getElementById("przycisk-importuj-harmonogram-xml"),
     przyciskWypełnijHarmonogramRęcznie: document.getElementById("przycisk-wypelnij-harmonogram-recznie")
   };
+  let ostatnieTerminySemper = [];
 
   function ustawStatus(element, tekst, klasa) {
     element.textContent = tekst;
@@ -76,6 +82,69 @@
     }).join("\n\n");
   }
 
+  function opiszTerminDoWyboru(termin, indeks) {
+    const zakres = [
+      termin.dataStartBur || termin.dataOdTekst || "?",
+      termin.dataKoniecBur || termin.dataDoTekst || "?"
+    ].join(" - ");
+    const części = [
+      "Termin " + (indeks + 1),
+      zakres,
+      termin.miejsce || "",
+      termin.forma || ""
+    ].filter(Boolean);
+
+    return części.join(" | ");
+  }
+
+  function pokażWybórTerminuSemper(terminy, wybranyIndeks) {
+    ostatnieTerminySemper = Array.isArray(terminy) ? terminy : [];
+    elementy.wybórTerminuSemper.textContent = "";
+
+    if (!ostatnieTerminySemper.length) {
+      const opcja = document.createElement("option");
+
+      opcja.value = "";
+      opcja.textContent = "Brak zaimportowanych terminów";
+      elementy.wybórTerminuSemper.appendChild(opcja);
+      elementy.wybórTerminuSemper.disabled = true;
+      return;
+    }
+
+    if (ostatnieTerminySemper.length > 1) {
+      const opcjaPusta = document.createElement("option");
+
+      opcjaPusta.value = "";
+      opcjaPusta.textContent = "Wybierz termin SEMPER";
+      elementy.wybórTerminuSemper.appendChild(opcjaPusta);
+    }
+
+    ostatnieTerminySemper.forEach(function dodajTermin(termin, indeks) {
+      const opcja = document.createElement("option");
+
+      opcja.value = String(indeks);
+      opcja.textContent = opiszTerminDoWyboru(termin, indeks);
+      elementy.wybórTerminuSemper.appendChild(opcja);
+    });
+
+    elementy.wybórTerminuSemper.disabled = false;
+
+    if (wybranyIndeks !== null && wybranyIndeks !== undefined && wybranyIndeks !== "") {
+      elementy.wybórTerminuSemper.value = String(wybranyIndeks);
+    } else {
+      elementy.wybórTerminuSemper.value = ostatnieTerminySemper.length === 1 ? "0" : "";
+    }
+  }
+
+  function zapiszWybórTerminuSemper() {
+    const wartość = elementy.wybórTerminuSemper.value;
+    const indeks = wartość === "" ? null : Number(wartość);
+
+    zapiszStorage({
+      wybranyTerminSemperIndex: indeks
+    }).catch(function pomińBłądZapisu() {});
+  }
+
   function pokażOstrzeżenia(ostrzeżenia) {
     elementy.listaOstrzeżeń.textContent = "";
 
@@ -111,6 +180,7 @@
     });
 
     pokażOstrzeżenia([]);
+    pokażWybórTerminuSemper([], null);
   }
 
   function pokażSzkolenie(wynik) {
@@ -129,6 +199,7 @@
     wpisz("korzyści", sekcje.korzysci || sekcje.korzyści);
     wpisz("program", sekcje.program);
     wpisz("inwestycja", sekcje.inwestycja);
+    pokażWybórTerminuSemper(terminy, wynik.wybranyTerminSemperIndex);
     pokażOstrzeżenia(wynik.ostrzeżenia || wynik.ostrzezenia || []);
   }
 
@@ -152,6 +223,17 @@
 
   function czyObsługiwanaKarta(karta) {
     return karta && karta.id && rozpoznajTypStrony(karta.url) !== "Nieobsługiwana strona";
+  }
+
+  function ustawDostępnośćWalidacji(czyBur) {
+    elementy.przyciskWalidujBur.disabled = !czyBur;
+    elementy.przyciskWyczyśćPodświetlenia.disabled = !czyBur;
+
+    if (!czyBur) {
+      ustawStatus(elementy.statusWalidacjiBur, "Otwórz formularz BUR, aby wykonać walidację.", "status-ostrzezenie");
+    } else if (elementy.statusWalidacjiBur.textContent === "Otwórz formularz BUR, aby wykonać walidację.") {
+      ustawStatus(elementy.statusWalidacjiBur, "Gotowy do walidacji.", "status-neutralny");
+    }
   }
 
   function wyślijDoKarty(karta, komunikat) {
@@ -344,12 +426,176 @@
       });
   }
 
+  function wyczyśćWynikWalidacjiBur() {
+    elementy.wynikWalidacjiBur.textContent = "";
+  }
+
+  function policzPozycjeWalidacji(pozycje) {
+    return (pozycje || []).reduce(function zlicz(liczniki, pozycja) {
+      if (pozycja.status === "błąd") {
+        liczniki.błędy += 1;
+      } else if (pozycja.status === "ostrzeżenie") {
+        liczniki.ostrzeżenia += 1;
+      } else if (pozycja.status === "poprawne") {
+        liczniki.poprawne += 1;
+      }
+
+      return liczniki;
+    }, {
+      błędy: 0,
+      ostrzeżenia: 0,
+      poprawne: 0
+    });
+  }
+
+  function dodajLicznikWalidacji(kontener, etykieta, wartość, klasa) {
+    const licznik = document.createElement("div");
+    const liczba = document.createElement("strong");
+    const opis = document.createElement("span");
+
+    licznik.className = "licznik-walidacji " + klasa;
+    liczba.textContent = String(wartość);
+    opis.textContent = etykieta;
+    licznik.appendChild(liczba);
+    licznik.appendChild(opis);
+    kontener.appendChild(licznik);
+  }
+
+  function pokażWynikWalidacjiBur(wynik) {
+    const pozycje = wynik && Array.isArray(wynik.pozycje) ? wynik.pozycje : [];
+    const liczniki = policzPozycjeWalidacji(pozycje);
+    const podsumowanie = document.createElement("div");
+    const grupy = new Map();
+
+    wyczyśćWynikWalidacjiBur();
+    podsumowanie.className = "podsumowanie-walidacji";
+    dodajLicznikWalidacji(podsumowanie, "błędy", liczniki.błędy, "walidacja-błąd");
+    dodajLicznikWalidacji(podsumowanie, "ostrzeżenia", liczniki.ostrzeżenia, "walidacja-ostrzeżenie");
+    dodajLicznikWalidacji(podsumowanie, "poprawne", liczniki.poprawne, "walidacja-poprawne");
+    elementy.wynikWalidacjiBur.appendChild(podsumowanie);
+
+    pozycje.forEach(function pogrupuj(pozycja) {
+      const sekcja = pozycja.sekcja || "Inne";
+
+      if (!grupy.has(sekcja)) {
+        grupy.set(sekcja, []);
+      }
+
+      grupy.get(sekcja).push(pozycja);
+    });
+
+    grupy.forEach(function pokażSekcję(lista, nazwaSekcji) {
+      const sekcja = document.createElement("section");
+      const nagłówek = document.createElement("h3");
+
+      sekcja.className = "sekcja-walidacji";
+      nagłówek.textContent = nazwaSekcji;
+      sekcja.appendChild(nagłówek);
+
+      lista.forEach(function pokażPozycję(pozycja) {
+        const element = document.createElement("div");
+        const tytuł = document.createElement("strong");
+        const komunikat = document.createElement("span");
+        const wartości = document.createElement("span");
+
+        element.className = "pozycja-walidacji walidacja-" + pozycja.status;
+        tytuł.textContent = pozycja.pole + " - " + pozycja.status;
+        komunikat.textContent = pozycja.komunikat || "";
+        wartości.textContent = "Aktualnie: " + (pozycja.aktualnaWartość || "-") + " | Oczekiwane: " + (pozycja.oczekiwanaWartość || "-");
+        element.appendChild(tytuł);
+        element.appendChild(komunikat);
+        element.appendChild(wartości);
+        sekcja.appendChild(element);
+      });
+
+      elementy.wynikWalidacjiBur.appendChild(sekcja);
+    });
+
+    ustawStatus(
+      elementy.statusWalidacjiBur,
+      "Walidacja zakończona: " + liczniki.błędy + " błędów, " + liczniki.ostrzeżenia + " ostrzeżeń, " + liczniki.poprawne + " poprawnych pól.",
+      liczniki.błędy ? "status-blad" : (liczniki.ostrzeżenia ? "status-ostrzezenie" : "status-odczytano")
+    );
+  }
+
+  function obsłużOdpowiedźWalidacjiBur(odpowiedź) {
+    if (!odpowiedź) {
+      throw new Error("Brak odpowiedzi z formularza BUR.");
+    }
+
+    if (odpowiedź.typ === komunikaty.BRAK_DANYCH_SEMPER) {
+      wyczyśćWynikWalidacjiBur();
+      throw new Error(odpowiedź.komunikat || "Najpierw pobierz dane szkolenia ze strony SEMPER albo użyj funkcji »Uzupełnij z linku«.");
+    }
+
+    if (odpowiedź.typ === komunikaty.BRAK_WYBRANEGO_TERMINU_SEMPER) {
+      wyczyśćWynikWalidacjiBur();
+      throw new Error(odpowiedź.komunikat || "Wybierz termin SEMPER do walidacji BUR.");
+    }
+
+    if (odpowiedź.typ !== komunikaty.ODPOWIEDŹ_WALIDACJA_BUR) {
+      throw new Error("Nieznany typ odpowiedzi walidacji BUR.");
+    }
+
+    if (odpowiedź.wybranyTerminSemperIndex !== undefined) {
+      elementy.wybórTerminuSemper.value = String(odpowiedź.wybranyTerminSemperIndex);
+      zapiszWybórTerminuSemper();
+    }
+
+    pokażWynikWalidacjiBur(odpowiedź.wynik || {});
+  }
+
+  function walidujFormularzBurZPanelu() {
+    wyczyśćWynikWalidacjiBur();
+    ustawStatus(elementy.statusWalidacjiBur, "Waliduję formularz BUR...", "status-neutralny");
+    elementy.przyciskWalidujBur.disabled = true;
+
+    pobierzAktywnąKartę()
+      .then(function sprawdźKartę(karta) {
+        if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") {
+          throw new Error("Otwórz formularz BUR, aby wykonać walidację.");
+        }
+
+        return wyślijDoKarty(karta, { typ: komunikaty.WALIDUJ_FORMULARZ_BUR });
+      })
+      .then(obsłużOdpowiedźWalidacjiBur)
+      .catch(function pokażBłąd(błąd) {
+        ustawStatus(elementy.statusWalidacjiBur, błąd && błąd.message ? błąd.message : "Nie udało się wykonać walidacji BUR.", "status-blad");
+      })
+      .finally(function odblokuj() {
+        pobierzAktywnąKartę().then(ustawStatusStronyDlaKarty);
+      });
+  }
+
+  function wyczyśćPodświetleniaBurZPanelu() {
+    ustawStatus(elementy.statusWalidacjiBur, "Czyszczę podświetlenia...", "status-neutralny");
+
+    pobierzAktywnąKartę()
+      .then(function sprawdźKartę(karta) {
+        if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") {
+          throw new Error("Otwórz formularz BUR, aby wyczyścić podświetlenia.");
+        }
+
+        return wyślijDoKarty(karta, { typ: komunikaty.WYCZYŚĆ_PODŚWIETLENIA_BUR });
+      })
+      .then(function pokażWyczyszczenie(odpowiedź) {
+        const wynik = odpowiedź && odpowiedź.wynik;
+
+        wyczyśćWynikWalidacjiBur();
+        ustawStatus(elementy.statusWalidacjiBur, wynik && wynik.komunikat ? wynik.komunikat : "Wyczyszczono podświetlenia BUR.", "status-odczytano");
+      })
+      .catch(function pokażBłąd(błąd) {
+        ustawStatus(elementy.statusWalidacjiBur, błąd && błąd.message ? błąd.message : "Nie udało się wyczyścić podświetleń.", "status-blad");
+      });
+  }
+
   function ustawStatusStronyDlaKarty(karta) {
     const typ = rozpoznajTypStrony(karta ? karta.url : "");
 
     if (typ === "Nieobsługiwana strona") {
       ustawStatus(elementy.statusStrony, typ, "status-ostrzezenie");
       elementy.przyciskPobierz.disabled = true;
+      ustawDostępnośćWalidacji(false);
       return Promise.resolve();
     }
 
@@ -358,11 +604,13 @@
         const typStrony = odpowiedź && odpowiedź.typStrony ? odpowiedź.typStrony : typ;
         ustawStatus(elementy.statusStrony, typStrony, "status-odczytano");
         elementy.przyciskPobierz.disabled = false;
+        ustawDostępnośćWalidacji(typStrony === "BUR");
         odświeżStanProgramuHarmonogramu();
       })
       .catch(function pokażŁagodnyBłąd() {
         ustawStatus(elementy.statusStrony, typ + " - odśwież stronę, jeśli panel nie odpowiada", "status-ostrzezenie");
         elementy.przyciskPobierz.disabled = false;
+        ustawDostępnośćWalidacji(typ === "BUR");
         odświeżStanProgramuHarmonogramu();
       });
   }
@@ -383,7 +631,7 @@
     }
 
     if (odpowiedź.typ === komunikaty.ODPOWIEDZ_STATUS_STRONY) {
-      ustawStatus(elementy.statusAkcji, "Wykryto BUR. Wypełnianie formularzy nie jest jeszcze włączone.", "status-odczytano");
+      ustawStatus(elementy.statusAkcji, "Wykryto BUR. Dostępna jest walidacja formularza.", "status-odczytano");
       return;
     }
 
@@ -555,12 +803,15 @@
 
         const wynikParsera = przestrzeń.parsujHtmlSemper(wynik.html, wynik.url || url);
         const szkolenie = wynikParsera.szkolenie;
+        const wybranyTerminSemperIndex = szkolenie.terminy && szkolenie.terminy.length === 1 ? 0 : null;
 
         return zapiszStorage({
           ostatnieSzkolenieSemper: szkolenie,
           ostatnieŁączeSemper: wynik.url || url,
-          dataImportuSemper: new Date().toISOString()
+          dataImportuSemper: new Date().toISOString(),
+          wybranyTerminSemperIndex: wybranyTerminSemperIndex
         }).then(function zwróćWynik() {
+          wynikParsera.wybranyTerminSemperIndex = wybranyTerminSemperIndex;
           return wynikParsera;
         });
       })
@@ -582,7 +833,7 @@
   }
 
   function odczytajOstatniImport() {
-    odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieŁączeSemper", "dataImportuSemper"])
+    odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieŁączeSemper", "dataImportuSemper", "wybranyTerminSemperIndex"])
       .then(function pokażDane(dane) {
         if (!dane.ostatnieSzkolenieSemper) {
           return;
@@ -590,7 +841,8 @@
 
         pokażSzkolenie({
           szkolenie: dane.ostatnieSzkolenieSemper,
-          ostrzeżenia: []
+          ostrzeżenia: [],
+          wybranyTerminSemperIndex: dane.wybranyTerminSemperIndex
         });
 
         if (dane.ostatnieŁączeSemper) {
@@ -609,6 +861,9 @@
   elementy.przyciskPobierz.addEventListener("click", pobierzDaneZeStrony);
   elementy.przyciskSzukajLinku.addEventListener("click", szukajLinkuSemper);
   elementy.przyciskUzupełnijZLinku.addEventListener("click", importujSzkolenieZLinku);
+  elementy.wybórTerminuSemper.addEventListener("change", zapiszWybórTerminuSemper);
+  elementy.przyciskWalidujBur.addEventListener("click", walidujFormularzBurZPanelu);
+  elementy.przyciskWyczyśćPodświetlenia.addEventListener("click", wyczyśćPodświetleniaBurZPanelu);
   elementy.przyciskUzupełnijProgram.addEventListener("click", function uzupełnijProgram() {
     wyślijAkcjęProgramuHarmonogramu(komunikaty.UZUPEŁNIJ_PROGRAM_BUR, "Uzupełniono program usługi.");
   });
@@ -625,6 +880,7 @@
     .catch(function pokażBłądStartowy() {
       ustawStatus(elementy.statusStrony, "Nieobsługiwana strona", "status-ostrzezenie");
       elementy.przyciskPobierz.disabled = true;
+      ustawDostępnośćWalidacji(false);
     });
 
   odczytajOstatniImport();

@@ -36,6 +36,20 @@
       </section>
 
       <section class="karta">
+        <h2>Walidacja BUR</h2>
+        <label class="etykieta" for="wybor-terminu-semper">Termin SEMPER do walidacji</label>
+        <select id="wybor-terminu-semper">
+          <option value="">Brak zaimportowanych terminów</option>
+        </select>
+        <div class="siatka-przycisków">
+          <button id="przycisk-waliduj-bur" type="button">Waliduj formularz BUR</button>
+          <button id="przycisk-wyczysc-podswietlenia" type="button">Wyczyść podświetlenia</button>
+        </div>
+        <div id="status-walidacji-bur" class="komunikat">Gotowy do walidacji.</div>
+        <div id="wynik-walidacji-bur" class="wynik-walidacji"></div>
+      </section>
+
+      <section class="karta">
         <h2>Program i harmonogram usługi</h2>
         <dl class="dane dane-zwarte">
           <dt>Edytor programu</dt>
