@@ -134,7 +134,9 @@
     const dokument = utwórzDokumentWypełniania();
 
     bur.wypełnijFormularzBur(dokument, utwórzKontekst());
-    sprawdzWarunek(dokument.body.textContent.includes("Zażółć"), "Dokument powinien zachować polskie znaki.");
+    sprawdzWarunek(dokument.querySelector("#informacjepodstawowesekcja-tytuluslugi").value.includes("Zażółć"), "Tytuł powinien zachować polskie znaki.");
+    sprawdzWarunek(dokument.querySelector(".ql-editor").textContent.includes("Łodzi"), "Grupa docelowa powinna zachować polskie znaki.");
+    sprawdzWarunek(dokument.querySelector("#glownyceluslugisekcja-celedukacyjnyopis").value.includes("ćwiczenia"), "Cel edukacyjny powinien zachować polskie znaki.");
   });
 
   test("ustawSelect2PoTekście ustawia Select2 z ukrytym select", function sprawdź() {

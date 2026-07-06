@@ -108,9 +108,72 @@
     return tekst || "—";
   }
 
+  function czyTreśćWyglądaJakTabelaTerminów(treść) {
+    return przestrzeń.czyTreśćWyglądaJakTabelaTerminów
+      ? przestrzeń.czyTreśćWyglądaJakTabelaTerminów(treść)
+      : false;
+  }
+
+  function formatujSekcjęSzkolenia(wartość) {
+    const tekst = formatujWartośćDanych(wartość);
+
+    if (!tekst || tekst === "—" || czyTreśćWyglądaJakTabelaTerminów(tekst)) {
+      return "Brak danych";
+    }
+
+    return tekst;
+  }
+
   function formatujUnikalne(wartości) {
     const czyste = wartości.filter(Boolean);
     return Array.from(new Set(czyste)).join("\n");
+  }
+
+  function pobierzCenęBezZakwaterowania(szkolenie, sekcje) {
+    return szkolenie.cenaBezZakwaterowania || sekcje.cenaBezZakwaterowania || "";
+  }
+
+  function formatujCenySzkolenia(terminy, szkolenie, sekcje) {
+    const cenaZTerminów = formatujUnikalne(terminy.map(function pobierzCenę(termin) { return termin.cena; }));
+    const cenaBezZakwaterowania = pobierzCenęBezZakwaterowania(szkolenie, sekcje);
+
+    return [
+      cenaZTerminów,
+      cenaBezZakwaterowania ? "Cena bez zakwaterowania: " + cenaBezZakwaterowania : ""
+    ].filter(Boolean).join("\n");
+  }
+
+  function formatujInwestycjęSzkolenia(szkolenie, sekcje) {
+    const inwestycja = formatujSekcjęSzkolenia(sekcje.inwestycja || sekcje.inwestycjaHtml);
+    const cenaBezZakwaterowania = pobierzCenęBezZakwaterowania(szkolenie, sekcje);
+
+    if (!cenaBezZakwaterowania || inwestycja.includes(cenaBezZakwaterowania)) {
+      return inwestycja;
+    }
+
+    return [inwestycja, "Cena bez zakwaterowania: " + cenaBezZakwaterowania].join("\n");
+  }
+
+  function uzupełnijOstrzeżeniaSekcji(ostrzeżenia, sekcje) {
+    const wynik = Array.isArray(ostrzeżenia) ? ostrzeżenia.slice() : [];
+    const pola = [
+      { nazwa: "Cel szkolenia", wartość: sekcje.celSzkolenia || sekcje.celSzkoleniaHtml || sekcje.goalHtml },
+      { nazwa: "Grupa docelowa", wartość: sekcje.grupaDocelowa || sekcje.grupaDocelowaHtml || sekcje.groupHtml },
+      { nazwa: "Korzyści", wartość: sekcje.korzysci || sekcje.korzyści || sekcje.benefitsHtml },
+      { nazwa: "Program", wartość: sekcje.program || sekcje.programHtml },
+      { nazwa: "Inwestycja", wartość: sekcje.inwestycja || sekcje.inwestycjaHtml }
+    ];
+
+    pola.forEach(function sprawdźPole(pole) {
+      const tekst = formatujSekcjęSzkolenia(pole.wartość);
+      const komunikat = "Brak właściwej sekcji SEMPER: " + pole.nazwa + ".";
+
+      if (tekst === "Brak danych" && !wynik.includes(komunikat)) {
+        wynik.push(komunikat);
+      }
+    });
+
+    return wynik;
   }
 
   function pobierzDatęRekrutacji(termin) {
@@ -257,15 +320,15 @@
     wpisz("tytułBur", szkolenie.tytułPoNormalizacjiBur || szkolenie.tytułBur || szkolenie.tytulBur);
     wpisz("terminy", formatujTerminy(terminy));
     wpisz("lokalizacje", formatujUnikalne(terminy.map(function pobierzMiejsce(termin) { return termin.miejsce; })));
-    wpisz("cena", formatujUnikalne(terminy.map(function pobierzCenę(termin) { return termin.cena; })));
+    wpisz("cena", formatujCenySzkolenia(terminy, szkolenie, sekcje));
     wpisz("czasTrwania", formatujUnikalne(terminy.map(function pobierzCzas(termin) { return termin.czasTrwania; })));
-    wpisz("celSzkolenia", formatujWartośćDanych(sekcje.celSzkolenia || sekcje.celSzkoleniaHtml || sekcje.goalHtml));
-    wpisz("grupaDocelowa", formatujWartośćDanych(sekcje.grupaDocelowa || sekcje.grupaDocelowaHtml || sekcje.groupHtml));
-    wpisz("korzyści", formatujWartośćDanych(sekcje.korzysci || sekcje.korzyści || sekcje.benefitsHtml));
-    wpisz("program", formatujWartośćDanych(sekcje.program || sekcje.programHtml));
-    wpisz("inwestycja", formatujWartośćDanych(sekcje.inwestycja || sekcje.inwestycjaHtml));
+    wpisz("celSzkolenia", formatujSekcjęSzkolenia(sekcje.celSzkolenia || sekcje.celSzkoleniaHtml || sekcje.goalHtml));
+    wpisz("grupaDocelowa", formatujSekcjęSzkolenia(sekcje.grupaDocelowa || sekcje.grupaDocelowaHtml || sekcje.groupHtml));
+    wpisz("korzyści", formatujSekcjęSzkolenia(sekcje.korzysci || sekcje.korzyści || sekcje.benefitsHtml));
+    wpisz("program", formatujSekcjęSzkolenia(sekcje.program || sekcje.programHtml));
+    wpisz("inwestycja", formatujInwestycjęSzkolenia(szkolenie, sekcje));
     pokażWybórTerminuSemper(terminy, wynik.wybranyTerminSemperIndex);
-    pokażOstrzeżenia(wynik.ostrzeżenia || wynik.ostrzezenia || []);
+    pokażOstrzeżenia(uzupełnijOstrzeżeniaSekcji(wynik.ostrzeżenia || wynik.ostrzezenia || [], sekcje));
   }
 
   function renderujDaneSzkolenia(szkolenie, daneDodatkowe) {

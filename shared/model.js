@@ -15,7 +15,11 @@
       grupaDocelowa: wartosci.grupaDocelowa || "",
       korzysci: wartosci.korzysci || "",
       program: wartosci.program || "",
-      inwestycja: wartosci.inwestycja || ""
+      inwestycja: wartosci.inwestycja || "",
+      inwestycjaHtml: wartosci.inwestycjaHtml || wartosci.inwestycja || "",
+      cenaBezZakwaterowania: wartosci.cenaBezZakwaterowania || "",
+      cenyStacjonarne: wartosci.cenyStacjonarne || "",
+      cenyOnline: wartosci.cenyOnline || ""
     };
   }
 
@@ -32,6 +36,7 @@
       miejsce: wartosci.miejsce || "",
       forma: wartosci.forma || FORMY_SZKOLENIA.NIEZNANA,
       cena: wartosci.cena || "",
+      cenaBezZakwaterowania: wartosci.cenaBezZakwaterowania || "",
       czasTrwania: wartosci.czasTrwania || "",
       czyDojazdZakopane: Boolean(wartosci.czyDojazdZakopane)
     };
@@ -49,7 +54,10 @@
       tytułBur: wartosci.tytułBur || wartosci.tytulBur || "",
       tytułPoNormalizacjiBur: wartosci.tytułPoNormalizacjiBur || wartosci.tytulBur || "",
       terminy: Array.isArray(wartosci.terminy) ? wartosci.terminy : [],
-      sekcje: utworzSekcjeOpisuSemper(wartosci.sekcje)
+      sekcje: utworzSekcjeOpisuSemper(wartosci.sekcje),
+      cenaBezZakwaterowania: wartosci.cenaBezZakwaterowania || (wartosci.sekcje ? wartosci.sekcje.cenaBezZakwaterowania : ""),
+      inwestycja: wartosci.inwestycja || (wartosci.sekcje ? wartosci.sekcje.inwestycja : ""),
+      inwestycjaHtml: wartosci.inwestycjaHtml || (wartosci.sekcje ? wartosci.sekcje.inwestycjaHtml : "")
     };
   }
 

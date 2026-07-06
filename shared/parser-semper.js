@@ -1,5 +1,22 @@
 (function zarejestrujParserSemper(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
+  const nazwySekcjiSemper = [
+    "Grupa docelowa",
+    "Adresaci szkolenia",
+    "Dla kogo",
+    "Cel szkolenia",
+    "Korzyści dla uczestników",
+    "Korzyści",
+    "Efekty szkolenia",
+    "Metodologia",
+    "Program szkolenia",
+    "Program",
+    "Informacje organizacyjne",
+    "Inwestycja",
+    "Cena szkolenia",
+    "Koszt szkolenia",
+    "Zgłoszenie"
+  ];
 
   function oczyśćTekstElementu(element) {
     return String(element ? element.textContent || "" : "")
@@ -139,6 +156,36 @@
     return dopasowanie ? oczyśćTekstElementu({ textContent: dopasowanie[0] }) : "";
   }
 
+  function rozpoznajCenęBezZakwaterowania(tekst) {
+    const dopasowanie = String(tekst || "")
+      .replace(/\s+/g, " ")
+      .match(/(\d[\d\s]*(?:[,.]\d{2})?)\s*(?:zł|zl|pln)?\s*netto\s*[-–—]\s*udział\s+w\s+szkoleniu\s+bez\s+zakwaterowania/i);
+
+    return dopasowanie ? dopasowanie[1].replace(/\s+/g, "").replace(",", ".") : "";
+  }
+
+  function czyTreśćWyglądaJakTabelaTerminów(treść) {
+    const tekst = normalizujKlucz(treść);
+    const frazy = [
+      "termin",
+      "miejsce",
+      "czas trwania",
+      "koszt",
+      "formularz zgloszenia",
+      "program szkolenia pobierz pdf",
+      "wypelnij online"
+    ];
+    const liczbaTrafień = frazy.filter(function policz(fraza) {
+      return tekst.includes(fraza);
+    }).length;
+
+    return liczbaTrafień >= 3;
+  }
+
+  function czyTekstFałszywegoTerminu(tekst) {
+    return /(pokaż\s+więcej|pokaz\s+wiecej|pokaż\s+mniej|pokaz\s+mniej|▼|▲)/i.test(String(tekst || ""));
+  }
+
   function rozpoznajMiastoZTekstu(tekst) {
     const wartość = String(tekst || "");
 
@@ -181,6 +228,11 @@
   function parsujTerminZWiersza(wiersz, nagłówki, ostrzeżenia) {
     const komórki = Array.from(wiersz.querySelectorAll("td"));
     const tekstWiersza = oczyśćTekstElementu(wiersz);
+
+    if (czyTekstFałszywegoTerminu(tekstWiersza)) {
+      return null;
+    }
+
     const zakresDatTekst = pobierzWartośćPoNagłówku(komórki, nagłówki, ["termin", "data"]) || pobierzZakresDatZWiersza(tekstWiersza);
     const czasTrwania = pobierzWartośćPoNagłówku(komórki, nagłówki, ["czas", "trwanie"]) || znajdźTekstKomórki(komórki, function czyCzas(tekst) {
       return /\d+\s*(?:dni|dzien|dzień|godz)/i.test(tekst);
@@ -201,6 +253,12 @@
 
     if (!zakresDat.dataOd || !zakresDat.dataDo) {
       ostrzeżenia.push("Nie rozpoznano dat w wierszu terminu: " + tekstWiersza);
+      return null;
+    }
+
+    if (!datyBur.dataStartBur || !datyBur.dataKoniecBur || datyBur.dataStartBur === "?" || datyBur.dataKoniecBur === "?") {
+      ostrzeżenia.push("Nie utworzono terminu BUR z wiersza: " + tekstWiersza);
+      return null;
     }
 
     return przestrzeń.utworzTerminSzkolenia({
@@ -253,7 +311,7 @@
     });
     const terminy = wiersze.map(function parsujWiersz(wiersz) {
       return parsujTerminZWiersza(wiersz, nagłówki, ostrzeżenia);
-    });
+    }).filter(Boolean);
 
     if (terminy.length === 0) {
       ostrzeżenia.push("Tabela terminów nie zawiera czytelnych wierszy.");
@@ -284,6 +342,103 @@
     });
   }
 
+  function czyTekstNawigacyjny(tekst) {
+    return /^(pokaż\s+więcej|pokaz\s+wiecej|pokaż\s+mniej|pokaz\s+mniej|▼|▲)$/i.test(String(tekst || "").trim());
+  }
+
+  function czyListaNaglowkowSekcji(tekst) {
+    const klucz = normalizujKlucz(tekst).replace(/[:.\-–—]+/g, " ").replace(/\s+/g, " ").trim();
+    let reszta = klucz;
+    let liczbaNaglowkow = 0;
+
+    nazwySekcjiSemper
+      .map(normalizujKlucz)
+      .sort(function sortuj(pierwszy, drugi) { return drugi.length - pierwszy.length; })
+      .forEach(function usunNaglowek(naglowek) {
+        if (reszta.includes(naglowek)) {
+          liczbaNaglowkow += 1;
+          reszta = reszta.replace(new RegExp("(^|\\s)" + naglowek.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "(?=\\s|$)", "g"), " ");
+        }
+      });
+
+    return liczbaNaglowkow >= 2 && !reszta.replace(/\s+/g, "");
+  }
+
+  function czyElementJestNagłówkiemSekcji(element) {
+    const tekst = oczyśćTekstElementu(element);
+
+    return tekst.length <= 160 && czySamNagłówekSekcji(tekst, nazwySekcjiSemper);
+  }
+
+  function porownajPozycjeElementow(pierwszy, drugi) {
+    if (pierwszy === drugi) {
+      return 0;
+    }
+
+    return pierwszy.compareDocumentPosition(drugi) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+  }
+
+  function pobierzNaglowkiZakresow(dokument) {
+    return Array.from(dokument.querySelectorAll("h2, h3, h4, h5, h6, strong, b, p, div, span"))
+      .filter(function filtrujNaglowek(element) {
+        return czyElementJestNagłówkiemSekcji(element);
+      })
+      .sort(porownajPozycjeElementow);
+  }
+
+  function znajdzNaglowekPoNazwach(naglowki, nazwy, indeksStartowy) {
+    const start = indeksStartowy || 0;
+
+    for (let indeks = start; indeks < naglowki.length; indeks += 1) {
+      if (czySamNagłówekSekcji(oczyśćTekstElementu(naglowki[indeks]), nazwy)) {
+        return { element: naglowki[indeks], indeks: indeks };
+      }
+    }
+
+    return null;
+  }
+
+  function wyczyscTekstZakresu(tekst) {
+    return String(tekst || "")
+      .replace(/pokaż\s+więcej/gi, "")
+      .replace(/pokaz\s+wiecej/gi, "")
+      .replace(/pokaż\s+mniej/gi, "")
+      .replace(/pokaz\s+mniej/gi, "")
+      .replace(/[▼▲]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function pobierzTekstMiedzyElementami(poczatek, koniec) {
+    const zakres = poczatek.ownerDocument.createRange();
+    const pojemnik = poczatek.ownerDocument.createElement("div");
+
+    zakres.setStartAfter(poczatek);
+
+    if (koniec) {
+      zakres.setEndBefore(koniec);
+    } else {
+      zakres.setEndAfter(poczatek.parentElement || poczatek);
+    }
+
+    pojemnik.appendChild(zakres.cloneContents());
+
+    return wyczyscTekstZakresu(oczyśćTekstSekcji(pojemnik));
+  }
+
+  function pobierzSekcjeMiedzyNaglowkami(dokument, ustawienia) {
+    const naglowki = pobierzNaglowkiZakresow(dokument);
+    const poczatek = znajdzNaglowekPoNazwach(naglowki, ustawienia.nazwy);
+
+    if (!poczatek) {
+      return "";
+    }
+
+    const koniec = znajdzNaglowekPoNazwach(naglowki, ustawienia.koniec || nazwySekcjiSemper, poczatek.indeks + 1);
+
+    return pobierzTekstMiedzyElementami(poczatek.element, koniec ? koniec.element : null);
+  }
+
   function usuńNagłówekSekcjiZTekstu(tekst, nazwy) {
     let wynik = String(tekst || "").trim();
 
@@ -301,7 +456,7 @@
     return kandydaci.find(function sprawdźElement(element) {
       const tekst = normalizujKlucz(oczyśćTekstElementu(element));
 
-      if (!tekst || tekst.length > 160) {
+      if (!tekst || tekst.length > 160 || czyTreśćWyglądaJakTabelaTerminów(tekst)) {
         return false;
       }
 
@@ -342,6 +497,10 @@
         break;
       }
 
+      if (aktualny.nodeType === Node.ELEMENT_NODE && czyElementJestNagłówkiemSekcji(aktualny)) {
+        break;
+      }
+
       const tekst = aktualny.nodeType === Node.TEXT_NODE
         ? String(aktualny.textContent || "").replace(/\s+/g, " ").trim()
         : oczyśćTekstSekcji(aktualny);
@@ -356,12 +515,44 @@
     return fragmenty.join("\n\n").trim();
   }
 
+  function pobierzTreśćSekcjiZElementu(element, nazwy) {
+    const tekstElementu = oczyśćTekstSekcji(element);
+    const tekstBezNagłówka = usuńNagłówekSekcjiZTekstu(tekstElementu, nazwy || []);
+
+    if (tekstBezNagłówka && !czySamNagłówekSekcji(tekstElementu, nazwy || [])) {
+      return tekstBezNagłówka;
+    }
+
+    return collectSection(element, nazwy || []);
+  }
+
+  function czyTreśćSekcjiPoprawna(tekst, nazwy) {
+    return Boolean(tekst)
+      && !czySamNagłówekSekcji(tekst, nazwy || [])
+      && !czyTreśćWyglądaJakTabelaTerminów(tekst)
+      && !czyListaNaglowkowSekcji(tekst)
+      && !czyTekstNawigacyjny(tekst);
+  }
+
   function pobierzSekcjęPoKlasie(dokument, nazwaKlasy, nazwy) {
     const element = dokument.querySelector("." + nazwaKlasy + ", b.text_over." + nazwaKlasy);
-    const tekst = element ? collectSection(element, nazwy || []) : "";
+    const tekst = element ? pobierzTreśćSekcjiZElementu(element, nazwy || []) : "";
 
-    if (tekst && !czySamNagłówekSekcji(tekst, nazwy || [])) {
+    if (czyTreśćSekcjiPoprawna(tekst, nazwy || [])) {
       return tekst;
+    }
+
+    return "";
+  }
+
+  function pobierzSekcjęZFallbacku(dokument, selektory, nazwy) {
+    for (let indeks = 0; indeks < selektory.length; indeks += 1) {
+      const element = dokument.querySelector(selektory[indeks]);
+      const tekst = element ? pobierzTreśćSekcjiZElementu(element, nazwy || []) : "";
+
+      if (czyTreśćSekcjiPoprawna(tekst, nazwy || [])) {
+        return tekst;
+      }
     }
 
     return "";
@@ -371,23 +562,36 @@
     const mapaSekcji = {
       celSzkolenia: {
         nazwy: ["Cel szkolenia"],
-        klasa: "scc4"
+        koniec: ["Korzyści dla uczestników", "Korzyści", "Efekty szkolenia"],
+        klasa: "scc4",
+        fallbacki: ["body > div:nth-child(4) > div.page > div > div > div.top_text.kontakt > div:nth-child(37)"]
       },
       grupaDocelowa: {
         nazwy: ["Grupa docelowa", "Adresaci szkolenia", "Dla kogo"],
-        klasa: "scc3"
+        koniec: ["Cel szkolenia"],
+        klasa: "scc3",
+        fallbacki: ["body > div:nth-child(4) > div.page > div > div > div.top_text.kontakt > div:nth-child(32)"]
       },
       korzysci: {
         nazwy: ["Korzyści dla uczestników", "Korzyści", "Efekty szkolenia"],
-        klasa: "scc5"
+        koniec: ["Metodologia", "Program szkolenia", "Program"],
+        klasa: "scc5",
+        fallbacki: ["body > div:nth-child(4) > div.page > div > div > div.top_text.kontakt > div:nth-child(42)"]
       },
       program: {
         nazwy: ["Program szkolenia", "Program"],
-        klasa: "scc8"
+        koniec: ["Informacje organizacyjne", "Inwestycja", "Cena szkolenia", "Koszt szkolenia", "Zgłoszenie"],
+        klasa: "scc8",
+        fallbacki: [
+          "body > div:nth-child(4) > div.page > div > div > div.top_text.kontakt > div:nth-child(53) > div > div > p:nth-child(2)",
+          "body > div:nth-child(4) > div.page > div > div > div.top_text.kontakt > div:nth-child(53)"
+        ]
       },
       inwestycja: {
         nazwy: ["Inwestycja", "Cena szkolenia", "Koszt szkolenia"],
-        klasa: ""
+        koniec: ["Zgłoszenie"],
+        klasa: "",
+        fallbacki: ["body > div:nth-child(4) > div.page > div > div > div.top_text.kontakt > div:nth-child(67)"]
       }
     };
     const sekcje = {};
@@ -395,8 +599,13 @@
     Object.keys(mapaSekcji).forEach(function parsujJednąSekcję(klucz) {
       const ustawienia = mapaSekcji[klucz];
       const nagłówek = znajdźElementSekcji(dokument, ustawienia.nazwy);
+      const tekstZZakresu = pobierzSekcjeMiedzyNaglowkami(dokument, ustawienia);
+      const tekstZNagłówka = pobierzTreśćSekcjiZElementu(nagłówek, ustawienia.nazwy);
       const tekstZKlasy = ustawienia.klasa ? pobierzSekcjęPoKlasie(dokument, ustawienia.klasa, ustawienia.nazwy) : "";
-      const tekst = tekstZKlasy || collectSection(nagłówek, ustawienia.nazwy);
+      const tekstZFallbacku = pobierzSekcjęZFallbacku(dokument, ustawienia.fallbacki || [], ustawienia.nazwy);
+      const tekst = [tekstZZakresu, tekstZNagłówka, tekstZKlasy, tekstZFallbacku].find(function wybierzPoprawny(kandydat) {
+        return czyTreśćSekcjiPoprawna(kandydat, ustawienia.nazwy);
+      }) || "";
 
       sekcje[klucz] = tekst;
 
@@ -404,6 +613,13 @@
         ostrzeżenia.push("Nie znaleziono sekcji: " + ustawienia.nazwy[0] + ".");
       }
     });
+
+    sekcje.inwestycjaHtml = sekcje.inwestycja;
+    sekcje.cenaBezZakwaterowania = rozpoznajCenęBezZakwaterowania(sekcje.inwestycja);
+
+    if (sekcje.inwestycja && !sekcje.cenaBezZakwaterowania) {
+      ostrzeżenia.push("Nie rozpoznano ceny bez zakwaterowania w sekcji Inwestycja.");
+    }
 
     return przestrzeń.utworzSekcjeOpisuSemper(sekcje);
   }
@@ -419,6 +635,7 @@
     const tytułBur = przestrzeń.normalizujTytułBur
       ? przestrzeń.normalizujTytułBur(tytułOryginalny)
       : przestrzeń.normalizujTytulBur(tytułOryginalny);
+    const sekcje = parsujSekcje(dokument, ostrzeżenia);
     const szkolenie = przestrzeń.utworzSzkolenieSemper({
       urlZrodla: locationHref || "",
       urlŹródła: locationHref || "",
@@ -428,7 +645,10 @@
       tytułBur: tytułBur,
       tytułPoNormalizacjiBur: tytułBur,
       terminy: parsujTerminySemper(dokument, ostrzeżenia),
-      sekcje: parsujSekcje(dokument, ostrzeżenia)
+      sekcje: sekcje,
+      cenaBezZakwaterowania: sekcje.cenaBezZakwaterowania,
+      inwestycja: sekcje.inwestycja,
+      inwestycjaHtml: sekcje.inwestycjaHtml
     });
 
     return {
@@ -453,6 +673,8 @@
   przestrzeń.parsujZakresDat = parsujZakresDat;
   przestrzeń.rozpoznajMiastoZTekstu = rozpoznajMiastoZTekstu;
   przestrzeń.rozpoznajCenęZTekstu = rozpoznajCenęZTekstu;
+  przestrzeń.rozpoznajCenęBezZakwaterowania = rozpoznajCenęBezZakwaterowania;
+  przestrzeń.czyTreśćWyglądaJakTabelaTerminów = czyTreśćWyglądaJakTabelaTerminów;
   przestrzeń.czyTekstTerminuPotwierdzony = czyTekstTerminuPotwierdzony;
   przestrzeń.parsujTerminy = parsujTerminySemper;
   przestrzeń.parsujTerminySemper = parsujTerminySemper;
