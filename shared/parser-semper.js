@@ -43,6 +43,10 @@
     tekst = tekst
       .replace(/program\s+szkolenia\s+stanowi\s+własność[\s\S]*$/i, "")
       .replace(/program\s+szkolenia\s+stanowi\s+wlasnosc[\s\S]*$/i, "")
+      .replace(/program\s+szkolenia\s+jest\s+własnością[\s\S]*$/i, "")
+      .replace(/program\s+szkolenia\s+jest\s+wlasnoscia[\s\S]*$/i, "")
+      .replace(/wszelkie\s+prawa\s+zastrzeżone[\s\S]*$/i, "")
+      .replace(/wszelkie\s+prawa\s+zastrzezone[\s\S]*$/i, "")
       .replace(/partnerzy[\s\S]*$/i, "")
       .replace(/\n{3,}/g, "\n\n")
       .replace(/[ \t]+/g, " ")
@@ -99,6 +103,16 @@
   }
 
   function pobierzZakresDatZWiersza(tekst) {
+    const datyIso = String(tekst || "").match(/\d{4}-\d{2}-\d{2}/g) || [];
+
+    if (datyIso.length >= 2) {
+      return datyIso[0] + " - " + datyIso[1];
+    }
+
+    if (datyIso.length === 1) {
+      return datyIso[0];
+    }
+
     const dopasowania = [
       tekst.match(/\d{4}[.-]\d{1,2}[.-]\d{1,2}\s*(?:-|–|do)\s*\d{4}[.-]\d{1,2}[.-]\d{1,2}/i),
       tekst.match(/\d{1,2}[.-]\d{1,2}[.-]\d{4}\s*(?:-|–|do)\s*\d{1,2}[.-]\d{1,2}[.-]\d{4}/i),
@@ -252,6 +266,34 @@
     return /^H[1-6]$/i.test(element.tagName || "") || element.matches("strong, b");
   }
 
+  function czyMarkerSekcji(element) {
+    if (!element || !element.matches) {
+      return false;
+    }
+
+    return element.matches(".text_over, b.text_over") || /(^|\s)scc\d+(\s|$)/i.test(element.className || "");
+  }
+
+  function czySamNagłówekSekcji(tekst, nazwy) {
+    const klucz = normalizujKlucz(tekst).replace(/[:.\-\s]+$/g, "").trim();
+
+    return nazwy.some(function sprawdźNazwę(nazwa) {
+      const nagłówek = normalizujKlucz(nazwa).replace(/[:.\-\s]+$/g, "").trim();
+
+      return klucz === nagłówek;
+    });
+  }
+
+  function usuńNagłówekSekcjiZTekstu(tekst, nazwy) {
+    let wynik = String(tekst || "").trim();
+
+    nazwy.forEach(function usuńNazwę(nazwa) {
+      wynik = wynik.replace(new RegExp("^\\s*" + nazwa.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*[:.\\-–—]?\\s*", "i"), "");
+    });
+
+    return wynik.trim();
+  }
+
   function znajdźElementSekcji(dokument, nazwy) {
     const wzorce = nazwy.map(normalizujKlucz);
     const kandydaci = Array.from(dokument.querySelectorAll("h2, h3, h4, h5, h6, strong, b, p, div, span"));
@@ -281,32 +323,48 @@
     return tekstRodzica.replace(tekstElementu, "").replace(/^[:.\-\s]+/, "").trim();
   }
 
-  function collectSection(element) {
+  function collectSection(element, nazwy) {
     const fragmenty = [];
-    let aktualny = element ? element.nextElementSibling : null;
+    let aktualny = element ? element.nextSibling : null;
     const tekstPoEtykiecie = pobierzTekstPoEtykiecie(element);
+    const nazwySekcji = nazwy || [];
+    const tekstElementu = oczyśćTekstSekcji(element);
+    const tekstBezNagłówka = usuńNagłówekSekcjiZTekstu(tekstElementu, nazwySekcji);
 
     if (tekstPoEtykiecie) {
       fragmenty.push(tekstPoEtykiecie);
+    } else if (tekstBezNagłówka && !czySamNagłówekSekcji(tekstElementu, nazwySekcji)) {
+      fragmenty.push(tekstBezNagłówka);
     }
 
-    while (aktualny && !czyNagłówekSekcji(aktualny) && fragmenty.length < 14) {
-      const tekst = oczyśćTekstSekcji(aktualny);
+    while (aktualny && fragmenty.length < 14) {
+      if (aktualny.nodeType === Node.ELEMENT_NODE && (czyNagłówekSekcji(aktualny) || czyMarkerSekcji(aktualny))) {
+        break;
+      }
+
+      const tekst = aktualny.nodeType === Node.TEXT_NODE
+        ? String(aktualny.textContent || "").replace(/\s+/g, " ").trim()
+        : oczyśćTekstSekcji(aktualny);
 
       if (tekst) {
         fragmenty.push(tekst);
       }
 
-      aktualny = aktualny.nextElementSibling;
+      aktualny = aktualny.nextSibling;
     }
 
     return fragmenty.join("\n\n").trim();
   }
 
-  function pobierzSekcjęPoKlasie(dokument, nazwaKlasy) {
-    const element = dokument.querySelector("." + nazwaKlasy);
+  function pobierzSekcjęPoKlasie(dokument, nazwaKlasy, nazwy) {
+    const element = dokument.querySelector("." + nazwaKlasy + ", b.text_over." + nazwaKlasy);
+    const tekst = element ? collectSection(element, nazwy || []) : "";
 
-    return oczyśćTekstSekcji(element);
+    if (tekst && !czySamNagłówekSekcji(tekst, nazwy || [])) {
+      return tekst;
+    }
+
+    return "";
   }
 
   function parsujSekcje(dokument, ostrzeżenia) {
@@ -337,8 +395,8 @@
     Object.keys(mapaSekcji).forEach(function parsujJednąSekcję(klucz) {
       const ustawienia = mapaSekcji[klucz];
       const nagłówek = znajdźElementSekcji(dokument, ustawienia.nazwy);
-      const tekstZKlasy = ustawienia.klasa ? pobierzSekcjęPoKlasie(dokument, ustawienia.klasa) : "";
-      const tekst = tekstZKlasy || collectSection(nagłówek);
+      const tekstZKlasy = ustawienia.klasa ? pobierzSekcjęPoKlasie(dokument, ustawienia.klasa, ustawienia.nazwy) : "";
+      const tekst = tekstZKlasy || collectSection(nagłówek, ustawienia.nazwy);
 
       sekcje[klucz] = tekst;
 

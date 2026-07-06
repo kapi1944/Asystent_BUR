@@ -228,6 +228,20 @@ li + li {
   margin-top: 10px;
 }
 
+.diagnostyka-semper {
+  margin-top: 8px;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+}
+
+.diagnostyka-semper summary {
+  cursor: pointer;
+}
+
+.diagnostyka-semper .dane {
+  margin-top: 8px;
+}
+
 .wynik-semper {
   width: 100%;
   min-height: auto;

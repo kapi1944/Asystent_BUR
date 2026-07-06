@@ -52,4 +52,18 @@
       "Zażółć gęślą jaźń"
     );
   });
+
+  test("znajdźPoleBur najpierw używa jawnego selektora", function sprawdź() {
+    const dokument = utwórzDokument([
+      "<section><h2>Informacje podstawowe</h2><label for=\"po-etykiecie\">Tytuł</label><input id=\"po-etykiecie\" value=\"etykieta\"></section>",
+      "<input id=\"jawny\" value=\"selektor\">"
+    ].join(""));
+    const pole = bur.znajdźPoleBur(dokument, {
+      sekcja: "Informacje podstawowe",
+      etykieta: "Tytuł",
+      selektory: ["#jawny"]
+    });
+
+    sprawdzRownosc(pole.value, "selektor");
+  });
 })();

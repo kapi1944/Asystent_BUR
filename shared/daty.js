@@ -76,6 +76,28 @@
 
   function parsujZakresDatSemper(tekst) {
     const wartosc = String(tekst || "").replace(/\s+/g, " ").trim();
+    const datyIso = wartosc.match(/\d{4}-\d{2}-\d{2}/g) || [];
+
+    if (datyIso.length >= 2) {
+      const pierwsza = datyIso[0].split("-");
+      const druga = datyIso[1].split("-");
+
+      return {
+        dataOd: utworzDate(pierwsza[0], pierwsza[1], pierwsza[2]),
+        dataDo: utworzDate(druga[0], druga[1], druga[2])
+      };
+    }
+
+    if (datyIso.length === 1) {
+      const jedna = datyIso[0].split("-");
+      const data = utworzDate(jedna[0], jedna[1], jedna[2]);
+
+      return {
+        dataOd: data,
+        dataDo: kopiujDate(data)
+      };
+    }
+
     let dopasowanie = wartosc.match(/(\d{4})[.-](\d{1,2})[.-](\d{1,2})\s*(?:-|–|do)\s*(\d{4})[.-](\d{1,2})[.-](\d{1,2})/i);
 
     if (dopasowanie) {

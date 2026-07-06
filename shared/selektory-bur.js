@@ -135,7 +135,11 @@
     const definicja = definicjaPola || {};
     let pole = null;
 
-    if (definicja.sekcja && definicja.etykieta) {
+    if (definicja.selektory) {
+      pole = znajdźPolePoSelektorach(dokument, definicja.selektory);
+    }
+
+    if (!pole && definicja.sekcja && definicja.etykieta) {
       const sekcja = znajdźSekcjęPoNagłówku(dokument, definicja.sekcja);
 
       if (sekcja) {
@@ -145,10 +149,6 @@
 
     if (!pole && definicja.etykieta) {
       pole = znajdźPolePoEtykiecie(dokument, definicja.etykieta);
-    }
-
-    if (!pole && definicja.selektory) {
-      pole = znajdźPolePoSelektorach(dokument, definicja.selektory);
     }
 
     return pole;

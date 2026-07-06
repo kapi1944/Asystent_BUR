@@ -30,10 +30,19 @@
       .blad {
         border-left: 4px solid #e53935;
       }
+
+      .status {
+        margin: 12px 0;
+        padding: 10px;
+        border-radius: 6px;
+        background: #222;
+        color: #ffdca8;
+      }
     </style>
   </head>
   <body>
     <h1>BUR Asystent - testy</h1>
+    <div id="aktualny-test" class="status">Aktualnie wykonywany test: oczekiwanie na start</div>
     <div id="wyniki"></div>
 
     <script src="../shared/komunikaty.js"></script>
@@ -80,28 +89,65 @@
     <script>
       (async function uruchomTesty() {
         const kontener = document.getElementById("wyniki");
-        let zaliczone = 0;
+        const aktualnyTest = document.getElementById("aktualny-test");
+        const parametry = new URLSearchParams(window.location.search);
+        const grupa = (parametry.get("grupa") || "").toLowerCase();
+        const mapowanieGrup = {
+          wypelniacz: ["wypełniacz", "wypelniacz", "select2", "formularz"],
+          semper: ["semper", "parser", "wyszukiwarka", "termin", "sekcje"],
+          walidatory: ["walidator", "walidacja"]
+        };
+        const słowaGrupy = mapowanieGrup[grupa] || (grupa ? [grupa] : []);
+        const testyDoUruchomienia = słowaGrupy.length
+          ? window.testyBurAsystent.filter(function filtruj(testJednostkowy) {
+            const nazwa = testJednostkowy.nazwa.toLowerCase();
 
-        for (let indeks = 0; indeks < window.testyBurAsystent.length; indeks += 1) {
-          const testJednostkowy = window.testyBurAsystent[indeks];
+            return słowaGrupy.some(function pasuje(słowo) {
+              return nazwa.includes(słowo);
+            });
+          })
+          : window.testyBurAsystent;
+        let zaliczone = 0;
+        let timeouty = 0;
+
+        function uruchomZTimeoutem(testJednostkowy) {
+          const timeout = new Promise(function ustawTimeout(resolve, reject) {
+            setTimeout(function zgłośTimeout() {
+              reject(new Error("TIMEOUT - " + testJednostkowy.nazwa));
+            }, 5000);
+          });
+
+          return Promise.race([
+            Promise.resolve().then(testJednostkowy.funkcja),
+            timeout
+          ]);
+        }
+
+        for (let indeks = 0; indeks < testyDoUruchomienia.length; indeks += 1) {
+          const testJednostkowy = testyDoUruchomienia[indeks];
           const wynik = document.createElement("div");
           wynik.className = "test";
+          aktualnyTest.textContent = "Aktualnie wykonywany test: " + testJednostkowy.nazwa;
 
           try {
-            await testJednostkowy.funkcja();
+            await uruchomZTimeoutem(testJednostkowy);
             zaliczone += 1;
             wynik.classList.add("ok");
             wynik.textContent = "OK - " + testJednostkowy.nazwa;
           } catch (blad) {
             wynik.classList.add("blad");
             wynik.textContent = "BLAD - " + testJednostkowy.nazwa + ": " + blad.message;
+            if (/^TIMEOUT - /.test(blad.message || "")) {
+              timeouty += 1;
+            }
           }
 
           kontener.appendChild(wynik);
         }
 
         const podsumowanie = document.createElement("h2");
-        podsumowanie.textContent = "Wynik: " + zaliczone + " / " + window.testyBurAsystent.length;
+        aktualnyTest.textContent = "Aktualnie wykonywany test: zakończono";
+        podsumowanie.textContent = "Wynik: " + zaliczone + " / " + testyDoUruchomienia.length + ", błędy: " + (testyDoUruchomienia.length - zaliczone) + ", timeouty: " + timeouty + (grupa ? ", grupa: " + grupa : "");
         kontener.prepend(podsumowanie);
       })();
     </script>

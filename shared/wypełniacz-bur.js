@@ -1,5 +1,6 @@
 (function zarejestrujWypełniaczBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
+  let ostatnieOstrzeżenieSelect2 = "";
 
   function normalizujKluczBur(wartość) {
     const normalizuj = przestrzeń.normalizujTekstDoWalidacji || function bezNormalizacji(tekst) {
@@ -176,7 +177,7 @@
 
     const kontener = elementLubKontener.closest(".form-group, .field, [class*='field-'], div") || elementLubKontener.parentElement;
 
-    return kontener ? kontener.querySelector("select") : null;
+    return kontener ? kontener.querySelector("select, input[type='hidden']") : null;
   }
 
   function znajdźPrzyciskLubOpcjęSelect2PoTekście(tekst) {
@@ -191,47 +192,49 @@
   }
 
   function ustawSelect2PoTekście(dokument, elementLubKontener, tekst) {
+    ostatnieOstrzeżenieSelect2 = "";
+
     if (!elementLubKontener) {
       return false;
     }
 
-    const select = znajdźUkrytySelect2(dokument, elementLubKontener);
+    const poleTechniczne = znajdźUkrytySelect2(dokument, elementLubKontener);
     const klucz = normalizujKluczBur(tekst);
 
-    if (select) {
-      const opcja = Array.from(select.options || []).find(function znajdźOpcję(opcjaSelect) {
+    function czyPotwierdzonoWartość(element) {
+      const odczyt = przestrzeń.pobierzWartośćPola
+        ? przestrzeń.pobierzWartośćPola(element)
+        : (element && "value" in element ? element.value : "");
+      const kluczOdczytu = normalizujKluczBur(odczyt);
+
+      return Boolean(kluczOdczytu && (kluczOdczytu === klucz || kluczOdczytu.includes(klucz) || klucz.includes(kluczOdczytu)));
+    }
+
+    if (poleTechniczne && poleTechniczne.tagName === "SELECT") {
+      const opcja = Array.from(poleTechniczne.options || []).find(function znajdźOpcję(opcjaSelect) {
         const tekstOpcji = normalizujKluczBur(opcjaSelect.textContent || opcjaSelect.value || "");
 
         return tekstOpcji === klucz || tekstOpcji.includes(klucz);
       });
 
       if (opcja) {
-        ustawNatywnąWartość(select, opcja.value);
-        wywołajZdarzeniaZmiany(select);
+        ustawNatywnąWartość(poleTechniczne, opcja.value);
+        wywołajZdarzeniaZmiany(poleTechniczne);
         if (globalny.jQuery) {
-          globalny.jQuery(select).trigger("change");
+          globalny.jQuery(poleTechniczne).trigger("change");
         }
+
+        return czyPotwierdzonoWartość(poleTechniczne);
       }
     }
 
-    if (elementLubKontener.matches && elementLubKontener.matches("[id^='select2-'][id$='-container'], .select2-selection__rendered")) {
-      elementLubKontener.textContent = tekst;
-      elementLubKontener.setAttribute("title", tekst);
-      wywołajZdarzeniaZmiany(elementLubKontener);
-      return true;
-    }
+    if (poleTechniczne && poleTechniczne.matches && poleTechniczne.matches("input[type='hidden']")) {
+      ustawNatywnąWartość(poleTechniczne, tekst);
+      wywołajZdarzeniaZmiany(poleTechniczne);
 
-    const widoczny = elementLubKontener.querySelector("[id^='select2-'][id$='-container'], .select2-selection__rendered");
-
-    if (widoczny) {
-      widoczny.textContent = tekst;
-      widoczny.setAttribute("title", tekst);
-      wywołajZdarzeniaZmiany(widoczny);
-      return true;
-    }
-
-    if (select) {
-      return true;
+      if (czyPotwierdzonoWartość(poleTechniczne)) {
+        return true;
+      }
     }
 
     try {
@@ -243,6 +246,17 @@
         return true;
       }
     } catch (błąd) {}
+
+    const widoczny = elementLubKontener.matches && elementLubKontener.matches("[id^='select2-'][id$='-container'], .select2-selection__rendered")
+      ? elementLubKontener
+      : elementLubKontener.querySelector("[id^='select2-'][id$='-container'], .select2-selection__rendered");
+
+    if (widoczny) {
+      widoczny.textContent = tekst;
+      widoczny.setAttribute("title", tekst);
+      wywołajZdarzeniaZmiany(widoczny);
+      ostatnieOstrzeżenieSelect2 = "Select2 wygląda na ustawiony wizualnie, ale nie potwierdzono wartości technicznej.";
+    }
 
     return false;
   }
@@ -276,13 +290,7 @@
     }
 
     const kontener = (przestrzeń.znajdźKontenerPola && przestrzeń.znajdźKontenerPola(elementLubKontener)) || elementLubKontener;
-    const klucz = normalizujKluczBur(oczekiwany);
-    const kandydaci = Array.from(kontener.querySelectorAll("input[type='radio'], input[type='checkbox'], button, label, [role='button'], [aria-pressed], [aria-checked]"));
-    const cel = kandydaci.find(function znajdź(element) {
-      const tekst = normalizujKluczBur(element.textContent || element.value || element.getAttribute("aria-label") || "");
-
-      return tekst === klucz || tekst.includes(klucz);
-    });
+    const cel = kontener.querySelector(".toggle-switch label, .toggler");
 
     if (!cel) {
       return false;
@@ -290,7 +298,7 @@
 
     cel.click();
     wywołajZdarzeniaZmiany(cel);
-    return true;
+    return pobierzStan(kontener) === oczekiwany;
   }
 
   function ustawPoleJeśliIstnieje(definicjaPola, wartość) {
@@ -332,7 +340,7 @@
       const powód = ustawienia.powód || "Nie znaleziono pola albo nie dało się ustawić wartości.";
 
       dodajPominięte(raport, ustawienia.sekcja, ustawienia.pole, powód);
-      dodajOstrzeżenie(raport, ustawienia.sekcja, ustawienia.pole, powód);
+      dodajOstrzeżenie(raport, ustawienia.sekcja, ustawienia.pole, ustawienia.typ === "select2" && ostatnieOstrzeżenieSelect2 ? ostatnieOstrzeżenieSelect2 : powód);
     }
 
     return ok;

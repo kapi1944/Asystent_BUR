@@ -136,4 +136,34 @@
     bur.wypełnijFormularzBur(dokument, utwórzKontekst());
     sprawdzWarunek(dokument.body.textContent.includes("Zażółć"), "Dokument powinien zachować polskie znaki.");
   });
+
+  test("ustawSelect2PoTekście ustawia Select2 z ukrytym select", function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Select2");
+
+    dokument.body.innerHTML = [
+      "<div class=\"form-group\">",
+      "<select id=\"forma\"><option value=\"\"></option><option value=\"online\">online</option></select>",
+      "<span id=\"select2-forma-container\"></span>",
+      "</div>"
+    ].join("");
+
+    const ok = bur.ustawSelect2PoTekście(dokument, dokument.querySelector("#select2-forma-container"), "online");
+
+    sprawdzWarunek(ok, "Select2 z ukrytym select powinien zwrócić sukces.");
+    sprawdzRownosc(dokument.querySelector("#forma").value, "online");
+  });
+
+  test("Select2 bez ukrytego select daje ostrzeżenie, nie pełny sukces", function sprawdź() {
+    const dokument = utwórzDokumentWypełniania();
+    const wynik = bur.wypełnijFormularzBur(dokument, utwórzKontekst());
+    const uzupełnionaForma = wynik.uzupełnione.find(function znajdź(pozycja) {
+      return pozycja.pole === "Forma świadczenia usługi";
+    });
+    const ostrzeżenie = wynik.ostrzeżenia.find(function znajdź(pozycja) {
+      return /Select2 wygląda na ustawiony wizualnie/.test(pozycja.komunikat || "");
+    });
+
+    sprawdzWarunek(!uzupełnionaForma, "Select2 bez pola technicznego nie powinien być pełnym sukcesem.");
+    sprawdzWarunek(Boolean(ostrzeżenie), "Powinno pojawić się ostrzeżenie o braku potwierdzenia technicznego.");
+  });
 })();

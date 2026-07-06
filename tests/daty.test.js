@@ -43,4 +43,44 @@
     sprawdzRownosc(wynik.dataStartBur, "12-09-2027");
     sprawdzRownosc(wynik.dataZakonczeniaRekrutacjiBur, "11-09-2027");
   });
+
+  test("rozpoznaje Zakopane od/do z dwukropkami", function sprawdz() {
+    const zakres = daty.parsujZakresDatSemper("od: 2027-07-06 do: 2027-07-09");
+    const wynik = daty.obliczDatyBurDlaTerminu({
+      dataOd: zakres.dataOd,
+      dataDo: zakres.dataDo,
+      miejsce: "Zakopane",
+      czasTrwania: ""
+    });
+
+    sprawdzRownosc(wynik.dataStartBur, "07-07-2027");
+    sprawdzWarunek(wynik.czyDojazdZakopane, "Zakopane z zakresem 4 dni powinno mieć dzień dojazdowy.");
+  });
+
+  test("rozpoznaje online od/do z dwukropkami", function sprawdz() {
+    const zakres = daty.parsujZakresDatSemper("od: 2027-07-06\ndo: 2027-07-09");
+    const wynik = daty.obliczDatyBurDlaTerminu({
+      dataOd: zakres.dataOd,
+      dataDo: zakres.dataDo,
+      miejsce: "online",
+      czasTrwania: ""
+    });
+
+    sprawdzRownosc(wynik.dataStartBur, "06-07-2027");
+    sprawdzRownosc(wynik.dataKoniecBur, "09-07-2027");
+  });
+
+  test("rozpoznaje zakres ISO z myślnikiem", function sprawdz() {
+    const zakres = daty.parsujZakresDatSemper("2027-07-06 - 2027-07-09");
+
+    sprawdzRownosc(daty.formatujDateBur(zakres.dataOd), "06-07-2027");
+    sprawdzRownosc(daty.formatujDateBur(zakres.dataDo), "09-07-2027");
+  });
+
+  test("rozpoznaje pojedynczy termin jednodniowy ISO", function sprawdz() {
+    const zakres = daty.parsujZakresDatSemper("2027-09-12");
+
+    sprawdzRownosc(daty.formatujDateBur(zakres.dataOd), "12-09-2027");
+    sprawdzRownosc(daty.formatujDateBur(zakres.dataDo), "12-09-2027");
+  });
 })();

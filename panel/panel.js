@@ -6,6 +6,12 @@
     statusStrony: document.getElementById("status-strony"),
     statusAkcji: document.getElementById("status-akcji"),
     statusSemper: document.getElementById("status-semper"),
+    diagnostykaFraza: document.getElementById("diagnostyka-fraza"),
+    diagnostykaŹródłoFrazy: document.getElementById("diagnostyka-zrodlo-frazy"),
+    diagnostykaKandydaci: document.getElementById("diagnostyka-kandydaci"),
+    diagnostykaBłądSw: document.getElementById("diagnostyka-blad-sw"),
+    diagnostykaZapisImportu: document.getElementById("diagnostyka-zapis-importu"),
+    diagnostykaTerminyImportu: document.getElementById("diagnostyka-terminy-importu"),
     przyciskPobierz: document.getElementById("przycisk-pobierz"),
     przyciskSzukajLinku: document.getElementById("przycisk-szukaj-linku"),
     przyciskUzupełnijZLinku: document.getElementById("przycisk-uzupelnij-z-linku"),
@@ -43,6 +49,14 @@
   let ostatnieSzkolenieSemperZPanelu = null;
   let ostatniWybranyTerminSemperIndex = null;
   let czyAktywnaKartaBur = false;
+  const diagnostykaSemper = {
+    fraza: "",
+    źródłoFrazy: "",
+    liczbaKandydatów: "",
+    ostatniBłądServiceWorkera: "",
+    importZapisałSzkolenie: "",
+    liczbaTerminówPoImporcie: ""
+  };
 
   function ustawStatus(element, tekst, klasa) {
     element.textContent = tekst;
@@ -51,6 +65,15 @@
 
   function ustawStatusProgramuHarmonogramu(tekst, klasa) {
     ustawStatus(elementy.statusProgramuHarmonogramu, tekst, klasa || "status-neutralny");
+  }
+
+  function pokażDiagnostykęSemper() {
+    elementy.diagnostykaFraza.textContent = diagnostykaSemper.fraza || "-";
+    elementy.diagnostykaŹródłoFrazy.textContent = diagnostykaSemper.źródłoFrazy || "-";
+    elementy.diagnostykaKandydaci.textContent = diagnostykaSemper.liczbaKandydatów === "" ? "-" : String(diagnostykaSemper.liczbaKandydatów);
+    elementy.diagnostykaBłądSw.textContent = diagnostykaSemper.ostatniBłądServiceWorkera || "-";
+    elementy.diagnostykaZapisImportu.textContent = diagnostykaSemper.importZapisałSzkolenie || "-";
+    elementy.diagnostykaTerminyImportu.textContent = diagnostykaSemper.liczbaTerminówPoImporcie === "" ? "-" : String(diagnostykaSemper.liczbaTerminówPoImporcie);
   }
 
   function wpisz(pole, wartość) {
@@ -810,6 +833,9 @@
     const wpisanaFraza = przestrzeń.oczyśćLinię(elementy.linkLubFrazaSemper.value);
 
     if (wpisanaFraza) {
+      diagnostykaSemper.fraza = wpisanaFraza;
+      diagnostykaSemper.źródłoFrazy = "input";
+      pokażDiagnostykęSemper();
       return Promise.resolve(wpisanaFraza);
     }
 
@@ -826,12 +852,21 @@
 
         if (wynik && wynik.ok && wynik.frazaWyszukiwania) {
           elementy.linkLubFrazaSemper.value = wynik.frazaWyszukiwania;
+          diagnostykaSemper.fraza = wynik.frazaWyszukiwania;
+          diagnostykaSemper.źródłoFrazy = "tytuł BUR";
+          pokażDiagnostykęSemper();
           return wynik.frazaWyszukiwania;
         }
 
+        diagnostykaSemper.fraza = wpisanaFraza;
+        diagnostykaSemper.źródłoFrazy = wpisanaFraza ? "input" : "";
+        pokażDiagnostykęSemper();
         return wpisanaFraza;
       })
       .catch(function użyjInputa() {
+        diagnostykaSemper.fraza = "";
+        diagnostykaSemper.źródłoFrazy = "";
+        pokażDiagnostykęSemper();
         return "";
       });
   }
@@ -866,6 +901,18 @@
         }
 
         const wynik = odpowiedź.wynik || {};
+        const diagnostyka = wynik.diagnostyka || {};
+
+        if (diagnostyka.fraza) {
+          diagnostykaSemper.fraza = diagnostyka.fraza;
+        }
+
+        if (diagnostyka.liczbaKandydatów !== undefined) {
+          diagnostykaSemper.liczbaKandydatów = diagnostyka.liczbaKandydatów;
+        }
+
+        diagnostykaSemper.ostatniBłądServiceWorkera = wynik.błąd || diagnostyka.błądDirect || diagnostyka.błądAutocomplete || "";
+        pokażDiagnostykęSemper();
 
         if (!wynik.ok) {
           ustawStatus(elementy.statusSemper, "Nie znaleziono pewnego linku. Wklej link SEMPER ręcznie.", "status-blad");
@@ -888,6 +935,8 @@
         ustawStatus(elementy.statusSemper, "Nie znaleziono pewnego linku. Wklej link SEMPER ręcznie.", "status-blad");
       })
       .catch(function pokażBłąd(błąd) {
+        diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku SEMPER.";
+        pokażDiagnostykęSemper();
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku SEMPER.", "status-blad");
       });
   }
@@ -926,6 +975,10 @@
           dataImportuSemper: new Date().toISOString(),
           wybranyTerminSemperIndex: wybranyTerminSemperIndex
         }).then(function zwróćWynik() {
+          diagnostykaSemper.importZapisałSzkolenie = "tak";
+          diagnostykaSemper.liczbaTerminówPoImporcie = szkolenie.terminy ? szkolenie.terminy.length : 0;
+          diagnostykaSemper.ostatniBłądServiceWorkera = "";
+          pokażDiagnostykęSemper();
           wynikParsera.wybranyTerminSemperIndex = wybranyTerminSemperIndex;
           return wynikParsera;
         });
@@ -943,6 +996,9 @@
         );
       })
       .catch(function pokażBłąd(błąd) {
+        diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.";
+        diagnostykaSemper.importZapisałSzkolenie = "nie";
+        pokażDiagnostykęSemper();
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.", "status-blad");
       });
   }
@@ -1045,6 +1101,10 @@
           return;
         }
 
+        diagnostykaSemper.importZapisałSzkolenie = "tak";
+        diagnostykaSemper.liczbaTerminówPoImporcie = Array.isArray(dane.ostatnieSzkolenieSemper.terminy) ? dane.ostatnieSzkolenieSemper.terminy.length : 0;
+        pokażDiagnostykęSemper();
+
         pokażSzkolenie({
           szkolenie: dane.ostatnieSzkolenieSemper,
           ostrzeżenia: [],
@@ -1066,6 +1126,7 @@
 
   przestrzeń.renderujDaneSzkolenia = renderujDaneSzkolenia;
   przestrzeń.odświeżDaneSzkoleniaZMagazynu = odświeżDaneSzkoleniaZMagazynu;
+  pokażDiagnostykęSemper();
   odświeżDostępnośćWypełniania();
 
   elementy.przyciskPobierz.addEventListener("click", pobierzDaneZeStrony);

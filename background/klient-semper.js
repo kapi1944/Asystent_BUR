@@ -1,5 +1,21 @@
 (function zarejestrujKlientaSemper(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
+  const limitCzasuFetchSemper = 30000;
+
+  async function fetchSemperZTimeoutem(url, ustawienia) {
+    const kontroler = new AbortController();
+    const timer = setTimeout(function przerwijFetch() {
+      kontroler.abort();
+    }, limitCzasuFetchSemper);
+
+    try {
+      return await fetch(url, Object.assign({}, ustawienia || {}, {
+        signal: kontroler.signal
+      }));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
 
   async function pobierzHtmlSzkoleniaSemper(url) {
     const adres = przestrzeń.normalizujŁączeSemper(url);
@@ -8,7 +24,7 @@
       throw new Error("To nie wygląda na link szczegółów szkolenia SEMPER.");
     }
 
-    const odpowiedź = await fetch(adres, {
+    const odpowiedź = await fetchSemperZTimeoutem(adres, {
       method: "GET",
       credentials: "omit"
     });
@@ -21,7 +37,7 @@
   }
 
   async function wyślijPostDoSempera(url, dane) {
-    const odpowiedź = await fetch(url, {
+    const odpowiedź = await fetchSemperZTimeoutem(url, {
       method: "POST",
       credentials: "omit",
       headers: {
@@ -80,11 +96,26 @@
 
   async function szukajŁączaSemper(fraza) {
     const wyczyszczonaFraza = przestrzeń.tytułPrzedPierwsząInterpunkcją(przestrzeń.oczyśćLinię(fraza));
+    const diagnostyka = {
+      fraza: wyczyszczonaFraza,
+      wykonanoAjaxSzukaj: false,
+      długośćOdpowiedziDirect: 0,
+      wykonanoAjaxSzukajAuto: false,
+      długośćOdpowiedziAutocomplete: 0,
+      liczbaKandydatów: 0
+    };
+
+    function pokażDiagnostykę() {
+      if (typeof console !== "undefined" && console.info) {
+        console.info("BUR Asystent SEMPER diagnostyka", diagnostyka);
+      }
+    }
 
     if (wyczyszczonaFraza.length < 3) {
       return {
         ok: false,
-        błąd: "Fraza wyszukiwania jest za krótka."
+        błąd: "Fraza wyszukiwania jest za krótka.",
+        diagnostyka: diagnostyka
       };
     }
 
@@ -97,9 +128,12 @@
     let odpowiedźWyszukiwarki = "";
 
     try {
+      diagnostyka.wykonanoAjaxSzukaj = true;
       odpowiedźWyszukiwarki = await wyślijPostDoSempera(adresWyszukiwarki, dane);
+      diagnostyka.długośćOdpowiedziDirect = odpowiedźWyszukiwarki.length;
     } catch (błąd) {
       odpowiedźWyszukiwarki = "";
+      diagnostyka.błądDirect = błąd && błąd.message ? błąd.message : "Błąd pobierania direct.";
     }
 
     const bezpośredniUrl = przestrzeń.odczytajŁączeZJsonaWyszukiwarki(odpowiedźWyszukiwarki);
@@ -114,21 +148,35 @@
           wynik: {
             url: wynik.url,
             tytuł: wynik.tytuł
-          }
+          },
+          diagnostyka: diagnostyka
         };
       }
     }
 
-    const odpowiedźAutocomplete = await wyślijPostDoSempera(adresAutocomplete, dane);
+    let odpowiedźAutocomplete = "";
+
+    try {
+      diagnostyka.wykonanoAjaxSzukajAuto = true;
+      odpowiedźAutocomplete = await wyślijPostDoSempera(adresAutocomplete, dane);
+      diagnostyka.długośćOdpowiedziAutocomplete = odpowiedźAutocomplete.length;
+    } catch (błąd) {
+      odpowiedźAutocomplete = "";
+      diagnostyka.błądAutocomplete = błąd && błąd.message ? błąd.message : "Błąd pobierania autocomplete.";
+    }
+
     const kandydaci = przestrzeń
       .wyciągnijŁączaZWyników(odpowiedźWyszukiwarki + "\n" + odpowiedźAutocomplete, wyczyszczonaFraza)
       .slice(0, 8);
+    diagnostyka.liczbaKandydatów = kandydaci.length;
+    pokażDiagnostykę();
 
     if (kandydaci.length === 0) {
       return {
         ok: false,
         fraza: wyczyszczonaFraza,
-        błąd: "Nie znaleziono pewnego linku"
+        błąd: "Nie znaleziono pewnego linku",
+        diagnostyka: diagnostyka
       };
     }
 
@@ -162,14 +210,16 @@
         wynik: {
           url: mocne[0].url,
           tytuł: mocne[0].tytuł
-        }
+        },
+        diagnostyka: diagnostyka
       };
     }
 
     return {
       ok: true,
       fraza: wyczyszczonaFraza,
-      wybory: (mocne.length ? mocne : zweryfikowane).slice(0, 8)
+      wybory: (mocne.length ? mocne : zweryfikowane).slice(0, 8),
+      diagnostyka: diagnostyka
     };
   }
 

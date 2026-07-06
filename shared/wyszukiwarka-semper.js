@@ -119,6 +119,12 @@
 
   function odkodujHtmlWyszukiwania(wartość) {
     return String(wartość || "")
+      .replace(/&#(\d+);/g, function odkodujDziesiętnie(całość, kod) {
+        return String.fromCharCode(Number(kod));
+      })
+      .replace(/&#x([0-9a-f]+);/gi, function odkodujSzesnastkowo(całość, kod) {
+        return String.fromCharCode(parseInt(kod, 16));
+      })
       .replace(/&amp;/g, "&")
       .replace(/&quot;/g, "\"")
       .replace(/&#039;/g, "'")
@@ -127,13 +133,63 @@
   }
 
   function odkodujDataUrl(wartość) {
-    const tekst = String(wartość || "");
+    const tekst = String(wartość || "").trim();
 
     try {
-      return decodeURIComponent(tekst);
+      if (/%[0-9a-f]{2}/i.test(tekst)) {
+        return decodeURIComponent(tekst);
+      }
     } catch (błąd) {
       return tekst;
     }
+
+    if (
+      tekst.length >= 12 &&
+      tekst.length % 4 === 0 &&
+      /^[A-Za-z0-9+/]+={0,2}$/.test(tekst) &&
+      typeof atob === "function"
+    ) {
+      try {
+        return decodeURIComponent(escape(atob(tekst)));
+      } catch (błąd) {
+        try {
+          return atob(tekst);
+        } catch (błądAtob) {}
+      }
+    }
+
+    return tekst;
+  }
+
+  function rozpakujOdpowiedźWyszukiwania(wartość) {
+    if (wartość === null || wartość === undefined) {
+      return "";
+    }
+
+    if (typeof wartość === "string") {
+      const tekst = wartość.trim();
+
+      if (/^["[{]/.test(tekst)) {
+        try {
+          const dane = JSON.parse(tekst);
+          return rozpakujOdpowiedźWyszukiwania(dane);
+        } catch (błąd) {}
+      }
+
+      return odkodujHtmlWyszukiwania(tekst);
+    }
+
+    if (Array.isArray(wartość)) {
+      return wartość.map(rozpakujOdpowiedźWyszukiwania).join("\n");
+    }
+
+    if (typeof wartość === "object") {
+      return Object.keys(wartość).map(function odczytajKlucz(klucz) {
+        return rozpakujOdpowiedźWyszukiwania(wartość[klucz]);
+      }).join("\n");
+    }
+
+    return String(wartość || "");
   }
 
   function odczytajTytułZFragmentu(fragment) {
@@ -161,14 +217,17 @@
   }
 
   function wyciągnijŁączaZWyników(html, fraza) {
-    const tekst = odkodujDataUrl(odkodujHtmlWyszukiwania(html));
-    const wzorzec = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    const tekst = odkodujHtmlWyszukiwania(rozpakujOdpowiedźWyszukiwania(html));
+    const wzorzec = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
     const poAdresach = /(https?:\/\/(?:www\.)?szkolenia-semper\.pl\/[^\s"'<>\\]+)/gi;
     const mapa = new Map();
     let dopasowanie = null;
 
     while ((dopasowanie = wzorzec.exec(tekst))) {
-      const url = normalizujŁączeSemper(dopasowanie[1]);
+      const atrybuty = dopasowanie[1] || "";
+      const href = (atrybuty.match(/\bhref=["']([^"']+)["']/i) || [])[1] || "";
+      const dataUrl = (atrybuty.match(/\bdata-url=["']([^"']+)["']/i) || [])[1] || "";
+      const url = normalizujŁączeSemper(dataUrl ? odkodujDataUrl(odkodujHtmlWyszukiwania(dataUrl)) : href);
 
       if (czyŁączeSzczegółówSzkolenia(url)) {
         const tytuł = odczytajTytułZFragmentu(dopasowanie[2]) || url;
@@ -199,12 +258,16 @@
 
   function odczytajŁączeZJsonaWyszukiwarki(wartość) {
     const tekst = String(wartość || "").trim();
-    let dane = null;
+    let dane = wartość;
 
-    try {
-      dane = JSON.parse(tekst);
-    } catch (błąd) {
-      return "";
+    if (typeof wartość === "string") {
+      try {
+        dane = JSON.parse(tekst);
+      } catch (błąd) {
+        const wyniki = wyciągnijŁączaZWyników(tekst, "");
+
+        return wyniki[0] ? wyniki[0].url : "";
+      }
     }
 
     function szukajŁącza(węzeł) {
@@ -213,7 +276,14 @@
       }
 
       if (typeof węzeł === "string") {
-        return czyŁączeSzczegółówSzkolenia(węzeł) ? normalizujŁączeSemper(węzeł) : "";
+        const odkodowane = odkodujDataUrl(odkodujHtmlWyszukiwania(węzeł));
+        const wyniki = wyciągnijŁączaZWyników(odkodowane, "");
+
+        if (wyniki[0]) {
+          return wyniki[0].url;
+        }
+
+        return czyŁączeSzczegółówSzkolenia(odkodowane) ? normalizujŁączeSemper(odkodowane) : "";
       }
 
       if (Array.isArray(węzeł)) {
