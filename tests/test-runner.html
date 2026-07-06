@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BUR Asystent - testy</title>
+    <style>
+      body {
+        margin: 24px;
+        background: #141414;
+        color: #f2f2f2;
+        font-family: Arial, sans-serif;
+      }
+
+      h1 {
+        margin-top: 0;
+      }
+
+      .test {
+        margin: 8px 0;
+        padding: 10px;
+        border-radius: 6px;
+        background: #222;
+      }
+
+      .ok {
+        border-left: 4px solid #37b26c;
+      }
+
+      .blad {
+        border-left: 4px solid #e53935;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>BUR Asystent - testy</h1>
+    <div id="wyniki"></div>
+
+    <script src="../shared/komunikaty.js"></script>
+    <script src="../shared/model.js"></script>
+    <script src="../shared/normalizacja-tytulu.js"></script>
+    <script src="../shared/daty.js"></script>
+    <script src="../shared/wyszukiwarka-semper.js"></script>
+    <script src="../shared/parser-semper.js"></script>
+    <script>
+      window.testyBurAsystent = [];
+
+      function test(nazwa, funkcja) {
+        window.testyBurAsystent.push({ nazwa: nazwa, funkcja: funkcja });
+      }
+
+      function sprawdzWarunek(warunek, komunikat) {
+        if (!warunek) {
+          throw new Error(komunikat || "Warunek nie zostal spelniony.");
+        }
+      }
+
+      function sprawdzRownosc(aktualna, oczekiwana, komunikat) {
+        if (aktualna !== oczekiwana) {
+          throw new Error((komunikat || "Niepoprawna wartosc.") + " Otrzymano: " + aktualna + ", oczekiwano: " + oczekiwana);
+        }
+      }
+    </script>
+    <script src="normalizacja-tytulu.test.js"></script>
+    <script src="daty.test.js"></script>
+    <script src="wyszukiwarka-semper.test.js"></script>
+    <script src="parser-semper-html.test.js"></script>
+    <script src="polskie-znaki.test.js"></script>
+    <script>
+      (function uruchomTesty() {
+        const kontener = document.getElementById("wyniki");
+        let zaliczone = 0;
+
+        window.testyBurAsystent.forEach(function uruchom(testJednostkowy) {
+          const wynik = document.createElement("div");
+          wynik.className = "test";
+
+          try {
+            testJednostkowy.funkcja();
+            zaliczone += 1;
+            wynik.classList.add("ok");
+            wynik.textContent = "OK - " + testJednostkowy.nazwa;
+          } catch (blad) {
+            wynik.classList.add("blad");
+            wynik.textContent = "BLAD - " + testJednostkowy.nazwa + ": " + blad.message;
+          }
+
+          kontener.appendChild(wynik);
+        });
+
+        const podsumowanie = document.createElement("h2");
+        podsumowanie.textContent = "Wynik: " + zaliczone + " / " + window.testyBurAsystent.length;
+        kontener.prepend(podsumowanie);
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,60 @@
+{
+  "manifest_version": 3,
+  "name": "BUR Asystent",
+  "version": "0.1.0",
+  "description": "Panel pomocniczy do odczytu danych szkoleń SEMPER i kontroli ogłoszeń BUR.",
+  "action": {
+    "default_title": "BUR Asystent"
+  },
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "panel/panel.html"
+  },
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://szkolenia-semper.pl/*",
+    "https://www.szkolenia-semper.pl/*",
+    "https://uslugirozwojowe.parp.gov.pl/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://szkolenia-semper.pl/*",
+        "https://www.szkolenia-semper.pl/*"
+      ],
+      "js": [
+        "shared/komunikaty.js",
+        "shared/model.js",
+        "shared/normalizacja-tytulu.js",
+        "shared/daty.js",
+        "shared/bur-program-harmonogram.js",
+        "shared/wyszukiwarka-semper.js",
+        "shared/parser-semper.js",
+        "content/semper-content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://uslugirozwojowe.parp.gov.pl/*"
+      ],
+      "js": [
+        "shared/komunikaty.js",
+        "shared/normalizacja-tytulu.js",
+        "shared/daty.js",
+        "shared/bur-program-harmonogram.js",
+        "shared/wyszukiwarka-semper.js",
+        "content/bur-content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

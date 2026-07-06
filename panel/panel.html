@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>BUR Asystent</title>
+    <link rel="stylesheet" href="panel.css">
+  </head>
+  <body>
+    <header class="naglowek">
+      <h1>BUR Asystent</h1>
+      <div id="status-strony" class="status status-neutralny">Sprawdzanie strony...</div>
+    </header>
+
+    <main class="panel">
+      <section class="karta">
+        <button id="przycisk-pobierz" type="button">Pobierz dane ze strony</button>
+        <div id="status-akcji" class="komunikat">Gotowy.</div>
+      </section>
+
+      <section class="karta">
+        <h2>SEMPER</h2>
+        <label class="etykieta" for="link-lub-fraza-semper">Link lub fraza SEMPER</label>
+        <input id="link-lub-fraza-semper" type="text" autocomplete="off" placeholder="Wklej link albo wpisz frazę">
+        <div class="siatka-przycisków">
+          <button id="przycisk-szukaj-linku" type="button">Szukaj linku</button>
+          <button id="przycisk-uzupelnij-z-linku" type="button">Uzupełnij z linku</button>
+        </div>
+        <div id="status-semper" class="komunikat">Gotowy do wyszukiwania.</div>
+        <div id="wyniki-semper" class="wyniki-semper"></div>
+      </section>
+
+      <section id="ostrzezenia-karta" class="karta ukryty">
+        <h2>Ostrzeżenia</h2>
+        <ul id="lista-ostrzezen"></ul>
+      </section>
+
+      <section class="karta">
+        <h2>Program i harmonogram usługi</h2>
+        <dl class="dane dane-zwarte">
+          <dt>Edytor programu</dt>
+          <dd id="status-edytora-programu">-</dd>
+
+          <dt>Tabela harmonogramu</dt>
+          <dd id="status-tabeli-harmonogramu">-</dd>
+        </dl>
+        <div class="siatka-przycisków">
+          <button id="przycisk-uzupelnij-program" type="button">Uzupełnij program</button>
+          <button id="przycisk-generuj-harmonogram" type="button">Wygeneruj harmonogram</button>
+          <button id="przycisk-importuj-harmonogram-xml" type="button">Importuj harmonogram XML</button>
+          <button id="przycisk-wypelnij-harmonogram-recznie" type="button">Wypełnij harmonogram ręcznie</button>
+        </div>
+        <div id="status-programu-harmonogramu" class="komunikat">Gotowy.</div>
+      </section>
+
+      <section class="karta">
+        <h2>Dane szkolenia</h2>
+        <dl class="dane">
+          <dt>Tytuł oryginalny</dt>
+          <dd id="tytul-oryginalny">-</dd>
+
+          <dt>Tytuł po normalizacji BUR</dt>
+          <dd id="tytul-bur">-</dd>
+
+          <dt>Terminy</dt>
+          <dd id="terminy">-</dd>
+
+          <dt>Lokalizacje</dt>
+          <dd id="lokalizacje">-</dd>
+
+          <dt>Cena</dt>
+          <dd id="cena">-</dd>
+
+          <dt>Czas trwania</dt>
+          <dd id="czas-trwania">-</dd>
+
+          <dt>Cel szkolenia</dt>
+          <dd id="cel-szkolenia">-</dd>
+
+          <dt>Grupa docelowa</dt>
+          <dd id="grupa-docelowa">-</dd>
+
+          <dt>Korzyści</dt>
+          <dd id="korzysci">-</dd>
+
+          <dt>Program</dt>
+          <dd id="program">-</dd>
+
+          <dt>Inwestycja</dt>
+          <dd id="inwestycja">-</dd>
+        </dl>
+      </section>
+    </main>
+
+    <script src="../shared/komunikaty.js"></script>
+    <script src="../shared/model.js"></script>
+    <script src="../shared/normalizacja-tytulu.js"></script>
+    <script src="../shared/daty.js"></script>
+    <script src="../shared/bur-program-harmonogram.js"></script>
+    <script src="../shared/wyszukiwarka-semper.js"></script>
+    <script src="../shared/parser-semper.js"></script>
+    <script src="panel.js"></script>
+  </body>
+</html>
