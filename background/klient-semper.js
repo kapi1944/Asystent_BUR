@@ -94,7 +94,14 @@
     };
     const adresWyszukiwarki = "https://www.szkolenia-semper.pl/__ajax/_ajax_szukaj.php";
     const adresAutocomplete = "https://www.szkolenia-semper.pl/__ajax/_ajax_szukaj_auto.php";
-    const odpowiedźWyszukiwarki = await wyślijPostDoSempera(adresWyszukiwarki, dane);
+    let odpowiedźWyszukiwarki = "";
+
+    try {
+      odpowiedźWyszukiwarki = await wyślijPostDoSempera(adresWyszukiwarki, dane);
+    } catch (błąd) {
+      odpowiedźWyszukiwarki = "";
+    }
+
     const bezpośredniUrl = przestrzeń.odczytajŁączeZJsonaWyszukiwarki(odpowiedźWyszukiwarki);
 
     if (bezpośredniUrl) {

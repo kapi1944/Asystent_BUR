@@ -46,6 +46,8 @@
     <script src="../shared/parser-semper.js"></script>
     <script src="../shared/selektory-bur.js"></script>
     <script src="../shared/walidatory-bur.js"></script>
+    <script src="../shared/wypełniacz-bur.js"></script>
+    <script src="../background/klient-semper.js"></script>
     <script>
       window.testyBurAsystent = [];
 
@@ -73,17 +75,20 @@
     <script src="bur-program-harmonogram.test.js"></script>
     <script src="selektory-bur.test.js"></script>
     <script src="walidatory-bur.test.js"></script>
+    <script src="wypełniacz-bur.test.js"></script>
+    <script src="integracja-semper-panel.test.js"></script>
     <script>
-      (function uruchomTesty() {
+      (async function uruchomTesty() {
         const kontener = document.getElementById("wyniki");
         let zaliczone = 0;
 
-        window.testyBurAsystent.forEach(function uruchom(testJednostkowy) {
+        for (let indeks = 0; indeks < window.testyBurAsystent.length; indeks += 1) {
+          const testJednostkowy = window.testyBurAsystent[indeks];
           const wynik = document.createElement("div");
           wynik.className = "test";
 
           try {
-            testJednostkowy.funkcja();
+            await testJednostkowy.funkcja();
             zaliczone += 1;
             wynik.classList.add("ok");
             wynik.textContent = "OK - " + testJednostkowy.nazwa;
@@ -93,7 +98,7 @@
           }
 
           kontener.appendChild(wynik);
-        });
+        }
 
         const podsumowanie = document.createElement("h2");
         podsumowanie.textContent = "Wynik: " + zaliczone + " / " + window.testyBurAsystent.length;

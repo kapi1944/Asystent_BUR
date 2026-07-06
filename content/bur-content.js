@@ -593,6 +593,35 @@
       });
   }
 
+  function obsłużWypełnianieFormularzaBur(wiadomosc, odpowiedz) {
+    try {
+      const wynik = przestrzen.wypełnijFormularzBur(document, {
+        szkolenieSemper: wiadomosc.szkolenieSemper || {},
+        wybranyTermin: wiadomosc.wybranyTermin || {}
+      });
+
+      odpowiedz({
+        typ: komunikaty.ODPOWIEDŹ_WYPEŁNIJ_FORMULARZ_BUR,
+        wynik: wynik
+      });
+    } catch (błąd) {
+      odpowiedz({
+        typ: komunikaty.BŁĄD_WYPEŁNIANIA_FORMULARZA_BUR,
+        wynik: {
+          ok: false,
+          uzupełnione: [],
+          pominięte: [],
+          ostrzeżenia: [],
+          błędy: [{
+            sekcja: "Wypełnianie formularza",
+            pole: "Formularz BUR",
+            komunikat: błąd && błąd.message ? błąd.message : "Nie udało się wypełnić formularza BUR."
+          }]
+        }
+      });
+    }
+  }
+
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
     if (!wiadomosc || !wiadomosc.typ) {
       return false;
@@ -619,6 +648,12 @@
 
     if (wiadomosc.typ === komunikaty.WALIDUJ_FORMULARZ_BUR) {
       obsłużWalidacjęFormularzaBur(odpowiedz);
+
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.WYPEŁNIJ_FORMULARZ_BUR) {
+      obsłużWypełnianieFormularzaBur(wiadomosc, odpowiedz);
 
       return true;
     }

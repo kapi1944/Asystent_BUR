@@ -140,6 +140,18 @@ select:focus {
   min-height: 38px;
 }
 
+.przycisk-główny {
+  margin-top: 8px;
+  min-height: 46px;
+  border-color: #ff6b5f;
+  background: #c92825;
+  box-shadow: 0 0 0 1px rgba(255, 107, 95, 0.25);
+}
+
+.przycisk-główny:hover {
+  background: var(--czerwony);
+}
+
 .status,
 .komunikat {
   margin-top: 10px;
@@ -254,6 +266,31 @@ li + li {
   display: grid;
   gap: 10px;
   margin-top: 10px;
+}
+
+.wynik-wypełniania {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.pozycja-wypełniania {
+  padding: 9px;
+  border: 1px solid var(--ramka);
+  border-left: 4px solid var(--pomaranczowy);
+  border-radius: 6px;
+  background: var(--panel-drugi);
+}
+
+.pozycja-wypełniania strong,
+.pozycja-wypełniania span {
+  display: block;
+}
+
+.pozycja-wypełniania span {
+  margin-top: 4px;
+  color: var(--tekst-slaby);
+  font-size: 12px;
 }
 
 .podsumowanie-walidacji {
