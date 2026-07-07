@@ -32,7 +32,13 @@
   }
 
   function usuńNiebezpieczneElementy(element) {
-    const kopia = element.cloneNode(true);
+    const kopia = element && typeof element.cloneNode === "function"
+      ? element.cloneNode(true)
+      : { textContent: element ? element.textContent || "" : "" };
+
+    if (!kopia || typeof kopia.querySelectorAll !== "function") {
+      return kopia;
+    }
 
     kopia.querySelectorAll("script, style, img, svg, iframe, object, form, input, button").forEach(function usuń(elementDoUsunięcia) {
       elementDoUsunięcia.remove();
