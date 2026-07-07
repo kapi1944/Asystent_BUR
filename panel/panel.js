@@ -13,6 +13,7 @@
     diagnostykaZapisImportu: document.getElementById("diagnostyka-zapis-importu"),
     diagnostykaTerminyImportu: document.getElementById("diagnostyka-terminy-importu"),
     przyciskPobierz: document.getElementById("przycisk-pobierz"),
+    przyciskWyczyśćPanel: document.getElementById("przycisk-wyczysc-panel"),
     przyciskSzukajLinku: document.getElementById("przycisk-szukaj-linku"),
     przyciskUzupełnijZLinku: document.getElementById("przycisk-uzupelnij-z-linku"),
     przyciskWypełnijFormularz: document.getElementById("przycisk-wypełnij-formularz"),
@@ -470,6 +471,19 @@
         }
 
         resolve(dane || {});
+      });
+    });
+  }
+
+  function usuńStorage(klucze) {
+    return new Promise(function utwórzPromise(resolve, reject) {
+      chrome.storage.local.remove(klucze, function poUsunięciu() {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message));
+          return;
+        }
+
+        resolve();
       });
     });
   }
@@ -1206,6 +1220,49 @@
       });
   }
 
+  function wyczyśćPanelImportu() {
+    const klucze = [
+      "ostatnieSzkolenieSemper",
+      "ostatnieŁączeSemper",
+      "dataImportuSemper",
+      "wybranyTerminSemperIndex",
+      "ostatniePozycjeHarmonogramuBur",
+      "ostatniXmlHarmonogramuBur",
+      "ostatniWybranyTerminHarmonogramuBur",
+      "ostatnieOstrzeżeniaHarmonogramuBur",
+      "ostrzezeniaHarmonogramuBur",
+      "harmonogramBurPrzygotowany",
+      "harmonogramBurNieaktualny",
+      "harmonogramBurPrzygotowanyAt"
+    ];
+
+    wyczyśćDane();
+    wyczyśćWynikiSemper();
+    wyczyśćWynikWypełnianiaBur();
+    wyczyśćWynikWalidacjiBur();
+    wyczyśćDecyzjęHarmonogramuBur();
+    pokażPodglądHarmonogramu({});
+    elementy.linkLubFrazaSemper.value = "";
+    elementy.przyciskImportujHarmonogramXml.disabled = true;
+    diagnostykaSemper.fraza = "";
+    diagnostykaSemper.źródłoFrazy = "";
+    diagnostykaSemper.liczbaKandydatów = "";
+    diagnostykaSemper.ostatniBłądServiceWorkera = "";
+    diagnostykaSemper.importZapisałSzkolenie = "";
+    diagnostykaSemper.liczbaTerminówPoImporcie = "";
+    pokażDiagnostykęSemper();
+
+    usuńStorage(klucze)
+      .then(function pokażWyczyszczenie() {
+        ustawStatus(elementy.statusAkcji, "Wyczyszczono dane panelu z poprzednich importów.", "status-odczytano");
+        ustawStatus(elementy.statusSemper, "Gotowy do wyszukiwania.", "status-neutralny");
+        ustawStatusProgramuHarmonogramu("Brak przygotowanego harmonogramu.", "status-neutralny");
+      })
+      .catch(function pokażBłąd(błąd) {
+        ustawStatus(elementy.statusAkcji, błąd && błąd.message ? błąd.message : "Nie udało się wyczyścić danych panelu.", "status-blad");
+      });
+  }
+
   function wyczyśćWynikiSemper() {
     elementy.wynikiSemper.textContent = "";
   }
@@ -1560,6 +1617,7 @@
   elementy.przyciskImportujHarmonogramXml.disabled = true;
 
   elementy.przyciskPobierz.addEventListener("click", pobierzDaneZeStrony);
+  elementy.przyciskWyczyśćPanel.addEventListener("click", wyczyśćPanelImportu);
   elementy.przyciskSzukajLinku.addEventListener("click", szukajLinkuSemper);
   elementy.przyciskUzupełnijZLinku.addEventListener("click", importujSzkolenieZLinku);
   elementy.przyciskWypełnijFormularz.addEventListener("click", wypełnijFormularzBurZPanelu);

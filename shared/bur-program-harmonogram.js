@@ -509,11 +509,48 @@
     };
   }
 
+  function czyZerowePodsumowanieHarmonogramu(tekstyWierszy) {
+    const teksty = (Array.isArray(tekstyWierszy) ? tekstyWierszy : [])
+      .map(function oczyść(tekst) {
+        return normalizujTekstDoPorównania(tekst);
+      })
+      .filter(Boolean);
+    const tekst = teksty.join(" ");
+
+    if (!tekst) {
+      return false;
+    }
+
+    const wymaganePola = [
+      /suma godzin zegarowych usługi[^0-9]*0?0:00/,
+      /w tym suma godzin zajęć[^0-9]*0?0:00/,
+      /w tym suma godzin walidacji[^0-9]*0?0:00/,
+      /w tym suma przerw[^0-9]*0?0:00/,
+      /suma godzin dydaktycznych bez przerw[^0-9]*0?0:00/
+    ];
+    const zawieraPozycjęHarmonogramu = /\b(zajęcia|przerwa|walidacja)\b/.test(tekst);
+    const zawieraNiezerowyCzas = /\b(?!0?0:00\b)\d{1,2}:\d{2}\b/.test(tekst);
+
+    return !zawieraPozycjęHarmonogramu &&
+      !zawieraNiezerowyCzas &&
+      wymaganePola.every(function sprawdźPole(wzorzec) {
+        return wzorzec.test(tekst);
+      });
+  }
+
   function czyTabelaHarmonogramuMaPozycje(wiersze) {
-    return (Array.isArray(wiersze) ? wiersze : []).some(function sprawdźWiersz(wiersz) {
+    const tekstyWierszy = (Array.isArray(wiersze) ? wiersze : []).map(function pobierzTekst(wiersz) {
       const tekst = typeof wiersz === "string" ? wiersz : (wiersz && (wiersz.tekst || wiersz.textContent)) || "";
 
-      return String(tekst).replace(/\s+/g, " ").trim().length > 0;
+      return String(tekst).replace(/\s+/g, " ").trim();
+    });
+
+    if (czyZerowePodsumowanieHarmonogramu(tekstyWierszy)) {
+      return false;
+    }
+
+    return tekstyWierszy.some(function sprawdźWiersz(tekst) {
+      return tekst.length > 0;
     });
   }
 

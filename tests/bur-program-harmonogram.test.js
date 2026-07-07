@@ -333,6 +333,18 @@
     sprawdzRownosc(maPozycje, true, "Istniejący wiersz powinien blokować import.");
   });
 
+  test("zerowe podsumowanie BUR nie blokuje importu harmonogramu", function sprawdź() {
+    const maPozycje = asystent.czyTabelaHarmonogramuMaPozycje([
+      { tekst: "Suma godzin zegarowych usługi: 00:00" },
+      { tekst: "w tym suma godzin zajęć: 00:00" },
+      { tekst: "w tym suma godzin walidacji: 00:00" },
+      { tekst: "w tym suma przerw: 00:00" },
+      { tekst: "Suma godzin dydaktycznych bez przerw: 00:00" }
+    ]);
+
+    sprawdzRownosc(maPozycje, false, "Zerowe podsumowanie nie powinno być traktowane jak istniejący harmonogram.");
+  });
+
   test("fallback ręczny nie uruchamia się przy istniejącym harmonogramie", function sprawdź() {
     const czyUruchomić = asystent.czyUruchomićFallbackHarmonogramu({
       tabelaIstnieje: true,
