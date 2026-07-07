@@ -283,4 +283,65 @@
       }
     });
   });
+
+  test("wprowadzenie harmonogramu wymaga przygotowanych pozycji i XML", function sprawdź() {
+    const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
+      harmonogramBurPrzygotowany: false,
+      ostatniePozycjeHarmonogramuBur: [],
+      ostatniXmlHarmonogramuBur: "",
+      wybranyTerminSemperIndex: 1,
+      ostatniWybranyTerminHarmonogramuBur: 1
+    });
+
+    sprawdzRownosc(gotowość.ok, false, "Brak przygotowania powinien blokować wprowadzenie.");
+    sprawdzWarunek(gotowość.komunikat.includes("Przygotuj harmonogram"), "Komunikat powinien kierować do przygotowania harmonogramu.");
+  });
+
+  test("zmiana terminu po przygotowaniu blokuje użycie starego XML", function sprawdź() {
+    const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
+      harmonogramBurPrzygotowany: true,
+      ostatniePozycjeHarmonogramuBur: [{ typ_aktywnosci: "Zajęcia" }],
+      ostatniXmlHarmonogramuBur: "<response></response>",
+      ostatniWybranyTerminHarmonogramuBur: 0,
+      wybranyTerminSemperIndex: 1
+    });
+
+    sprawdzRownosc(gotowość.ok, false, "Stary XML nie powinien być gotowy po zmianie terminu.");
+    sprawdzRownosc(gotowość.nieaktualny, true, "Blokada powinna oznaczać nieaktualny harmonogram.");
+  });
+
+  test("przygotowane pozycje i XML są źródłem prawdy dla wprowadzenia", function sprawdź() {
+    const pozycje = [{ typ_aktywnosci: "Zajęcia" }];
+    const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
+      harmonogramBurPrzygotowany: true,
+      ostatniePozycjeHarmonogramuBur: pozycje,
+      ostatniXmlHarmonogramuBur: "<response></response>",
+      ostatniWybranyTerminHarmonogramuBur: 1,
+      wybranyTerminSemperIndex: "1"
+    });
+
+    sprawdzRownosc(gotowość.ok, true, "Przygotowany harmonogram powinien być gotowy.");
+    sprawdzRownosc(gotowość.pozycje, pozycje, "Wprowadzenie powinno używać zapisanych pozycji.");
+    sprawdzRownosc(gotowość.xml, "<response></response>", "Wprowadzenie powinno używać zapisanego XML.");
+  });
+
+  test("istniejące pozycje w tabeli blokują import bez potwierdzenia", function sprawdź() {
+    const maPozycje = asystent.czyTabelaHarmonogramuMaPozycje([
+      { tekst: "1 Zajęcia 07-07-2027 09:00 14:00" }
+    ]);
+
+    sprawdzRownosc(maPozycje, true, "Istniejący wiersz powinien blokować import.");
+  });
+
+  test("fallback ręczny nie uruchamia się przy istniejącym harmonogramie", function sprawdź() {
+    const czyUruchomić = asystent.czyUruchomićFallbackHarmonogramu({
+      tabelaIstnieje: true,
+      klikniętoWprowadzenie: true,
+      xmlNieudany: true,
+      istniejącePozycje: true,
+      pozycje: [{ typ_aktywnosci: "Zajęcia" }]
+    });
+
+    sprawdzRownosc(czyUruchomić, false, "Fallback nie powinien startować przy istniejących pozycjach.");
+  });
 })(globalThis);

@@ -474,6 +474,62 @@
     return ["<response>", "  <data>", wiersze.join("\n"), "  </data>", "</response>"].join("\n");
   }
 
+  function czyTenSamIndeksTerminu(indeksPrzygotowany, indeksAktualny) {
+    const przygotowany = indeksPrzygotowany === null || indeksPrzygotowany === undefined || indeksPrzygotowany === "" ? null : Number(indeksPrzygotowany);
+    const aktualny = indeksAktualny === null || indeksAktualny === undefined || indeksAktualny === "" ? null : Number(indeksAktualny);
+
+    return przygotowany === aktualny;
+  }
+
+  function sprawdźGotowośćHarmonogramuBur(dane) {
+    const źródło = dane || {};
+    const pozycje = Array.isArray(źródło.ostatniePozycjeHarmonogramuBur) ? źródło.ostatniePozycjeHarmonogramuBur : [];
+    const xml = typeof źródło.ostatniXmlHarmonogramuBur === "string" ? źródło.ostatniXmlHarmonogramuBur.trim() : "";
+
+    if (!źródło.harmonogramBurPrzygotowany || !pozycje.length || !xml) {
+      return {
+        ok: false,
+        komunikat: "Najpierw kliknij »Przygotuj harmonogram« i sprawdź podgląd."
+      };
+    }
+
+    if (!czyTenSamIndeksTerminu(źródło.ostatniWybranyTerminHarmonogramuBur, źródło.wybranyTerminSemperIndex)) {
+      return {
+        ok: false,
+        nieaktualny: true,
+        komunikat: "Wybrany termin SEMPER zmienił się po przygotowaniu harmonogramu. Kliknij ponownie »Przygotuj harmonogram«."
+      };
+    }
+
+    return {
+      ok: true,
+      pozycje: pozycje,
+      xml: xml,
+      indeksTerminu: źródło.ostatniWybranyTerminHarmonogramuBur
+    };
+  }
+
+  function czyTabelaHarmonogramuMaPozycje(wiersze) {
+    return (Array.isArray(wiersze) ? wiersze : []).some(function sprawdźWiersz(wiersz) {
+      const tekst = typeof wiersz === "string" ? wiersz : (wiersz && (wiersz.tekst || wiersz.textContent)) || "";
+
+      return String(tekst).replace(/\s+/g, " ").trim().length > 0;
+    });
+  }
+
+  function czyUruchomićFallbackHarmonogramu(warunki) {
+    const stan = warunki || {};
+
+    return Boolean(
+      stan.tabelaIstnieje &&
+      stan.klikniętoWprowadzenie &&
+      stan.xmlNieudany &&
+      !stan.istniejącePozycje &&
+      Array.isArray(stan.pozycje) &&
+      stan.pozycje.length > 0
+    );
+  }
+
   przestrzeń.EMAIL_TRENERA_HARMONOGRAMU = EMAIL_TRENERA;
   przestrzeń.EMAIL_WALIDATORA_HARMONOGRAMU = EMAIL_WALIDATORA;
   przestrzeń.INFORMACJA_ORGANIZACYJNA_PROGRAMU = INFORMACJA_ORGANIZACYJNA;
@@ -486,6 +542,9 @@
   przestrzeń.wybierzTerminHarmonogramu = wybierzTerminHarmonogramu;
   przestrzeń.zbudujPozycjeHarmonogramu = zbudujPozycjeHarmonogramu;
   przestrzeń.wygenerujXmlHarmonogramu = wygenerujXmlHarmonogramu;
+  przestrzeń.sprawdźGotowośćHarmonogramuBur = sprawdźGotowośćHarmonogramuBur;
+  przestrzeń.czyTabelaHarmonogramuMaPozycje = czyTabelaHarmonogramuMaPozycje;
+  przestrzeń.czyUruchomićFallbackHarmonogramu = czyUruchomićFallbackHarmonogramu;
   przestrzeń.zbudujDatyZakresu = zbudujDatyZakresu;
   przestrzeń.parsujDatęBur = parsujDatęBur;
 

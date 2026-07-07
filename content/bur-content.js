@@ -87,6 +87,21 @@
     });
   }
 
+  function odczytajWierszeHarmonogramu() {
+    return pobierzWierszeTabeliHarmonogramu().map(function odczytaj(wiersz, indeks) {
+      return {
+        numer: indeks + 1,
+        tekst: String(wiersz.textContent || "").replace(/\s+/g, " ").trim()
+      };
+    }).filter(function zostaw(wiersz) {
+      return Boolean(wiersz.tekst);
+    });
+  }
+
+  function pobierzLiczbęPozycjiWTabeli() {
+    return odczytajWierszeHarmonogramu().length;
+  }
+
   function znajdźInputPlikuImportu() {
     const przyciskImportu = document.querySelector(selektory.importHarmonogramu);
     const kandydaci = Array.from(document.querySelectorAll("input[type='file']"));
@@ -150,7 +165,10 @@
 
       return {
         ok: true,
+        metoda: "XML",
         komunikat: "Zaimportowano harmonogram XML. Sprawdź dane przed zapisaniem usługi.",
+        liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
+        liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
         raport: raport
       };
     } catch (błąd) {
@@ -292,7 +310,10 @@
 
     return {
       ok: true,
+      metoda: "fallback ręczny",
       komunikat: "Wypełniono harmonogram ręcznie. Sprawdź dane przed zapisaniem usługi.",
+      liczbaOczekiwanychPozycji: pozycjeHarmonogramu.length,
+      liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
       raport: raport
     };
   }
@@ -345,23 +366,108 @@
   }
 
   async function importujXmlZFallbackiem(xml, pozycje) {
+    const tabela = document.querySelector(selektory.tabelaHarmonogramu);
+    const obecneWiersze = odczytajWierszeHarmonogramu();
+    const istniejącePozycje = przestrzen.czyTabelaHarmonogramuMaPozycje(obecneWiersze);
+
+    if (!tabela) {
+      return {
+        ok: false,
+        błąd: "Nie znaleziono tabeli harmonogramu BUR.",
+        liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0
+      };
+    }
+
+    if (istniejącePozycje) {
+      return {
+        ok: false,
+        istniejącePozycje: true,
+        obecneWiersze: obecneWiersze,
+        oczekiwanePozycje: pozycje || [],
+        liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
+        liczbaPozycjiWTabeli: obecneWiersze.length,
+        komunikat: "W BUR istnieje już harmonogram. Sprawdź różnice i potwierdź usunięcie obecnych pozycji przed ponownym wprowadzeniem."
+      };
+    }
+
     const wynikImportu = await importujHarmonogramPrzezXml(xml, pozycje);
 
     if (wynikImportu.ok) {
       return wynikImportu;
     }
 
+    if (!przestrzen.czyUruchomićFallbackHarmonogramu({
+      tabelaIstnieje: Boolean(tabela),
+      istniejącePozycje: istniejącePozycje,
+      xmlNieudany: true,
+      klikniętoWprowadzenie: true,
+      pozycje: pozycje
+    })) {
+      return {
+        ok: false,
+        metoda: "XML",
+        błąd: wynikImportu.błąd,
+        liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
+        liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli()
+      };
+    }
+
     const wynikRęczny = await wypelnijHarmonogramRecznie(pozycje);
 
     if (wynikRęczny.ok) {
       wynikRęczny.komunikat = "Import XML nie był dostępny, użyto trybu ręcznego. Sprawdź dane przed zapisaniem usługi.";
+      wynikRęczny.błądXml = wynikImportu.błąd;
       return wynikRęczny;
     }
 
     return {
       ok: false,
-      błąd: "Import XML: " + wynikImportu.błąd + " Fallback ręczny: " + wynikRęczny.błąd
+      metoda: "fallback ręczny",
+      błądXml: wynikImportu.błąd,
+      błąd: "Import XML: " + wynikImportu.błąd + " Fallback ręczny: " + wynikRęczny.błąd,
+      liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
+      liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli()
     };
+  }
+
+  async function wprowadźHarmonogramDoBur(xml, pozycje) {
+    const pozycjeHarmonogramu = Array.isArray(pozycje) ? pozycje : [];
+
+    if (!pozycjeHarmonogramu.length || !xml) {
+      return {
+        ok: false,
+        błąd: "Brak przygotowanego harmonogramu lub XML."
+      };
+    }
+
+    return importujXmlZFallbackiem(xml, pozycjeHarmonogramu);
+  }
+
+  async function wypełnijPrzygotowanyHarmonogramRęcznie(pozycje) {
+    const tabela = document.querySelector(selektory.tabelaHarmonogramu);
+    const obecneWiersze = odczytajWierszeHarmonogramu();
+    const istniejącePozycje = przestrzen.czyTabelaHarmonogramuMaPozycje(obecneWiersze);
+
+    if (!tabela) {
+      return {
+        ok: false,
+        błąd: "Nie znaleziono tabeli harmonogramu BUR."
+      };
+    }
+
+    if (istniejącePozycje) {
+      return {
+        ok: false,
+        istniejącePozycje: true,
+        obecneWiersze: obecneWiersze,
+        oczekiwanePozycje: pozycje || [],
+        liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
+        liczbaPozycjiWTabeli: obecneWiersze.length,
+        komunikat: "W BUR istnieje już harmonogram. Sprawdź różnice i potwierdź usunięcie obecnych pozycji przed ponownym wprowadzeniem."
+      };
+    }
+
+    return wypelnijHarmonogramRecznie(pozycje || []);
   }
 
   function znajdźPoEtykiecieTytułu() {
@@ -701,8 +807,8 @@
       return true;
     }
 
-    if (wiadomosc.typ === komunikaty.IMPORTUJ_HARMONOGRAM_XML_BUR) {
-      importujXmlZFallbackiem(wiadomosc.xml, wiadomosc.pozycje || [])
+    if (wiadomosc.typ === komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR || wiadomosc.typ === komunikaty.IMPORTUJ_HARMONOGRAM_XML_BUR) {
+      wprowadźHarmonogramDoBur(wiadomosc.xml, wiadomosc.pozycje || [])
         .then(function zwróćWynik(wynik) {
           odpowiedz({
             typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR,
@@ -723,7 +829,7 @@
     }
 
     if (wiadomosc.typ === komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR) {
-      wypelnijHarmonogramRecznie(wiadomosc.pozycje || [])
+      wypełnijPrzygotowanyHarmonogramRęcznie(wiadomosc.pozycje || [])
         .then(function zwróćWynik(wynik) {
           odpowiedz({
             typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR,

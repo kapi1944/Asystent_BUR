@@ -140,6 +140,12 @@ select:focus {
   min-height: 38px;
 }
 
+.opis-akcji {
+  margin: 8px 0 0;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+}
+
 .przycisk-główny {
   margin-top: 8px;
   min-height: 46px;
@@ -381,6 +387,35 @@ li + li {
 .podglad-harmonogramu-pusty {
   border-left-color: var(--ramka);
   color: var(--tekst-slaby);
+}
+
+.decyzja-harmonogramu {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--pomaranczowy);
+  border-radius: 6px;
+  background: var(--panel-drugi);
+}
+
+.decyzja-harmonogramu h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.decyzja-harmonogramu p {
+  margin: 0;
+  color: var(--tekst-slaby);
+}
+
+.decyzja-harmonogramu ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.decyzja-harmonogramu li {
+  overflow-wrap: anywhere;
 }
 
 .pozycja-wypełniania {

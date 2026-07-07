@@ -41,6 +41,7 @@
     statusTabeliHarmonogramu: document.getElementById("status-tabeli-harmonogramu"),
     statusProgramuHarmonogramu: document.getElementById("status-programu-harmonogramu"),
     podglądHarmonogramu: document.getElementById("podglad-harmonogramu"),
+    decyzjaHarmonogramuBur: document.getElementById("decyzja-harmonogramu-bur"),
     przyciskUzupełnijProgram: document.getElementById("przycisk-uzupelnij-program"),
     przyciskGenerujHarmonogram: document.getElementById("przycisk-generuj-harmonogram"),
     przyciskImportujHarmonogramXml: document.getElementById("przycisk-importuj-harmonogram-xml"),
@@ -66,6 +67,11 @@
 
   function ustawStatusProgramuHarmonogramu(tekst, klasa) {
     ustawStatus(elementy.statusProgramuHarmonogramu, tekst, klasa || "status-neutralny");
+  }
+
+  function wyczyśćDecyzjęHarmonogramuBur() {
+    elementy.decyzjaHarmonogramuBur.textContent = "";
+    elementy.decyzjaHarmonogramuBur.classList.add("ukryty");
   }
 
   function pokażDiagnostykęSemper() {
@@ -264,11 +270,26 @@
   function zapiszWybórTerminuSemper() {
     const wartość = elementy.wybórTerminuSemper.value;
     const indeks = wartość === "" ? null : Number(wartość);
+    const poprzedniIndeks = ostatniWybranyTerminSemperIndex;
+    const czyZmienionoTermin = poprzedniIndeks !== indeks;
+
     ostatniWybranyTerminSemperIndex = indeks;
     odświeżDostępnośćWypełniania();
 
+    if (!czyZmienionoTermin) {
+      zapiszStorage({
+        wybranyTerminSemperIndex: indeks
+      }).catch(function pomińBłądZapisu() {});
+      return;
+    }
+
     zapiszStorage({
-      wybranyTerminSemperIndex: indeks
+      wybranyTerminSemperIndex: indeks,
+      harmonogramBurPrzygotowany: false,
+      harmonogramBurNieaktualny: true
+    }).then(function pokażInformację() {
+      elementy.przyciskImportujHarmonogramXml.disabled = true;
+      ustawStatusProgramuHarmonogramu("Zmieniono termin SEMPER. Kliknij ponownie »Przygotuj harmonogram«.", "status-ostrzezenie");
     }).catch(function pomińBłądZapisu() {});
   }
 
@@ -682,52 +703,243 @@
       ostatniePozycjeHarmonogramuBur: dane.pozycje,
       ostatniXmlHarmonogramuBur: dane.xml,
       ostatniWybranyTerminHarmonogramuBur: dane.indeksTerminu,
-      ostatnieOstrzeżeniaHarmonogramuBur: dane.ostrzeżenia || []
+      ostatnieOstrzeżeniaHarmonogramuBur: dane.ostrzeżenia || [],
+      ostrzezeniaHarmonogramuBur: dane.ostrzeżenia || [],
+      harmonogramBurPrzygotowany: true,
+      harmonogramBurNieaktualny: false,
+      harmonogramBurPrzygotowanyAt: new Date().toISOString()
     });
   }
 
-  function wyślijAkcjęProgramuHarmonogramu(typKomunikatu, komunikatSukcesu) {
-    ustawStatusProgramuHarmonogramu("Przygotowuję dane...", "status-neutralny");
+  function odczytajPrzygotowanyHarmonogram() {
+    return odczytajStorage([
+      "ostatniePozycjeHarmonogramuBur",
+      "ostatniXmlHarmonogramuBur",
+      "ostatniWybranyTerminHarmonogramuBur",
+      "ostatnieOstrzeżeniaHarmonogramuBur",
+      "ostrzezeniaHarmonogramuBur",
+      "harmonogramBurPrzygotowany",
+      "harmonogramBurPrzygotowanyAt",
+      "wybranyTerminSemperIndex"
+    ]).then(function sprawdź(dane) {
+      const gotowość = przestrzeń.sprawdźGotowośćHarmonogramuBur(dane);
+
+      if (!gotowość.ok) {
+        throw new Error(gotowość.komunikat);
+      }
+
+      return {
+        pozycje: dane.ostatniePozycjeHarmonogramuBur,
+        xml: dane.ostatniXmlHarmonogramuBur,
+        indeksTerminu: dane.ostatniWybranyTerminHarmonogramuBur,
+        ostrzeżenia: dane.ostatnieOstrzeżeniaHarmonogramuBur || dane.ostrzezeniaHarmonogramuBur || [],
+        przygotowanyAt: dane.harmonogramBurPrzygotowanyAt
+      };
+    });
+  }
+
+  function odświeżStanPrzygotowaniaHarmonogramu() {
+    return odczytajStorage([
+      "ostatniePozycjeHarmonogramuBur",
+      "ostatniXmlHarmonogramuBur",
+      "ostatniWybranyTerminHarmonogramuBur",
+      "harmonogramBurPrzygotowany",
+      "wybranyTerminSemperIndex"
+    ]).then(function pokaż(dane) {
+      const gotowość = przestrzeń.sprawdźGotowośćHarmonogramuBur(dane);
+
+      elementy.przyciskImportujHarmonogramXml.disabled = !gotowość.ok;
+
+      if (!gotowość.ok && !dane.harmonogramBurPrzygotowany) {
+        ustawStatusProgramuHarmonogramu("Brak przygotowanego harmonogramu.", "status-neutralny");
+      } else if (!gotowość.ok) {
+        ustawStatusProgramuHarmonogramu(gotowość.komunikat, "status-ostrzezenie");
+      }
+    }).catch(function pomińBłądStorage() {
+      elementy.przyciskImportujHarmonogramXml.disabled = true;
+    });
+  }
+
+  function zbudujKomunikatRaportuHarmonogramu(wynik) {
+    const raport = wynik || {};
+    const części = [];
+
+    if (raport.istniejącePozycje) {
+      części.push("Nie wprowadzono harmonogramu, ponieważ w BUR istnieją już pozycje.");
+    } else if (raport.ok && raport.metoda === "XML") {
+      części.push("Wprowadzono przez import XML.");
+    } else if (raport.ok && raport.metoda === "fallback ręczny") {
+      części.push("Import XML nie powiódł się — użyto ręcznego wypełniania.");
+    } else if (raport.ok) {
+      części.push(raport.komunikat || "Harmonogram wprowadzony.");
+    } else {
+      części.push("Nie udało się wprowadzić harmonogramu.");
+    }
+
+    if (raport.liczbaOczekiwanychPozycji !== undefined) {
+      części.push("Oczekiwane pozycje: " + raport.liczbaOczekiwanychPozycji + ".");
+    }
+
+    if (raport.liczbaPozycjiWTabeli !== undefined) {
+      części.push("Pozycje w tabeli po operacji: " + raport.liczbaPozycjiWTabeli + ".");
+    }
+
+    if (raport.błądXml) {
+      części.push("Błąd XML: " + raport.błądXml);
+    }
+
+    if (raport.błąd) {
+      części.push("Błąd: " + raport.błąd);
+    }
+
+    części.push("Sprawdź formularz BUR przed ręcznym zapisaniem.");
+    return części.join(" ");
+  }
+
+  function pokażKonfliktHarmonogramuBur(wynik) {
+    const obecneWiersze = Array.isArray(wynik.obecneWiersze) ? wynik.obecneWiersze : [];
+    const nagłówek = document.createElement("h3");
+    const opis = document.createElement("p");
+    const lista = document.createElement("ol");
+    const przyciskAnuluj = document.createElement("button");
+    const przyciskUsuń = document.createElement("button");
+    const siatka = document.createElement("div");
+
+    wyczyśćDecyzjęHarmonogramuBur();
+
+    nagłówek.textContent = "W BUR istnieje już harmonogram";
+    opis.textContent = "Aby wprowadzić nowy harmonogram, trzeba najpierw usunąć obecne pozycje. Usuwanie wymaga dodatkowego potwierdzenia.";
+    obecneWiersze.forEach(function dodajWiersz(wiersz) {
+      const pozycja = document.createElement("li");
+
+      pozycja.textContent = wiersz.tekst || "";
+      lista.appendChild(pozycja);
+    });
+
+    if (!obecneWiersze.length) {
+      const pozycja = document.createElement("li");
+
+      pozycja.textContent = "Nie udało się odczytać treści obecnych wierszy.";
+      lista.appendChild(pozycja);
+    }
+
+    przyciskAnuluj.type = "button";
+    przyciskAnuluj.textContent = "Anuluj";
+    przyciskAnuluj.addEventListener("click", function anuluj() {
+      wyczyśćDecyzjęHarmonogramuBur();
+      ustawStatusProgramuHarmonogramu("Anulowano wprowadzanie harmonogramu.", "status-neutralny");
+    });
+
+    przyciskUsuń.type = "button";
+    przyciskUsuń.textContent = "Usuń obecny harmonogram i wprowadź przygotowany";
+    przyciskUsuń.addEventListener("click", function pokażBlokadęUsuwania() {
+      if (!window.confirm("Czy potwierdzasz usunięcie obecnego harmonogramu przed wprowadzeniem przygotowanego?")) {
+        return;
+      }
+
+      ustawStatusProgramuHarmonogramu("Automatyczne usuwanie istniejącego harmonogramu zostanie wdrożone w następnym etapie. Usuń pozycje ręcznie i kliknij ponownie »Wprowadź harmonogram do BUR«.", "status-ostrzezenie");
+    });
+
+    siatka.className = "siatka-przycisków";
+    siatka.appendChild(przyciskAnuluj);
+    siatka.appendChild(przyciskUsuń);
+
+    elementy.decyzjaHarmonogramuBur.appendChild(nagłówek);
+    elementy.decyzjaHarmonogramuBur.appendChild(opis);
+    elementy.decyzjaHarmonogramuBur.appendChild(lista);
+    elementy.decyzjaHarmonogramuBur.appendChild(siatka);
+    elementy.decyzjaHarmonogramuBur.classList.remove("ukryty");
+  }
+
+  function przygotujHarmonogramWPanelu() {
+    wyczyśćDecyzjęHarmonogramuBur();
+    ustawStatusProgramuHarmonogramu("Przygotowuję harmonogram...", "status-neutralny");
 
     zbudujDaneProgramuHarmonogramu()
-      .then(function wyślij(dane) {
+      .then(function pokażWynik(dane) {
         pokażPodglądHarmonogramu(dane);
-        return zapiszDaneHarmonogramu(dane).then(function wyślijPoZapisie() {
-          return bezpiecznieWyślijDoAktywnejKarty(Object.assign({ typ: typKomunikatu }, dane));
+        return zapiszDaneHarmonogramu(dane).then(function pokaż() {
+          elementy.przyciskImportujHarmonogramXml.disabled = false;
+          ustawStatusProgramuHarmonogramu("Harmonogram przygotowany. Sprawdź podgląd przed wprowadzeniem do BUR.", dane.ostrzeżenia.length ? "status-ostrzezenie" : "status-odczytano");
         });
       })
-      .then(function pokażWynik(odpowiedź) {
-        const wynik = odpowiedź && odpowiedź.wynik;
-
-        if (!wynik || !wynik.ok) {
-          throw new Error((wynik && wynik.błąd) || "Akcja nie powiodła się.");
-        }
-
-        ustawStatusProgramuHarmonogramu(wynik.komunikat || komunikatSukcesu, wynik.ostrzeżenia && wynik.ostrzeżenia.length ? "status-ostrzezenie" : "status-odczytano");
-        odświeżStanProgramuHarmonogramu();
-      })
       .catch(function pokażBłąd(błąd) {
-        const komunikat = błąd && błąd.message ? błąd.message : "Nie udało się wykonać akcji.";
+        const komunikat = błąd && błąd.message ? błąd.message : "Nie udało się przygotować harmonogramu.";
 
         pokażBłądPodgląduHarmonogramu(komunikat);
         ustawStatusProgramuHarmonogramu(komunikat, "status-blad");
       });
   }
 
-  function wygenerujHarmonogramWPanelu() {
-    ustawStatusProgramuHarmonogramu("Generuję harmonogram...", "status-neutralny");
+  function uzupełnijProgramWPanelu() {
+    ustawStatusProgramuHarmonogramu("Uzupełniam program usługi...", "status-neutralny");
 
-    zbudujDaneProgramuHarmonogramu()
-      .then(function pokażWynik(dane) {
-        pokażPodglądHarmonogramu(dane);
-        return zapiszDaneHarmonogramu(dane).then(function pokaż() {
-          ustawStatusProgramuHarmonogramu("Wygenerowano " + dane.pozycje.length + " pozycji harmonogramu. Sprawdź podgląd przed importem.", dane.ostrzeżenia.length ? "status-ostrzezenie" : "status-odczytano");
+    odczytajStorage(["ostatnieSzkolenieSemper"])
+      .then(function wyślij(dane) {
+        const szkolenie = dane.ostatnieSzkolenieSemper || {};
+
+        if (!dane.ostatnieSzkolenieSemper) {
+          throw new Error("Najpierw zaimportuj dane z SEMPER.");
+        }
+
+        return bezpiecznieWyślijDoAktywnejKarty({
+          typ: komunikaty.UZUPEŁNIJ_PROGRAM_BUR,
+          program: szkolenie.sekcje ? szkolenie.sekcje.program : ""
         });
       })
-      .catch(function pokażBłąd(błąd) {
-        const komunikat = błąd && błąd.message ? błąd.message : "Nie udało się wygenerować harmonogramu.";
+      .then(function pokażWynik(odpowiedź) {
+        const wynik = odpowiedź && odpowiedź.wynik;
 
-        pokażBłądPodgląduHarmonogramu(komunikat);
+        if (!wynik || !wynik.ok) {
+          throw new Error((wynik && wynik.błąd) || "Nie udało się uzupełnić programu.");
+        }
+
+        ustawStatusProgramuHarmonogramu(wynik.komunikat || "Uzupełniono program usługi.", "status-odczytano");
+        odświeżStanProgramuHarmonogramu();
+      })
+      .catch(function pokażBłąd(błąd) {
+        const komunikat = błąd && błąd.message ? błąd.message : "Nie udało się uzupełnić programu.";
+
+        ustawStatusProgramuHarmonogramu(komunikat, "status-blad");
+      });
+  }
+
+  function wprowadźPrzygotowanyHarmonogramDoBur(typKomunikatu) {
+    wyczyśćDecyzjęHarmonogramuBur();
+    ustawStatusProgramuHarmonogramu("Wprowadzanie harmonogramu do BUR...", "status-neutralny");
+
+    odczytajPrzygotowanyHarmonogram()
+      .then(function wyślij(dane) {
+        pokażPodglądHarmonogramu(dane);
+
+        return bezpiecznieWyślijDoAktywnejKarty({
+          typ: typKomunikatu,
+          pozycje: dane.pozycje,
+          xml: dane.xml,
+          indeksTerminu: dane.indeksTerminu,
+          przygotowanyAt: dane.przygotowanyAt
+        });
+      })
+      .then(function pokażWynik(odpowiedź) {
+        const wynik = odpowiedź && odpowiedź.wynik ? odpowiedź.wynik : {};
+        const komunikat = zbudujKomunikatRaportuHarmonogramu(wynik);
+
+        if (wynik.istniejącePozycje) {
+          pokażKonfliktHarmonogramuBur(wynik);
+          ustawStatusProgramuHarmonogramu(komunikat, "status-ostrzezenie");
+          return;
+        }
+
+        if (!wynik.ok) {
+          throw new Error(komunikat);
+        }
+
+        ustawStatusProgramuHarmonogramu(komunikat, wynik.metoda === "fallback ręczny" ? "status-ostrzezenie" : "status-odczytano");
+        odświeżStanProgramuHarmonogramu();
+      })
+      .catch(function pokażBłąd(błąd) {
+        const komunikat = błąd && błąd.message ? błąd.message : "Nie udało się wprowadzić harmonogramu.";
+
         ustawStatusProgramuHarmonogramu(komunikat, "status-blad");
       });
   }
@@ -1188,7 +1400,9 @@
           ostatnieSzkolenieSemper: szkolenie,
           ostatnieŁączeSemper: wynik.url || url,
           dataImportuSemper: new Date().toISOString(),
-          wybranyTerminSemperIndex: wybranyTerminSemperIndex
+          wybranyTerminSemperIndex: wybranyTerminSemperIndex,
+          harmonogramBurPrzygotowany: false,
+          harmonogramBurNieaktualny: true
         }).then(function zwróćWynik() {
           diagnostykaSemper.importZapisałSzkolenie = "tak";
           diagnostykaSemper.liczbaTerminówPoImporcie = szkolenie.terminy ? szkolenie.terminy.length : 0;
@@ -1343,6 +1557,7 @@
   przestrzeń.odświeżDaneSzkoleniaZMagazynu = odświeżDaneSzkoleniaZMagazynu;
   pokażDiagnostykęSemper();
   odświeżDostępnośćWypełniania();
+  elementy.przyciskImportujHarmonogramXml.disabled = true;
 
   elementy.przyciskPobierz.addEventListener("click", pobierzDaneZeStrony);
   elementy.przyciskSzukajLinku.addEventListener("click", szukajLinkuSemper);
@@ -1351,15 +1566,13 @@
   elementy.wybórTerminuSemper.addEventListener("change", zapiszWybórTerminuSemper);
   elementy.przyciskWalidujBur.addEventListener("click", walidujFormularzBurZPanelu);
   elementy.przyciskWyczyśćPodświetlenia.addEventListener("click", wyczyśćPodświetleniaBurZPanelu);
-  elementy.przyciskUzupełnijProgram.addEventListener("click", function uzupełnijProgram() {
-    wyślijAkcjęProgramuHarmonogramu(komunikaty.UZUPEŁNIJ_PROGRAM_BUR, "Uzupełniono program usługi.");
-  });
-  elementy.przyciskGenerujHarmonogram.addEventListener("click", wygenerujHarmonogramWPanelu);
+  elementy.przyciskUzupełnijProgram.addEventListener("click", uzupełnijProgramWPanelu);
+  elementy.przyciskGenerujHarmonogram.addEventListener("click", przygotujHarmonogramWPanelu);
   elementy.przyciskImportujHarmonogramXml.addEventListener("click", function importujXml() {
-    wyślijAkcjęProgramuHarmonogramu(komunikaty.IMPORTUJ_HARMONOGRAM_XML_BUR, "Zaimportowano harmonogram XML.");
+    wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR);
   });
   elementy.przyciskWypełnijHarmonogramRęcznie.addEventListener("click", function wypełnijRęcznie() {
-    wyślijAkcjęProgramuHarmonogramu(komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR, "Wypełniono harmonogram ręcznie.");
+    wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR);
   });
 
   pobierzAktywnąKartę()
@@ -1372,4 +1585,5 @@
 
   odczytajOstatniImport();
   odświeżStanProgramuHarmonogramu();
+  odświeżStanPrzygotowaniaHarmonogramu();
 })(globalThis);
