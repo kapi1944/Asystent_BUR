@@ -288,6 +288,101 @@ li + li {
   margin-top: 10px;
 }
 
+.podglad-harmonogramu {
+  margin-top: 10px;
+  overflow-x: auto;
+}
+
+.podglad-harmonogramu:empty {
+  display: none;
+}
+
+.podglad-harmonogramu-metryka {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 9px;
+  border: 1px solid var(--ramka);
+  border-radius: 6px;
+  background: var(--panel-drugi);
+}
+
+.podglad-harmonogramu-metryka dt {
+  color: var(--tekst-slaby);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.podglad-harmonogramu-metryka dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.podglad-harmonogramu table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  background: var(--panel-drugi);
+}
+
+.podglad-harmonogramu th,
+.podglad-harmonogramu td {
+  padding: 7px;
+  border: 1px solid var(--ramka);
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.podglad-harmonogramu th {
+  color: var(--tekst-slaby);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.podglad-typ-zajęcia td:first-child,
+.podglad-typ-przerwa td:first-child,
+.podglad-typ-walidacja td:first-child {
+  border-left-width: 4px;
+}
+
+.podglad-typ-zajęcia td:first-child {
+  border-left-color: var(--zielony);
+}
+
+.podglad-typ-przerwa td:first-child {
+  border-left-color: var(--pomaranczowy);
+}
+
+.podglad-typ-walidacja td:first-child {
+  border-left-color: var(--czerwony);
+}
+
+.podglad-harmonogramu-ostrzezenia {
+  margin: 0 0 8px;
+  padding: 9px 9px 9px 26px;
+  border: 1px solid var(--pomaranczowy);
+  border-radius: 6px;
+  background: var(--panel-drugi);
+  color: #ffe6be;
+}
+
+.podglad-harmonogramu-blad,
+.podglad-harmonogramu-pusty {
+  margin: 0;
+  padding: 9px;
+  border: 1px solid var(--ramka);
+  border-left: 4px solid var(--czerwony);
+  border-radius: 6px;
+  background: var(--panel-drugi);
+}
+
+.podglad-harmonogramu-pusty {
+  border-left-color: var(--ramka);
+  color: var(--tekst-slaby);
+}
+
 .pozycja-wypełniania {
   padding: 9px;
   border: 1px solid var(--ramka);

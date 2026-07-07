@@ -278,6 +278,35 @@
     ].join("-");
   }
 
+  function przygotujTematHarmonogramu(tytuł) {
+    let temat = oczyscLinie(tytuł)
+      .replace(/\b[123]\s*[-–]?\s*dniowe\s+szkolenie\b/gi, "")
+      .replace(/\b[123]\s*[-–]?\s*dniowe\b/gi, "")
+      .replace(/\bw\s+(Zakopanem|Gdańsku|Gdansku|Kołobrzegu|Kolobrzegu)\b/gi, "")
+      .replace(/\(?\s*noclegi i wyżywienie w cenie szkolenia\s*\)?/gi, "")
+      .replace(/\(?\s*noclegi i wyzywienie w cenie szkolenia\s*\)?/gi, "")
+      .replace(/\s+[–-]\s*$/g, "")
+      .replace(/^[–-]\s+/g, "")
+      .replace(/\s+([.,;:!?])/g, "$1")
+      .replace(/[.。]+$/g, "")
+      .replace(/\s*[–-]\s*$/g, "")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    temat = temat
+      .replace(/\(\s*\)/g, "")
+      .replace(/\s+([)\]}])/g, "$1")
+      .replace(/([([{])\s+/g, "$1")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+
+    if (temat.length > 200) {
+      return temat.slice(0, 197) + "...";
+    }
+
+    return temat;
+  }
+
   function zbudujDatyZakresu(dataStart, dataKoniec) {
     const start = parsujDatęBur(dataStart);
     const koniec = parsujDatęBur(dataKoniec);
@@ -292,6 +321,66 @@
     }
 
     return daty;
+  }
+
+  function pobierzDatyHarmonogramuZTerminu(termin) {
+    if (!termin) {
+      return [];
+    }
+
+    return zbudujDatyZakresu(
+      termin.dataStartBur || termin.dataOdTekst,
+      termin.dataKoniecBur || termin.dataDoTekst || termin.dataOdTekst
+    );
+  }
+
+  function wybierzTerminHarmonogramu(szkolenie, indeks) {
+    const terminy = szkolenie && Array.isArray(szkolenie.terminy) ? szkolenie.terminy : [];
+    const czyWybranoIndeks = indeks !== null && indeks !== undefined && indeks !== "";
+    const liczbowyIndeks = czyWybranoIndeks ? Number(indeks) : NaN;
+
+    if (terminy.length === 1) {
+      return {
+        ok: true,
+        termin: terminy[0],
+        indeks: 0,
+        liczbaTerminów: terminy.length
+      };
+    }
+
+    if (terminy.length > 1 && !czyWybranoIndeks) {
+      return {
+        ok: false,
+        komunikat: "Wybierz termin SEMPER do wygenerowania harmonogramu.",
+        kod: "BRAK_WYBORU_TERMINU",
+        liczbaTerminów: terminy.length
+      };
+    }
+
+    if (!terminy.length) {
+      return {
+        ok: true,
+        termin: {},
+        indeks: null,
+        liczbaTerminów: terminy.length
+      };
+    }
+
+    if (!Number.isInteger(liczbowyIndeks) || liczbowyIndeks < 0 || liczbowyIndeks >= terminy.length) {
+      return {
+        ok: false,
+        komunikat: "Wybrany termin SEMPER jest nieprawidłowy.",
+        kod: "NIEPRAWIDLOWY_TERMIN",
+        liczbaTerminów: terminy.length
+      };
+    }
+
+    return {
+      ok: true,
+      termin: terminy[liczbowyIndeks],
+      indeks: liczbowyIndeks,
+      liczbaTerminów: terminy.length
+    };
   }
 
   function znormalizujDaty(daty) {
@@ -392,6 +481,9 @@
   przestrzeń.przygotujTekstProgramu = przygotujTekstProgramu;
   przestrzeń.konwertujTekstProgramuNaHtml = konwertujTekstProgramuNaHtml;
   przestrzeń.pobierzGodzinyDnia = pobierzGodzinyDnia;
+  przestrzeń.przygotujTematHarmonogramu = przygotujTematHarmonogramu;
+  przestrzeń.pobierzDatyHarmonogramuZTerminu = pobierzDatyHarmonogramuZTerminu;
+  przestrzeń.wybierzTerminHarmonogramu = wybierzTerminHarmonogramu;
   przestrzeń.zbudujPozycjeHarmonogramu = zbudujPozycjeHarmonogramu;
   przestrzeń.wygenerujXmlHarmonogramu = wygenerujXmlHarmonogramu;
   przestrzeń.zbudujDatyZakresu = zbudujDatyZakresu;

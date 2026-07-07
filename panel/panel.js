@@ -40,6 +40,7 @@
     statusEdytoraProgramu: document.getElementById("status-edytora-programu"),
     statusTabeliHarmonogramu: document.getElementById("status-tabeli-harmonogramu"),
     statusProgramuHarmonogramu: document.getElementById("status-programu-harmonogramu"),
+    podglądHarmonogramu: document.getElementById("podglad-harmonogramu"),
     przyciskUzupełnijProgram: document.getElementById("przycisk-uzupelnij-program"),
     przyciskGenerujHarmonogram: document.getElementById("przycisk-generuj-harmonogram"),
     przyciskImportujHarmonogramXml: document.getElementById("przycisk-importuj-harmonogram-xml"),
@@ -483,12 +484,6 @@
       });
   }
 
-  function pobierzPierwszyTerminSzkolenia(szkolenie) {
-    const terminy = szkolenie && Array.isArray(szkolenie.terminy) ? szkolenie.terminy : [];
-
-    return terminy[0] || null;
-  }
-
   function czyTerminOnline(termin) {
     const tekst = [
       termin ? termin.forma : "",
@@ -499,45 +494,195 @@
   }
 
   function pobierzDatyTerminu(termin) {
-    if (!termin) {
-      return [];
+    return przestrzeń.pobierzDatyHarmonogramuZTerminu(termin);
+  }
+
+  function pobierzTytułHarmonogramu(szkolenie) {
+    return szkolenie.tytułPoNormalizacjiBur || szkolenie.tytułBur || szkolenie.tytulBur || szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "";
+  }
+
+  function czyDatySąKolejne(daty) {
+    const listaDat = Array.isArray(daty) ? daty : [];
+
+    for (let indeks = 1; indeks < listaDat.length; indeks += 1) {
+      const poprzednia = przestrzeń.parsujDatęBur(listaDat[indeks - 1]);
+      const aktualna = przestrzeń.parsujDatęBur(listaDat[indeks]);
+
+      if (!poprzednia || !aktualna) {
+        return false;
+      }
+
+      poprzednia.setDate(poprzednia.getDate() + 1);
+
+      if (poprzednia.getTime() !== aktualna.getTime()) {
+        return false;
+      }
     }
 
-    return przestrzeń.zbudujDatyZakresu(
-      termin.dataStartBur || termin.dataOdTekst,
-      termin.dataKoniecBur || termin.dataDoTekst || termin.dataOdTekst
-    );
+    return true;
+  }
+
+  function zbudujOstrzeżeniaHarmonogramu(wybór, daty, tytuł, temat) {
+    const ostrzeżenia = [];
+    const termin = wybór.termin || {};
+    const tytułOczyszczony = String(tytuł || "").replace(/\s+/g, " ").trim();
+
+    if (!czyDatySąKolejne(daty)) {
+      ostrzeżenia.push("Daty harmonogramu nie są kolejnymi dniami.");
+    }
+
+    if (tytułOczyszczony && temat !== tytułOczyszczony) {
+      ostrzeżenia.push("Temat został skrócony do pola harmonogramu.");
+    }
+
+    if (!termin.dataStartBur || !termin.dataKoniecBur) {
+      ostrzeżenia.push("Nietypowy termin — sprawdź harmonogram przed importem.");
+    }
+
+    if (wybór.liczbaTerminów > 1 && (wybór.indeks === null || wybór.indeks === undefined)) {
+      ostrzeżenia.push("Szkolenie ma więcej niż jeden termin i nie wybrano terminu SEMPER.");
+    }
+
+    return ostrzeżenia;
   }
 
   function zbudujDaneProgramuHarmonogramu() {
-    return odczytajStorage(["ostatnieSzkolenieSemper"]).then(function zbuduj(dane) {
+    return odczytajStorage(["ostatnieSzkolenieSemper", "wybranyTerminSemperIndex"]).then(function zbuduj(dane) {
       const szkolenie = dane.ostatnieSzkolenieSemper;
-      const termin = pobierzPierwszyTerminSzkolenia(szkolenie);
-      const daty = pobierzDatyTerminu(termin);
 
       if (!szkolenie) {
         throw new Error("Najpierw zaimportuj dane z SEMPER.");
       }
 
-      if (daty.length === 0) {
-        throw new Error("Nie udało się ustalić dat harmonogramu z ostatniego importu SEMPER.");
+      const wybór = przestrzeń.wybierzTerminHarmonogramu(szkolenie, dane.wybranyTerminSemperIndex);
+
+      if (!wybór.ok) {
+        throw new Error(wybór.komunikat || "Wybierz termin SEMPER do wygenerowania harmonogramu.");
       }
 
-      const tematSzkolenia = szkolenie.tytułPoNormalizacjiBur || szkolenie.tytułBur || szkolenie.tytulBur || szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "";
+      const termin = wybór.termin;
+      const daty = pobierzDatyTerminu(termin);
+
+      if (daty.length === 0) {
+        throw new Error("Nie udało się ustalić dat harmonogramu z wybranego terminu SEMPER.");
+      }
+
+      const tytułHarmonogramu = pobierzTytułHarmonogramu(szkolenie);
+      const tematSzkolenia = przestrzeń.przygotujTematHarmonogramu(tytułHarmonogramu);
+      const czyOnline = czyTerminOnline(termin);
       const pozycje = przestrzeń.zbudujPozycjeHarmonogramu({
         tematSzkolenia: tematSzkolenia,
         daty: daty,
-        czyOnline: czyTerminOnline(termin),
+        czyOnline: czyOnline,
         emailTrenera: przestrzeń.EMAIL_TRENERA_HARMONOGRAMU,
         emailWalidatora: przestrzeń.EMAIL_WALIDATORA_HARMONOGRAMU
       });
+      const ostrzeżenia = zbudujOstrzeżeniaHarmonogramu(wybór, daty, tytułHarmonogramu, tematSzkolenia);
 
       return {
         program: szkolenie.sekcje ? szkolenie.sekcje.program : "",
         tematSzkolenia: tematSzkolenia,
+        termin: termin,
+        opisTerminu: opiszTerminDoWyboru(termin, wybór.indeks),
+        indeksTerminu: wybór.indeks,
+        tryb: czyOnline ? "online" : "stacjonarny",
+        ostrzeżenia: ostrzeżenia,
         pozycje: pozycje,
         xml: przestrzeń.wygenerujXmlHarmonogramu(pozycje)
       };
+    });
+  }
+
+  function dodajTekstPodglądu(rodzic, znacznik, tekst, klasa) {
+    const element = document.createElement(znacznik);
+
+    if (klasa) {
+      element.className = klasa;
+    }
+
+    element.textContent = tekst;
+    rodzic.appendChild(element);
+    return element;
+  }
+
+  function pokażBłądPodgląduHarmonogramu(komunikat) {
+    elementy.podglądHarmonogramu.textContent = "";
+    dodajTekstPodglądu(elementy.podglądHarmonogramu, "p", komunikat, "podglad-harmonogramu-blad");
+  }
+
+  function pokażPodglądHarmonogramu(dane) {
+    const podgląd = elementy.podglądHarmonogramu;
+    const pozycje = dane && Array.isArray(dane.pozycje) ? dane.pozycje : [];
+    const tabela = document.createElement("table");
+    const nagłówek = document.createElement("thead");
+    const ciało = document.createElement("tbody");
+    const wierszNagłówka = document.createElement("tr");
+    const kolumny = ["Lp.", "Typ aktywności", "Data", "Od", "Do", "Przedmiot/temat", "Prowadzący"];
+
+    podgląd.textContent = "";
+
+    if (!pozycje.length) {
+      dodajTekstPodglądu(podgląd, "p", "Brak wygenerowanego podglądu harmonogramu.", "podglad-harmonogramu-pusty");
+      return;
+    }
+
+    const metryka = document.createElement("dl");
+    metryka.className = "podglad-harmonogramu-metryka";
+    [
+      ["Wybrany termin SEMPER", dane.opisTerminu || "-"],
+      ["Tryb", dane.tryb || "-"],
+      ["Liczba pozycji", String(pozycje.length)]
+    ].forEach(function dodajWpis(wpis) {
+      dodajTekstPodglądu(metryka, "dt", wpis[0]);
+      dodajTekstPodglądu(metryka, "dd", wpis[1]);
+    });
+    podgląd.appendChild(metryka);
+
+    if (dane.ostrzeżenia && dane.ostrzeżenia.length) {
+      const lista = document.createElement("ul");
+
+      lista.className = "podglad-harmonogramu-ostrzezenia";
+      dane.ostrzeżenia.forEach(function dodajOstrzeżenie(ostrzeżenie) {
+        dodajTekstPodglądu(lista, "li", ostrzeżenie);
+      });
+      podgląd.appendChild(lista);
+    }
+
+    kolumny.forEach(function dodajKolumnę(nazwa) {
+      dodajTekstPodglądu(wierszNagłówka, "th", nazwa);
+    });
+    nagłówek.appendChild(wierszNagłówka);
+
+    pozycje.forEach(function dodajPozycję(pozycja, indeks) {
+      const wiersz = document.createElement("tr");
+      const wartości = [
+        String(indeks + 1),
+        pozycja.typ_aktywnosci || "",
+        pozycja.dzien_swiadczenia || "",
+        pozycja.czas_rozpoczecia || "",
+        pozycja.czas_zakonczenia || "",
+        pozycja.przedmiot || "",
+        pozycja.prowadzacy || ""
+      ];
+
+      wiersz.className = "podglad-typ-" + String(pozycja.typ_aktywnosci || "").toLowerCase();
+      wartości.forEach(function dodajWartość(wartość) {
+        dodajTekstPodglądu(wiersz, "td", wartość);
+      });
+      ciało.appendChild(wiersz);
+    });
+
+    tabela.appendChild(nagłówek);
+    tabela.appendChild(ciało);
+    podgląd.appendChild(tabela);
+  }
+
+  function zapiszDaneHarmonogramu(dane) {
+    return zapiszStorage({
+      ostatniePozycjeHarmonogramuBur: dane.pozycje,
+      ostatniXmlHarmonogramuBur: dane.xml,
+      ostatniWybranyTerminHarmonogramuBur: dane.indeksTerminu,
+      ostatnieOstrzeżeniaHarmonogramuBur: dane.ostrzeżenia || []
     });
   }
 
@@ -546,7 +691,10 @@
 
     zbudujDaneProgramuHarmonogramu()
       .then(function wyślij(dane) {
-        return bezpiecznieWyślijDoAktywnejKarty(Object.assign({ typ: typKomunikatu }, dane));
+        pokażPodglądHarmonogramu(dane);
+        return zapiszDaneHarmonogramu(dane).then(function wyślijPoZapisie() {
+          return bezpiecznieWyślijDoAktywnejKarty(Object.assign({ typ: typKomunikatu }, dane));
+        });
       })
       .then(function pokażWynik(odpowiedź) {
         const wynik = odpowiedź && odpowiedź.wynik;
@@ -559,7 +707,10 @@
         odświeżStanProgramuHarmonogramu();
       })
       .catch(function pokażBłąd(błąd) {
-        ustawStatusProgramuHarmonogramu(błąd && błąd.message ? błąd.message : "Nie udało się wykonać akcji.", "status-blad");
+        const komunikat = błąd && błąd.message ? błąd.message : "Nie udało się wykonać akcji.";
+
+        pokażBłądPodgląduHarmonogramu(komunikat);
+        ustawStatusProgramuHarmonogramu(komunikat, "status-blad");
       });
   }
 
@@ -568,15 +719,16 @@
 
     zbudujDaneProgramuHarmonogramu()
       .then(function pokażWynik(dane) {
-        return zapiszStorage({
-          ostatniePozycjeHarmonogramuBur: dane.pozycje,
-          ostatniXmlHarmonogramuBur: dane.xml
-        }).then(function pokaż() {
-          ustawStatusProgramuHarmonogramu("Wygenerowano " + dane.pozycje.length + " pozycji harmonogramu. Możesz importować XML albo użyć trybu ręcznego.", "status-odczytano");
+        pokażPodglądHarmonogramu(dane);
+        return zapiszDaneHarmonogramu(dane).then(function pokaż() {
+          ustawStatusProgramuHarmonogramu("Wygenerowano " + dane.pozycje.length + " pozycji harmonogramu. Sprawdź podgląd przed importem.", dane.ostrzeżenia.length ? "status-ostrzezenie" : "status-odczytano");
         });
       })
       .catch(function pokażBłąd(błąd) {
-        ustawStatusProgramuHarmonogramu(błąd && błąd.message ? błąd.message : "Nie udało się wygenerować harmonogramu.", "status-blad");
+        const komunikat = błąd && błąd.message ? błąd.message : "Nie udało się wygenerować harmonogramu.";
+
+        pokażBłądPodgląduHarmonogramu(komunikat);
+        ustawStatusProgramuHarmonogramu(komunikat, "status-blad");
       });
   }
 
