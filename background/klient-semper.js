@@ -77,24 +77,30 @@
       const tytuł = odczytajTytułZHtml(html) || zapasowyTytuł || adres;
       const mocneDopasowanie = przestrzeń.czyMocneDopasowanieTytułu(tytuł, fraza);
 
+      if (!mocneDopasowanie) {
+        return null;
+      }
+
       return {
         url: adres,
         tytuł: tytuł,
-        punktacja: mocneDopasowanie ? 100 : 0,
-        mocneDopasowanie: mocneDopasowanie
+        title: tytuł
       };
     } catch (błąd) {
+      if (!zapasowyTytuł || !przestrzeń.czyMocneDopasowanieTytułu(zapasowyTytuł, fraza)) {
+        return null;
+      }
+
       return {
         url: adres,
         tytuł: zapasowyTytuł || adres,
-        punktacja: 0,
-        mocneDopasowanie: false,
+        title: zapasowyTytuł || adres,
         błąd: błąd.message
       };
     }
   }
 
-  async function szukajŁączaSemper(fraza) {
+  async function znajdzLinkSzkoleniaSemperPoTytule(fraza) {
     const wyczyszczonaFraza = przestrzeń.tytułPrzedPierwsząInterpunkcją(przestrzeń.oczyśćLinię(fraza));
     const diagnostyka = {
       fraza: wyczyszczonaFraza,
@@ -112,11 +118,7 @@
     }
 
     if (wyczyszczonaFraza.length < 3) {
-      return {
-        ok: false,
-        błąd: "Fraza wyszukiwania jest za krótka.",
-        diagnostyka: diagnostyka
-      };
+      throw new Error("Fraza wyszukiwania jest za krótka.");
     }
 
     const dane = {
@@ -138,19 +140,12 @@
 
     const bezpośredniUrl = przestrzeń.odczytajŁączeZJsonaWyszukiwarki(odpowiedźWyszukiwarki);
 
-    if (bezpośredniUrl) {
+    if (bezpośredniUrl && przestrzeń.czyŁączeSzczegółówSzkolenia(bezpośredniUrl)) {
       const wynik = await weryfikujŁączeSzkoleniaSemper(bezpośredniUrl, wyczyszczonaFraza, "");
 
-      if (wynik && wynik.mocneDopasowanie) {
-        return {
-          ok: true,
-          fraza: wyczyszczonaFraza,
-          wynik: {
-            url: wynik.url,
-            tytuł: wynik.tytuł
-          },
-          diagnostyka: diagnostyka
-        };
+      if (wynik) {
+        wynik.diagnostyka = diagnostyka;
+        return wynik;
       }
     }
 
@@ -165,62 +160,101 @@
       diagnostyka.błądAutocomplete = błąd && błąd.message ? błąd.message : "Błąd pobierania autocomplete.";
     }
 
-    const kandydaci = przestrzeń
-      .wyciągnijŁączaZWyników(odpowiedźWyszukiwarki + "\n" + odpowiedźAutocomplete, wyczyszczonaFraza)
-      .slice(0, 8);
+    if (!odpowiedźWyszukiwarki && !odpowiedźAutocomplete && (diagnostyka.błądDirect || diagnostyka.błądAutocomplete)) {
+      throw new Error("Nie udało się wyszukać szkolenia na SEMPER.");
+    }
+
+    const kandydaci = przestrzeń.wyciągnijŁączaZWyników(odpowiedźAutocomplete, wyczyszczonaFraza);
     diagnostyka.liczbaKandydatów = kandydaci.length;
     pokażDiagnostykę();
 
     if (kandydaci.length === 0) {
+      return null;
+    }
+
+    const mocne = kandydaci.filter(function wybierzMocne(kandydat) {
+      return przestrzeń.czyMocneDopasowanieTytułu(kandydat.tytuł, wyczyszczonaFraza);
+    });
+
+    if (mocne.length > 1) {
       return {
-        ok: false,
-        fraza: wyczyszczonaFraza,
-        błąd: "Nie znaleziono pewnego linku",
+        choices: mocne.slice(0, 8),
+        wybory: mocne.slice(0, 8),
         diagnostyka: diagnostyka
       };
     }
 
-    const zweryfikowane = [];
-
-    for (let indeks = 0; indeks < kandydaci.length; indeks += 1) {
-      const kandydat = kandydaci[indeks];
-      const wynik = await weryfikujŁączeSzkoleniaSemper(kandydat.url, wyczyszczonaFraza, kandydat.tytuł);
+    if (mocne.length === 1) {
+      const wynik = await weryfikujŁączeSzkoleniaSemper(mocne[0].url, wyczyszczonaFraza, mocne[0].tytuł);
 
       if (wynik) {
-        zweryfikowane.push({
-          url: wynik.url,
-          tytuł: wynik.tytuł,
-          punktacja: wynik.mocneDopasowanie ? Math.max(kandydat.punktacja, 90) : kandydat.punktacja
-        });
+        wynik.diagnostyka = diagnostyka;
+        return wynik;
       }
     }
 
-    zweryfikowane.sort(function sortujWyniki(pierwszy, drugi) {
-      return drugi.punktacja - pierwszy.punktacja;
-    });
+    if (kandydaci.length === 1) {
+      const wynik = await weryfikujŁączeSzkoleniaSemper(kandydaci[0].url, wyczyszczonaFraza, kandydaci[0].tytuł);
 
-    const mocne = zweryfikowane.filter(function wybierzMocne(wynik) {
-      return wynik.punktacja >= 66 && przestrzeń.czyMocneDopasowanieTytułu(wynik.tytuł, wyczyszczonaFraza);
-    });
-
-    if (mocne.length === 1) {
-      return {
-        ok: true,
-        fraza: wyczyszczonaFraza,
-        wynik: {
-          url: mocne[0].url,
-          tytuł: mocne[0].tytuł
-        },
-        diagnostyka: diagnostyka
-      };
+      if (wynik) {
+        wynik.diagnostyka = diagnostyka;
+        return wynik;
+      }
     }
 
     return {
-      ok: true,
-      fraza: wyczyszczonaFraza,
-      wybory: (mocne.length ? mocne : zweryfikowane).slice(0, 8),
+      choices: kandydaci.slice(0, 8),
+      wybory: kandydaci.slice(0, 8),
       diagnostyka: diagnostyka
     };
+  }
+
+  async function szukajŁączaSemper(fraza) {
+    const diagnostykaStartowa = {
+      fraza: przestrzeń.tytułPrzedPierwsząInterpunkcją(przestrzeń.oczyśćLinię(fraza)),
+      liczbaKandydatów: 0
+    };
+
+    try {
+      const wynik = await znajdzLinkSzkoleniaSemperPoTytule(fraza);
+      const diagnostyka = wynik && wynik.diagnostyka ? wynik.diagnostyka : diagnostykaStartowa;
+
+      if (!wynik) {
+        return {
+          ok: false,
+          fraza: diagnostyka.fraza,
+          błąd: "Nie znaleziono pewnego linku SEMPER.",
+          diagnostyka: diagnostyka
+        };
+      }
+
+      if (wynik.choices || wynik.wybory) {
+        return {
+          ok: true,
+          fraza: diagnostyka.fraza,
+          wybory: wynik.choices || wynik.wybory,
+          diagnostyka: diagnostyka
+        };
+      }
+
+      return {
+        ok: true,
+        fraza: diagnostyka.fraza,
+        wynik: {
+          url: wynik.url,
+          tytuł: wynik.tytuł || wynik.title || wynik.url,
+          title: wynik.title || wynik.tytuł || wynik.url
+        },
+        diagnostyka: diagnostyka
+      };
+    } catch (błąd) {
+      return {
+        ok: false,
+        fraza: diagnostykaStartowa.fraza,
+        błąd: błąd && błąd.message ? błąd.message : "Nie udało się wyszukać szkolenia na SEMPER.",
+        diagnostyka: diagnostykaStartowa
+      };
+    }
   }
 
   async function importujSzkolenieZŁączaSemper(url) {
@@ -246,6 +280,8 @@
   przestrzeń.wyślijPostDoSempera = wyślijPostDoSempera;
   przestrzeń.szukajŁączaSemper = szukajŁączaSemper;
   przestrzeń.weryfikujŁączeSzkoleniaSemper = weryfikujŁączeSzkoleniaSemper;
+  przestrzeń.verifyTrainingLink = weryfikujŁączeSzkoleniaSemper;
+  przestrzeń.znajdzLinkSzkoleniaSemperPoTytule = znajdzLinkSzkoleniaSemperPoTytule;
   przestrzeń.importujSzkolenieZŁączaSemper = importujSzkolenieZŁączaSemper;
 
   globalny.BurAsystent = przestrzeń;

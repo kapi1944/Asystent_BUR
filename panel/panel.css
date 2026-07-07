@@ -275,7 +275,13 @@ li + li {
   overflow-wrap: anywhere;
 }
 
-.link-zewnetrzny {
+.nagłówek-wyników-semper {
+  display: block;
+  color: var(--tekst);
+}
+
+.link-zewnetrzny,
+.link-zewnętrzny {
   display: inline-block;
   margin-top: 8px;
   color: #ffb4b4;

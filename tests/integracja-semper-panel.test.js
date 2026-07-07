@@ -12,7 +12,9 @@
         return {
           ok: true,
           text: async function tekst() {
-            return "<a href=\"/component/trainings/details/szkolenie,411.html\">Prawo ochrony środowiska w praktyce</a>";
+            return JSON.stringify({
+              url: "/component/trainings/details/szkolenie,411.html"
+            });
           }
         };
       }

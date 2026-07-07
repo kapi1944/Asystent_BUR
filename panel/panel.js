@@ -1276,7 +1276,7 @@
     const link = document.createElement("a");
 
     karta.className = "wynik-semper";
-    tytuł.textContent = wynik.tytuł || "Wybrany link SEMPER";
+    tytuł.textContent = "Znaleziono: " + (wynik.tytuł || wynik.title || "Wybrany link SEMPER");
     url.textContent = wynik.url;
     link.href = wynik.url;
     link.target = "_blank";
@@ -1292,6 +1292,12 @@
   function pokażWyborySemper(wybory) {
     wyczyśćWynikiSemper();
 
+    const nagłówek = document.createElement("strong");
+
+    nagłówek.className = "nagłówek-wyników-semper";
+    nagłówek.textContent = "Wybierz szkolenie SEMPER";
+    elementy.wynikiSemper.appendChild(nagłówek);
+
     wybory.slice(0, 8).forEach(function dodajWynik(wynik) {
       const przycisk = document.createElement("button");
       const tytuł = document.createElement("strong");
@@ -1299,7 +1305,7 @@
 
       przycisk.type = "button";
       przycisk.className = "wynik-semper";
-      tytuł.textContent = wynik.tytuł || "Wynik SEMPER";
+      tytuł.textContent = wynik.tytuł || wynik.title || "Wynik SEMPER";
       url.textContent = wynik.url;
       przycisk.appendChild(tytuł);
       przycisk.appendChild(url);
@@ -1370,7 +1376,7 @@
         }
 
         if (wartość.length < 3) {
-          throw new Error("Wpisz frazę SEMPER albo otwórz formularz BUR z tytułem usługi.");
+          throw new Error("Najpierw pobierz dane z formularza BUR albo wpisz frazę szkolenia.");
         }
 
         ustawStatus(elementy.statusSemper, "Szukam szkolenia na SEMPER...", "status-neutralny");
@@ -1399,7 +1405,13 @@
         pokażDiagnostykęSemper();
 
         if (!wynik.ok) {
-          ustawStatus(elementy.statusSemper, "Nie znaleziono pewnego linku. Wklej link SEMPER ręcznie.", "status-blad");
+          const czyBłądSieci = /Nie udało się wyszukać szkolenia na SEMPER/i.test(wynik.błąd || "");
+
+          ustawStatus(
+            elementy.statusSemper,
+            czyBłądSieci ? "Nie udało się wyszukać szkolenia na SEMPER." : "Nie znaleziono pewnego linku SEMPER.",
+            "status-blad"
+          );
           return;
         }
 
@@ -1421,7 +1433,7 @@
       .catch(function pokażBłąd(błąd) {
         diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku SEMPER.";
         pokażDiagnostykęSemper();
-        ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku SEMPER.", "status-blad");
+        ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wyszukać szkolenia na SEMPER.", "status-blad");
       });
   }
 

@@ -8,9 +8,23 @@
     sprawdzRownosc(oryginał, "Prawo ochrony środowiska i zamówienia publiczne");
   });
 
+  test("normalizeForScore normalizuje znaki do punktacji", function sprawdź() {
+    sprawdzRownosc(
+      semper.normalizeForScore("Kołobrzeg — Środowisko i opłaty!"),
+      "kolobrzeg srodowisko i oplaty"
+    );
+  });
+
   test("tytułPrzedPierwsząInterpunkcją obcina tytuł do początku", function sprawdź() {
     sprawdzRownosc(
       semper.tytułPrzedPierwsząInterpunkcją("Prawo ochrony środowiska w praktyce – Szkolenie w Zakopanem."),
+      "Prawo ochrony środowiska w praktyce"
+    );
+  });
+
+  test("titleBeforeFirstPunctuation obcina długi tytuł BUR przed opisem", function sprawdź() {
+    sprawdzRownosc(
+      semper.titleBeforeFirstPunctuation("Prawo ochrony środowiska w praktyce – 3-dniowe szkolenie w Zakopanem (noclegi i wyżywienie w cenie szkolenia)."),
       "Prawo ochrony środowiska w praktyce"
     );
   });
@@ -31,10 +45,25 @@
     sprawdzWarunek(słowa.includes("zamowienia"), "Powinno zawierać słowo zamówienia bez znaków diakrytycznych.");
   });
 
+  test("importantSearchWords usuwa ogólne słowa z frazy", function sprawdź() {
+    const słowa = semper.importantSearchWords("Praktyczne szkolenie dla działu kadr i płac");
+
+    sprawdzWarunek(!słowa.includes("praktyczne"), "Nie powinno zawierać słowa praktyczne.");
+    sprawdzWarunek(!słowa.includes("szkolenie"), "Nie powinno zawierać słowa szkolenie.");
+    sprawdzWarunek(!słowa.includes("dla"), "Nie powinno zawierać słowa dla.");
+  });
+
   test("czyMocneDopasowanieTytułu działa dla polskich znaków", function sprawdź() {
     sprawdzWarunek(
       semper.czyMocneDopasowanieTytułu("Prawo ochrony środowiska w praktyce", "Prawo ochrony srodowiska w praktyce"),
       "Tytuły powinny być dopasowane mimo braku znaków diakrytycznych."
+    );
+  });
+
+  test("isStrongTitleMatch uznaje mocny tytuł z dodatkiem SEMPER", function sprawdź() {
+    sprawdzWarunek(
+      semper.isStrongTitleMatch("Prawo ochrony środowiska w praktyce – szkolenie SEMPER", "Prawo ochrony środowiska w praktyce"),
+      "Tytuł z dodatkiem marketingowym powinien pasować."
     );
   });
 
@@ -52,12 +81,34 @@
     );
   });
 
+  test("isTrainingDetailsUrl odrzuca stronę główną i obcą domenę", function sprawdź() {
+    sprawdzWarunek(
+      !semper.isTrainingDetailsUrl("https://www.szkolenia-semper.pl/"),
+      "Strona główna nie jest linkiem szczegółów."
+    );
+    sprawdzWarunek(
+      !semper.isTrainingDetailsUrl("https://example.com/component/trainings/details/szkolenie,411.html"),
+      "Obca domena nie powinna być zaakceptowana."
+    );
+  });
+
   test("wyciągnijŁączaZWyników wyciąga kandydatów z HTML", function sprawdź() {
     const html = "<div><a href=\"/component/trainings/details/szkolenie,411.html\">Prawo ochrony środowiska w praktyce</a></div>";
     const wyniki = semper.wyciągnijŁączaZWyników(html, "Prawo ochrony środowiska");
 
     sprawdzRownosc(wyniki.length, 1);
     sprawdzWarunek(wyniki[0].tytuł.includes("środowiska"), "Tytuł powinien zachować polskie znaki.");
+  });
+
+  test("linksFromSearchHtml zwraca tylko poprawny link szczegółów", function sprawdź() {
+    const html = [
+      "<a href=\"/component/trainings/details/szkolenie,411.html\">Prawo ochrony środowiska</a>",
+      "<a href=\"/kontakt\">Prawo ochrony środowiska kontakt</a>"
+    ].join("");
+    const wyniki = semper.linksFromSearchHtml(html, "Prawo ochrony środowiska");
+
+    sprawdzRownosc(wyniki.length, 1);
+    sprawdzWarunek(wyniki[0].url.includes("szkolenie,411.html"), "Powinien zostać tylko link szczegółów.");
   });
 
   test("wyciągnijŁączaZWyników obsługuje JSON string z HTML-em", function sprawdź() {
