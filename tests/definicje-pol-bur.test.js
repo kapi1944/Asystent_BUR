@@ -1,0 +1,8 @@
+(function testyDefinicjiPolBur() {
+  const bur = window.BurAsystent;
+  function kontekst(forma) { return { szkolenieSemper: { tytułPoNormalizacjiBur: "Zażółć", sekcje: { grupaDocelowa: "Łódź", celSzkolenia: "Ćwiczenia" } }, wybranyTermin: { forma: forma || "online", miejsce: forma === "stacjonarna" ? "Łódź" : "online", dataStartBur: "01-01-2027", dataKoniecBur: "02-01-2027" } }; }
+  test("katalog definicji BUR zawiera komplet aktualnych pól", function sprawdź() { sprawdzRownosc(bur.pobierzDefinicjePólWypełnieniaBur(kontekst()).length, 22); });
+  test("katalog definicji BUR ma unikalne serializowalne identyfikatory", function sprawdź() { const pola = bur.pobierzDefinicjePólWypełnieniaBur(kontekst()); sprawdzRownosc(new Set(pola.map(function id(p) { return p.id; })).size, pola.length); sprawdzWarunek(Boolean(JSON.stringify(pola))); });
+  test("katalog definicji BUR rozróżnia online i stacjonarną", function sprawdź() { const online = bur.pobierzDefinicjePólWypełnieniaBur(kontekst()); const stacjonarna = bur.pobierzDefinicjePólWypełnieniaBur(kontekst("stacjonarna")); sprawdzRownosc(online.find(function p(x) { return x.id === "minimum-uczestnikow"; }).wartośćProponowana, "2"); sprawdzRownosc(stacjonarna.find(function p(x) { return x.id === "minimum-uczestnikow"; }).wartośćProponowana, "5"); });
+  test("katalog definicji BUR zawiera przełączniki i pola tabeli", function sprawdź() { const pola = bur.pobierzDefinicjePólWypełnieniaBur(kontekst()); sprawdzWarunek(pola.filter(function p(x) { return x.typPola === "przełącznik"; }).length >= 7); sprawdzWarunek(pola.filter(function p(x) { return x.typPola === "pole_tabeli"; }).length === 2); });
+})();

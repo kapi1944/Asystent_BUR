@@ -706,9 +706,16 @@
     };
 
     try {
-      wypełnijFormularzWstępny(dokument, kontekst || {}, raport);
-      wypełnijInformacjePodstawowe(dokument, kontekst || {}, raport);
-      wypełnijGłównyCelUsługi(dokument, kontekst || {}, raport);
+      const definicje = przestrzeń.pobierzDefinicjePólWypełnieniaBur(kontekst || {});
+      definicje.forEach(function wypełnij(definicja) {
+        let pole = null;
+        if (definicja.sposóbLokalizacji === "tabela") {
+          pole = znajdźPoleWTabeli(dokument, definicja.definicjaPola.tabela, definicja.definicjaPola.kolumna);
+        }
+        const ustawienia = { sekcja: definicja.sekcja, pole: definicja.pole, wartość: definicja.wartośćProponowana, typ: definicja.typPola === "tekst" || definicja.typPola === "liczba" || definicja.typPola === "data" || definicja.typPola === "pole_tabeli" ? "" : definicja.typPola, definicja: definicja.definicjaPola };
+        const ok = pole ? (ustawienia.typ === "select2" ? ustawSelect2PoTekście(dokument, pole, ustawienia.wartość) : ustawWartośćPola(pole, ustawienia.wartość)) : ustawRaportowanePole(raport, dokument, ustawienia);
+        if (pole) { if (ok) { dodajUzupełnione(raport, definicja.sekcja, definicja.pole, definicja.wartośćProponowana); } else { dodajPominięte(raport, definicja.sekcja, definicja.pole, "Nie udało się ustawić pola tabeli."); } }
+      });
     } catch (błąd) {
       dodajBłąd(raport, "Wypełnianie formularza", "Formularz BUR", błąd && błąd.message ? błąd.message : "Nieznany błąd wypełniania.");
     }
