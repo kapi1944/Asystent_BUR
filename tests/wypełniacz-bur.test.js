@@ -189,4 +189,37 @@
     const wynik = await bur.ustawPoleBurZWeryfikacją(dokument, { pole: "Tytuł", wartość: "Nowy", definicja: { selektory: ["#tytul"] } });
     sprawdzRownosc(wynik.kodBłędu, "KONFLIKT_WARTOŚCI");
   });
+
+  test("adapter BUR zapisuje datę do tekstowego inputa i potwierdza zdarzenia", async function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Data tekstowa");
+    dokument.body.innerHTML = "<div id='informacjepodstawowesekcja-datarozpoczeciauslugi'><input placeholder='dd-mm-yyyy'></div>";
+    const input = dokument.querySelector("input"); const zdarzenia = []; let rozmyto = false;
+    ["input", "change"].forEach(function nasłuchuj(typ) { input.addEventListener(typ, function zapisz() { zdarzenia.push(typ); }); });
+    input.blur = function rozmyj() { rozmyto = true; };
+    const wynik = await bur.ustawPoleBurZWeryfikacją(dokument, { typPola: "data", wartość: "03-06-2027", definicja: { selektory: ["#informacjepodstawowesekcja-datarozpoczeciauslugi"] } });
+    sprawdzWarunek(wynik.ok && input.value === "03-06-2027"); sprawdzWarunek(zdarzenia.includes("input") && zdarzenia.includes("change") && rozmyto);
+  });
+
+  test("adapter BUR zapisuje i porównuje input typu date", async function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Data techniczna");
+    dokument.body.innerHTML = "<input id='informacjepodstawowesekcja-datazakonczeniauslugi' type='date'>";
+    const wynik = await bur.ustawPoleBurZWeryfikacją(dokument, { typPola: "data", wartość: "03.06.2027", definicja: { selektory: ["#informacjepodstawowesekcja-datazakonczeniauslugi"] } });
+    sprawdzWarunek(wynik.ok && dokument.querySelector("input").value === "2027-06-03"); sprawdzRownosc(wynik.wartośćTechnicznaPo, "2027-06-03");
+  });
+
+  test("adapter BUR obsługuje trzy pola dat oraz wylicza rekrutację", async function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Daty BUR");
+    dokument.body.innerHTML = "<input id='informacjepodstawowesekcja-datarozpoczeciauslugi'><input id='informacjepodstawowesekcja-datazakonczeniauslugi' type='date'><input id='informacjepodstawowesekcja-datazakonczeniarekrutacji'>";
+    const definicje = bur.pobierzDefinicjePólWypełnieniaBur({ szkolenieSemper: {}, wybranyTermin: { dataStartBur: "03-06-2027", dataKoniecBur: "04-06-2027" } }).filter(function tylkoDaty(pozycja) { return pozycja.typPola === "data"; });
+    for (let indeks = 0; indeks < definicje.length; indeks += 1) { const pozycja = definicje[indeks]; const wynik = await bur.ustawPoleBurZWeryfikacją(dokument, { typPola: "data", wartość: pozycja.wartośćProponowana, definicja: pozycja.definicjaPola }); sprawdzWarunek(wynik.ok); }
+    sprawdzRownosc(dokument.querySelector("#informacjepodstawowesekcja-datarozpoczeciauslugi").value, "03-06-2027"); sprawdzRownosc(dokument.querySelector("#informacjepodstawowesekcja-datazakonczeniauslugi").value, "2027-06-04"); sprawdzRownosc(dokument.querySelector("#informacjepodstawowesekcja-datazakonczeniarekrutacji").value, "02-06-2027");
+  });
+
+  test("adapter BUR odrzuca niedostępne lub nieistniejące pole daty", async function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Błędy dat");
+    dokument.body.innerHTML = "<input id='readonly' readonly>";
+    const niedostępne = await bur.ustawPoleBurZWeryfikacją(dokument, { typPola: "data", wartość: "03-06-2027", definicja: { selektory: ["#readonly"] } });
+    const brak = await bur.ustawPoleBurZWeryfikacją(dokument, { typPola: "data", wartość: "03-06-2027", definicja: { selektory: ["#brak"] } });
+    sprawdzRownosc(niedostępne.kodBłędu, "POLE_DATY_NIEDOSTEPNE"); sprawdzRownosc(brak.kodBłędu, "BRAK_ELEMENTU");
+  });
 })();

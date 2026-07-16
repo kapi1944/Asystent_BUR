@@ -31,7 +31,6 @@
       dataDoTekst: wartosci.dataDoTekst || "",
       dataStartBur: wartosci.dataStartBur || "",
       dataKoniecBur: wartosci.dataKoniecBur || "",
-      dataZakonczeniaRekrutacjiBur: wartosci.dataZakonczeniaRekrutacjiBur || "",
       dataZakończeniaRekrutacjiBur: wartosci.dataZakończeniaRekrutacjiBur || wartosci.dataZakonczeniaRekrutacjiBur || "",
       miejsce: wartosci.miejsce || "",
       forma: wartosci.forma || FORMY_SZKOLENIA.NIEZNANA,

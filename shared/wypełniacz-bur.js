@@ -51,18 +51,21 @@
       return;
     }
 
+    const okno = element.ownerDocument && element.ownerDocument.defaultView || globalny;
+    const KonstruktorZdarzenia = okno.Event || Event;
     ["input", "change", "blur"].forEach(function wywołaj(typ) {
-      element.dispatchEvent(new Event(typ, { bubbles: true }));
+      element.dispatchEvent(new KonstruktorZdarzenia(typ, { bubbles: true }));
     });
   }
 
   function ustawNatywnąWartość(element, wartość) {
-    const prototyp = element instanceof HTMLTextAreaElement
-      ? HTMLTextAreaElement.prototype
-      : element instanceof HTMLInputElement
-        ? HTMLInputElement.prototype
-        : element instanceof HTMLSelectElement
-          ? HTMLSelectElement.prototype
+    const okno = element.ownerDocument && element.ownerDocument.defaultView || globalny;
+    const prototyp = element.tagName === "TEXTAREA"
+      ? okno.HTMLTextAreaElement && okno.HTMLTextAreaElement.prototype
+      : element.tagName === "INPUT"
+        ? okno.HTMLInputElement && okno.HTMLInputElement.prototype
+        : element.tagName === "SELECT"
+          ? okno.HTMLSelectElement && okno.HTMLSelectElement.prototype
           : null;
     const opis = prototyp ? Object.getOwnPropertyDescriptor(prototyp, "value") : null;
 
@@ -105,6 +108,57 @@
 
     wywołajZdarzeniaZmiany(element);
     return true;
+  }
+
+  function normalizujDatęBur(wartość) {
+    const dopasowanie = String(wartość || "").trim().match(/^(?:(\d{4})-(\d{2})-(\d{2})|(\d{1,2})[.-](\d{1,2})[.-](\d{4}))$/);
+    if (!dopasowanie) { return ""; }
+    const rok = Number(dopasowanie[1] || dopasowanie[6]);
+    const miesiąc = Number(dopasowanie[2] || dopasowanie[5]);
+    const dzień = Number(dopasowanie[3] || dopasowanie[4]);
+    const data = new Date(rok, miesiąc - 1, dzień);
+    if (data.getFullYear() !== rok || data.getMonth() !== miesiąc - 1 || data.getDate() !== dzień) { return ""; }
+    return String(rok).padStart(4, "0") + "-" + String(miesiąc).padStart(2, "0") + "-" + String(dzień).padStart(2, "0");
+  }
+
+  function znajdźTechnicznyInputDaty(element) {
+    if (!element) { return null; }
+    if (element.matches && element.matches("input, textarea")) { return element; }
+    const kandydaci = Array.from(element.querySelectorAll ? element.querySelectorAll("input, textarea") : []);
+    return kandydaci.find(function widoczny(input) { return input.type !== "hidden"; }) || kandydaci[0] || null;
+  }
+
+  function ustalFormatKontrolkiDaty(element) {
+    const input = znajdźTechnicznyInputDaty(element);
+    if (!input) { return ""; }
+    if (String(input.type || "").toLowerCase() === "date") { return "yyyy-mm-dd"; }
+    const wskazówka = [input.inputMode, input.placeholder, input.value].join(" ");
+    return /yyyy\s*[-./]\s*mm|\d{4}-\d{2}-\d{2}/i.test(wskazówka) ? "yyyy-mm-dd" : "dd-mm-yyyy";
+  }
+
+  function formatujDatęDlaKontrolki(kanonicznaData, format) {
+    if (format === "yyyy-mm-dd") { return kanonicznaData; }
+    const części = kanonicznaData.split("-");
+    return części.length === 3 ? części[2] + "-" + części[1] + "-" + części[0] : "";
+  }
+
+  function pobierzWartośćTechnicznąDaty(element) {
+    const input = znajdźTechnicznyInputDaty(element);
+    return input && "value" in input ? String(input.value || "") : "";
+  }
+
+  function ustawDatęTechniczną(element, wartość) {
+    const input = znajdźTechnicznyInputDaty(element);
+    const oczekiwana = normalizujDatęBur(wartość);
+    const format = ustalFormatKontrolkiDaty(element);
+    const wynik = { input: input, wartośćOczekiwana: oczekiwana, formatKontrolki: format, formatZapisu: format, kodBłędu: "", komunikat: "" };
+    if (!oczekiwana) { wynik.kodBłędu = "NIEPRAWIDLOWA_DATA_ZRODLOWA"; wynik.komunikat = "Oczekiwana data nie ma obsługiwanego formatu."; return wynik; }
+    if (!input) { wynik.kodBłędu = "BRAK_ELEMENTU"; wynik.komunikat = "Nie znaleziono technicznego inputa daty BUR."; return wynik; }
+    if (input.disabled || input.readOnly) { wynik.kodBłędu = "POLE_DATY_NIEDOSTEPNE"; wynik.komunikat = "Techniczny input daty BUR jest niedostępny."; return wynik; }
+    ustawNatywnąWartość(input, formatujDatęDlaKontrolki(oczekiwana, format));
+    wywołajZdarzeniaZmiany(input);
+    if (input.blur) { input.blur(); }
+    return wynik;
   }
 
   function tekstNaAkapityHtml(tekst) {
@@ -324,10 +378,15 @@
       return ustawPrzełącznikTakNie(pole, wartość);
     }
 
+    if (definicja.typ === "data") {
+      return !ustawDatęTechniczną(pole, wartość).kodBłędu;
+    }
+
     return ustawWartośćPola(pole, wartość);
   }
 
   function pobierzWartośćTechniczną(element, typ) {
+    if (typ === "data") { return pobierzWartośćTechnicznąDaty(element); }
     if (typ === "quill") {
       const edytor = element.matches && element.matches(".ql-editor") ? element : element.querySelector(".ql-editor");
       return edytor ? edytor.innerHTML : "";
@@ -352,9 +411,29 @@
     const definicja = ustawienia.definicjaPola || ustawienia.definicja || {};
     const typPola = ustawienia.typPola || definicja.typ || "input";
     const znalezione = przestrzeń.znajdźPoleBurZSzczegółami ? przestrzeń.znajdźPoleBurZSzczegółami(dokument, definicja) : { element: przestrzeń.znajdźPoleBur(dokument, definicja), metodaZnalezienia: "selektor", selektor: "" };
-    const wynik = { ok: false, status: "błąd", sekcja: ustawienia.sekcja || definicja.sekcja || "", pole: ustawienia.pole || definicja.etykieta || "", typPola: typPola, wartośćPrzed: "", wartośćOczekiwana: String(ustawienia.wartość || ""), wartośćPo: "", metodaZnalezienia: znalezione.metodaZnalezienia, selektor: znalezione.selektor, kodBłędu: "", komunikat: "" };
+    const wynik = { ok: false, status: "błąd", sekcja: ustawienia.sekcja || definicja.sekcja || "", pole: ustawienia.pole || definicja.etykieta || "", typPola: typPola, wartośćPrzed: "", wartośćOczekiwana: String(ustawienia.wartość || ""), wartośćPo: "", wartośćTechnicznaPo: "", formatKontrolki: "", formatZapisu: "", metodaZnalezienia: znalezione.metodaZnalezienia, selektor: znalezione.selektor, kodBłędu: "", komunikat: "" };
     const element = znalezione.element;
     if (!element) { wynik.kodBłędu = znalezione.kodBłędu || "BRAK_ELEMENTU"; wynik.komunikat = wynik.kodBłędu === "NIEJEDNOZNACZNY_SELEKTOR" ? "Selektor wskazuje więcej niż jedno pole BUR." : "Nie znaleziono pola BUR."; return wynik; }
+    if (typPola === "data") {
+      const oczekiwanaData = normalizujDatęBur(wynik.wartośćOczekiwana);
+      if (!oczekiwanaData) { wynik.kodBłędu = "NIEPRAWIDLOWA_DATA_ZRODLOWA"; wynik.komunikat = "Oczekiwana data nie ma obsługiwanego formatu."; return wynik; }
+      wynik.wartośćOczekiwana = oczekiwanaData;
+      wynik.wartośćPrzed = pobierzWartośćTechnicznąDaty(element);
+      wynik.formatKontrolki = ustalFormatKontrolkiDaty(element);
+      if (normalizujDatęBur(wynik.wartośćPrzed) === oczekiwanaData) { wynik.ok = true; wynik.status = "już_zgodne"; wynik.wartośćPo = wynik.wartośćPrzed; wynik.wartośćTechnicznaPo = wynik.wartośćPrzed; return wynik; }
+      if (wynik.wartośćPrzed && !ustawienia.zezwólNaNadpisanie) { wynik.kodBłędu = "KONFLIKT_WARTOŚCI"; wynik.komunikat = "Pole zawiera inną wartość i wymaga decyzji użytkownika."; return wynik; }
+      const zapis = ustawDatęTechniczną(element, oczekiwanaData);
+      wynik.formatKontrolki = zapis.formatKontrolki;
+      wynik.formatZapisu = zapis.formatZapisu;
+      if (zapis.kodBłędu) { wynik.kodBłędu = zapis.kodBłędu; wynik.komunikat = zapis.komunikat; return wynik; }
+      const potwierdzono = await poczekajNaReakcję(zapis.input, function zgodneDaty() { return normalizujDatęBur(pobierzWartośćTechnicznąDaty(element)) === oczekiwanaData; });
+      wynik.wartośćPo = pobierzWartośćTechnicznąDaty(element);
+      wynik.wartośćTechnicznaPo = wynik.wartośćPo;
+      if (potwierdzono) { wynik.ok = true; wynik.status = "potwierdzone"; return wynik; }
+      wynik.kodBłędu = wynik.wartośćPo ? "ODRZUCONA_WARTOŚĆ_DATY" : "TIMEOUT";
+      wynik.komunikat = "BUR nie potwierdził oczekiwanej daty po zapisie.";
+      return wynik;
+    }
     wynik.wartośćPrzed = pobierzWartośćTechniczną(element, typPola);
     if (normalizujKluczBur(wynik.wartośćPrzed) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "już_zgodne"; wynik.wartośćPo = wynik.wartośćPrzed; return wynik; }
     if (wynik.wartośćPrzed && !ustawienia.zezwólNaNadpisanie) { wynik.kodBłędu = "KONFLIKT_WARTOŚCI"; wynik.komunikat = "Pole zawiera inną wartość i wymaga decyzji użytkownika."; return wynik; }
@@ -712,7 +791,7 @@
         if (definicja.sposóbLokalizacji === "tabela") {
           pole = znajdźPoleWTabeli(dokument, definicja.definicjaPola.tabela, definicja.definicjaPola.kolumna);
         }
-        const ustawienia = { sekcja: definicja.sekcja, pole: definicja.pole, wartość: definicja.wartośćProponowana, typ: definicja.typPola === "tekst" || definicja.typPola === "liczba" || definicja.typPola === "data" || definicja.typPola === "pole_tabeli" ? "" : definicja.typPola, definicja: definicja.definicjaPola };
+        const ustawienia = { sekcja: definicja.sekcja, pole: definicja.pole, wartość: definicja.wartośćProponowana, typ: definicja.typPola === "tekst" || definicja.typPola === "liczba" || definicja.typPola === "pole_tabeli" ? "" : definicja.typPola, definicja: definicja.definicjaPola };
         const ok = pole ? (ustawienia.typ === "select2" ? ustawSelect2PoTekście(dokument, pole, ustawienia.wartość) : ustawWartośćPola(pole, ustawienia.wartość)) : ustawRaportowanePole(raport, dokument, ustawienia);
         if (pole) { if (ok) { dodajUzupełnione(raport, definicja.sekcja, definicja.pole, definicja.wartośćProponowana); } else { dodajPominięte(raport, definicja.sekcja, definicja.pole, "Nie udało się ustawić pola tabeli."); } }
       });
@@ -736,6 +815,9 @@
   przestrzeń.ustawPoleBurZWeryfikacją = ustawPoleBurZWeryfikacją;
   przestrzeń.wywołajZdarzeniaZmiany = wywołajZdarzeniaZmiany;
   przestrzeń.znajdźPrzyciskLubOpcjęSelect2PoTekście = znajdźPrzyciskLubOpcjęSelect2PoTekście;
+  przestrzeń.normalizujDatęBur = normalizujDatęBur;
+  przestrzeń.znajdźTechnicznyInputDaty = znajdźTechnicznyInputDaty;
+  przestrzeń.ustawDatęTechniczną = ustawDatęTechniczną;
 
   globalny.BurAsystent = przestrzeń;
 })(globalThis);

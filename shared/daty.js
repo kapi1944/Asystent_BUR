@@ -180,16 +180,23 @@
     return {
       dataStartBur: formatujDateBur(dataStartBur),
       dataKoniecBur: formatujDateBur(dataKoniecBur),
-      dataZakonczeniaRekrutacjiBur: formatujDateBur(dataZakonczeniaRekrutacjiBur),
       dataZakończeniaRekrutacjiBur: formatujDateBur(dataZakonczeniaRekrutacjiBur),
       czyDojazdZakopane: Boolean(czyDojazdZakopane)
     };
+  }
+
+  function wyliczDateZakonczeniaRekrutacjiBur(dataStartBur) {
+    const dopasowanie = String(dataStartBur || "").match(/^(\d{1,2})[.-](\d{1,2})[.-](\d{4})$/);
+    if (!dopasowanie) { return ""; }
+    const dataStart = utworzDate(dopasowanie[3], dopasowanie[2], dopasowanie[1]);
+    return dataStart ? formatujDateBur(dodajDni(dataStart, -1)) : "";
   }
 
   przestrzen.parsujZakresDatSemper = parsujZakresDatSemper;
   przestrzen.parsujZakresDat = parsujZakresDatSemper;
   przestrzen.formatujDateBur = formatujDateBur;
   przestrzen.obliczDatyBurDlaTerminu = obliczDatyBurDlaTerminu;
+  przestrzen.wyliczDateZakonczeniaRekrutacjiBur = wyliczDateZakonczeniaRekrutacjiBur;
 
   globalny.BurAsystent = przestrzen;
 })(globalThis);

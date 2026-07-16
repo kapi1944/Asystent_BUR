@@ -7,6 +7,7 @@
   function pobierzDefinicjePólWypełnieniaBur(kontekst) {
     const szkolenie = kontekst && kontekst.szkolenieSemper || {}; const termin = kontekst && kontekst.wybranyTermin || {};
     const online = /online/i.test([termin.forma, termin.miejsce].join(" "));
+    const dataRekrutacji = termin.dataZakończeniaRekrutacjiBur || termin.dataZakonczeniaRekrutacjiBur || (przestrzeń.wyliczDateZakonczeniaRekrutacjiBur ? przestrzeń.wyliczDateZakonczeniaRekrutacjiBur(termin.dataStartBur) : "");
     const podstawowe = "Informacje podstawowe"; const cel = "Główny cel usługi";
     const pole = function utwórz(id, sekcjaPola, nazwa, typ, wartość, selektor, źródło) { return definicja(id, sekcjaPola, nazwa, typ, wartość, źródło || "reguła BUR", { sekcja: sekcjaPola, etykieta: nazwa, selektory: selektor ? [selektor] : [], typ: typ }); };
     return [
@@ -17,7 +18,7 @@
       pole("tytul", podstawowe, "Tytuł", "tekst", szkolenie.tytułPoNormalizacjiBur || szkolenie.tytulBur || szkolenie.tytułOryginalny || "", "#informacjepodstawowesekcja-tytuluslugi", "SEMPER"),
       pole("data-rozpoczecia", podstawowe, "Data rozpoczęcia usługi", "data", termin.dataStartBur || "", "#informacjepodstawowesekcja-datarozpoczeciauslugi", "SEMPER"),
       pole("data-zakonczenia", podstawowe, "Data zakończenia usługi", "data", termin.dataKoniecBur || "", "#informacjepodstawowesekcja-datazakonczeniauslugi", "SEMPER"),
-      pole("data-rekrutacji", podstawowe, "Data zakończenia rekrutacji", "data", termin.dataZakończeniaRekrutacjiBur || termin.dataZakonczeniaRekrutacjiBur || "", "#informacjepodstawowesekcja-datazakonczeniarekrutacji", "SEMPER"),
+      pole("data-rekrutacji", podstawowe, "Data zakończenia rekrutacji", "data", dataRekrutacji, "#informacjepodstawowesekcja-datazakonczeniarekrutacji", "SEMPER"),
       pole("grupa-docelowa", podstawowe, "Grupa docelowa usługi", "quill", sekcja(szkolenie, ["grupaDocelowa", "grupaDocelowaHtml", "groupHtml"]), "#informacjepodstawowesekcja-grupadocelowauslugi-wysiwyg .ql-editor", "SEMPER"),
       pole("minimum-uczestnikow", podstawowe, "Minimalna liczba uczestników", "liczba", online ? "2" : "5", "#informacjepodstawowesekcja-minimalnaliczbauczestnikow"),
       pole("maksimum-uczestnikow", podstawowe, "Maksymalna liczba uczestników", "liczba", "15", "#informacjepodstawowesekcja-maksymalnaliczbauczestnikow"),

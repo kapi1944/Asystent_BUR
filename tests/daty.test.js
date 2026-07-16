@@ -12,7 +12,7 @@
 
     sprawdzRownosc(wynik.dataStartBur, "07-07-2027");
     sprawdzRownosc(wynik.dataKoniecBur, "09-07-2027");
-    sprawdzRownosc(wynik.dataZakonczeniaRekrutacjiBur, "06-07-2027");
+    sprawdzRownosc(wynik.dataZakończeniaRekrutacjiBur, "06-07-2027");
     sprawdzWarunek(wynik.czyDojazdZakopane, "Powinien zostac wykryty dzien dojazdowy.");
   });
 
@@ -27,7 +27,7 @@
 
     sprawdzRownosc(wynik.dataStartBur, "06-07-2027");
     sprawdzRownosc(wynik.dataKoniecBur, "09-07-2027");
-    sprawdzRownosc(wynik.dataZakonczeniaRekrutacjiBur, "05-07-2027");
+    sprawdzRownosc(wynik.dataZakończeniaRekrutacjiBur, "05-07-2027");
     sprawdzWarunek(!wynik.czyDojazdZakopane, "Online nie powinien miec dnia dojazdowego.");
   });
 
@@ -41,7 +41,7 @@
     });
 
     sprawdzRownosc(wynik.dataStartBur, "12-09-2027");
-    sprawdzRownosc(wynik.dataZakonczeniaRekrutacjiBur, "11-09-2027");
+    sprawdzRownosc(wynik.dataZakończeniaRekrutacjiBur, "11-09-2027");
   });
 
   test("rozpoznaje Zakopane od/do z dwukropkami", function sprawdz() {

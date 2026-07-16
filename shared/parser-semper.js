@@ -272,7 +272,6 @@
       dataDoTekst: zakresDat.dataDo ? przestrzeń.formatujDateBur(zakresDat.dataDo) : zakresDatTekst,
       dataStartBur: datyBur.dataStartBur,
       dataKoniecBur: datyBur.dataKoniecBur,
-      dataZakonczeniaRekrutacjiBur: datyBur.dataZakonczeniaRekrutacjiBur,
       dataZakończeniaRekrutacjiBur: datyBur.dataZakończeniaRekrutacjiBur,
       miejsce: rozpoznajFormę(miejsce) === przestrzeń.FORMY_SZKOLENIA.ONLINE ? "Szkolenie online" : miejsce,
       forma: rozpoznajFormę(miejsce),
