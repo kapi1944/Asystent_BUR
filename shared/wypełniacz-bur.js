@@ -327,6 +327,47 @@
     return ustawWartośćPola(pole, wartość);
   }
 
+  function pobierzWartośćTechniczną(element, typ) {
+    if (typ === "quill") {
+      const edytor = element.matches && element.matches(".ql-editor") ? element : element.querySelector(".ql-editor");
+      return edytor ? edytor.innerHTML : "";
+    }
+    if (typ === "select2") {
+      const select = znajdźUkrytySelect2(element.ownerDocument || document, element);
+      return select && "value" in select ? String(select.value || "") : "";
+    }
+    return przestrzeń.pobierzWartośćPola ? przestrzeń.pobierzWartośćPola(element) : String(element.value || element.textContent || "");
+  }
+
+  function poczekajNaReakcję(element, warunek, timeoutMs) {
+    return new Promise(function oczekuj(resolve) {
+      if (warunek()) { resolve(true); return; }
+      const obserwator = typeof MutationObserver !== "undefined" ? new MutationObserver(function sprawdź() { if (warunek()) { obserwator.disconnect(); resolve(true); } }) : null;
+      if (obserwator) { obserwator.observe(element.closest("form, .form-group, .ql-container") || element, { childList: true, subtree: true, attributes: true, characterData: true }); }
+      setTimeout(function zakończ() { if (obserwator) { obserwator.disconnect(); } resolve(warunek()); }, timeoutMs || 600);
+    });
+  }
+
+  async function ustawPoleBurZWeryfikacją(dokument, ustawienia) {
+    const definicja = ustawienia.definicjaPola || ustawienia.definicja || {};
+    const typPola = ustawienia.typPola || definicja.typ || "input";
+    const znalezione = przestrzeń.znajdźPoleBurZSzczegółami ? przestrzeń.znajdźPoleBurZSzczegółami(dokument, definicja) : { element: przestrzeń.znajdźPoleBur(dokument, definicja), metodaZnalezienia: "selektor", selektor: "" };
+    const wynik = { ok: false, status: "błąd", sekcja: ustawienia.sekcja || definicja.sekcja || "", pole: ustawienia.pole || definicja.etykieta || "", typPola: typPola, wartośćPrzed: "", wartośćOczekiwana: String(ustawienia.wartość || ""), wartośćPo: "", metodaZnalezienia: znalezione.metodaZnalezienia, selektor: znalezione.selektor, kodBłędu: "", komunikat: "" };
+    const element = znalezione.element;
+    if (!element) { wynik.kodBłędu = "BRAK_ELEMENTU"; wynik.komunikat = "Nie znaleziono pola BUR."; return wynik; }
+    wynik.wartośćPrzed = pobierzWartośćTechniczną(element, typPola);
+    if (normalizujKluczBur(wynik.wartośćPrzed) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "już_zgodne"; wynik.wartośćPo = wynik.wartośćPrzed; return wynik; }
+    if (wynik.wartośćPrzed && !ustawienia.zezwólNaNadpisanie) { wynik.kodBłędu = "KONFLIKT_WARTOŚCI"; wynik.komunikat = "Pole zawiera inną wartość i wymaga decyzji użytkownika."; return wynik; }
+    const ustawiono = ustawPoleJeśliIstnieje(Object.assign({}, definicja, { dokument: dokument }), wynik.wartośćOczekiwana);
+    if (element.blur) { element.blur(); }
+    await poczekajNaReakcję(element, function zgodne() { return normalizujKluczBur(pobierzWartośćTechniczną(element, typPola)) === normalizujKluczBur(wynik.wartośćOczekiwana); });
+    wynik.wartośćPo = pobierzWartośćTechniczną(element, typPola);
+    if (ustawiono && normalizujKluczBur(wynik.wartośćPo) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "potwierdzone"; return wynik; }
+    wynik.kodBłędu = typPola === "select2" ? "BRAK_POTWIERDZENIA_SELECT2" : "ODRZUCONA_WARTOŚĆ";
+    wynik.komunikat = "BUR nie potwierdził oczekiwanej wartości po zapisie.";
+    return wynik;
+  }
+
   function ustawRaportowanePole(raport, dokument, ustawienia) {
     const definicja = Object.assign({}, ustawienia.definicja || {}, {
       dokument: dokument,
@@ -685,6 +726,7 @@
   przestrzeń.ustawSelect2PoTekście = ustawSelect2PoTekście;
   przestrzeń.ustawPrzełącznikTakNie = ustawPrzełącznikTakNie;
   przestrzeń.ustawPoleJeśliIstnieje = ustawPoleJeśliIstnieje;
+  przestrzeń.ustawPoleBurZWeryfikacją = ustawPoleBurZWeryfikacją;
   przestrzeń.wywołajZdarzeniaZmiany = wywołajZdarzeniaZmiany;
   przestrzeń.znajdźPrzyciskLubOpcjęSelect2PoTekście = znajdźPrzyciskLubOpcjęSelect2PoTekście;
 

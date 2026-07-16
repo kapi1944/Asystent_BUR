@@ -168,4 +168,25 @@
     sprawdzWarunek(!uzupełnionaForma, "Select2 bez pola technicznego nie powinien być pełnym sukcesem.");
     sprawdzWarunek(Boolean(ostrzeżenie), "Powinno pojawić się ostrzeżenie o braku potwierdzenia technicznego.");
   });
+
+  test("adapter BUR nie zapisuje pola już zgodnego", async function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Adapter");
+    dokument.body.innerHTML = "<input id=\"tytul\" value=\"Zażółć\">";
+    const wynik = await bur.ustawPoleBurZWeryfikacją(dokument, { pole: "Tytuł", wartość: "Zażółć", definicja: { selektory: ["#tytul"] } });
+    sprawdzRownosc(wynik.status, "już_zgodne");
+  });
+
+  test("adapter BUR potwierdza odczyt po zapisie inputa", async function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Adapter");
+    dokument.body.innerHTML = "<input id=\"tytul\">";
+    const wynik = await bur.ustawPoleBurZWeryfikacją(dokument, { pole: "Tytuł", wartość: "Łódź", definicja: { selektory: ["#tytul"] } });
+    sprawdzWarunek(wynik.ok && wynik.wartośćPo === "Łódź", "Zapis powinien być potwierdzony.");
+  });
+
+  test("adapter BUR nie nadpisuje konfliktu bez decyzji", async function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Adapter");
+    dokument.body.innerHTML = "<input id=\"tytul\" value=\"Istniejący\">";
+    const wynik = await bur.ustawPoleBurZWeryfikacją(dokument, { pole: "Tytuł", wartość: "Nowy", definicja: { selektory: ["#tytul"] } });
+    sprawdzRownosc(wynik.kodBłędu, "KONFLIKT_WARTOŚCI");
+  });
 })();

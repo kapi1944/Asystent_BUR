@@ -132,11 +132,17 @@
   }
 
   function znajdźPoleBur(dokument, definicjaPola) {
+    const wynik = znajdźPoleBurZSzczegółami(dokument, definicjaPola);
+    return wynik.element;
+  }
+
+  function znajdźPoleBurZSzczegółami(dokument, definicjaPola) {
     const definicja = definicjaPola || {};
     let pole = null;
 
     if (definicja.selektory) {
       pole = znajdźPolePoSelektorach(dokument, definicja.selektory);
+      if (pole) { return { element: pole, metodaZnalezienia: "selektor podstawowy", selektor: definicja.selektory[0] || "" }; }
     }
 
     if (!pole && definicja.sekcja && definicja.etykieta) {
@@ -144,14 +150,15 @@
 
       if (sekcja) {
         pole = znajdźPolePoEtykiecie(sekcja, definicja.etykieta);
+        if (pole) { return { element: pole, metodaZnalezienia: "etykieta w sekcji", selektor: "" }; }
       }
     }
 
     if (!pole && definicja.etykieta) {
       pole = znajdźPolePoEtykiecie(dokument, definicja.etykieta);
+      if (pole) { return { element: pole, metodaZnalezienia: "etykieta globalna", selektor: "" }; }
     }
-
-    return pole;
+    return { element: null, metodaZnalezienia: "brak", selektor: "" };
   }
 
   function pobierzTekstSelect2(elementLubKontener) {
@@ -263,6 +270,7 @@
   }
 
   przestrzeń.znajdźPoleBur = znajdźPoleBur;
+  przestrzeń.znajdźPoleBurZSzczegółami = znajdźPoleBurZSzczegółami;
   przestrzeń.znajdźPolePoSelektorach = znajdźPolePoSelektorach;
   przestrzeń.znajdźPolePoEtykiecie = znajdźPolePoEtykiecie;
   przestrzeń.znajdźSekcjęPoNagłówku = znajdźSekcjęPoNagłówku;
