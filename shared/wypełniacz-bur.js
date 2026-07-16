@@ -354,16 +354,16 @@
     const znalezione = przestrzeń.znajdźPoleBurZSzczegółami ? przestrzeń.znajdźPoleBurZSzczegółami(dokument, definicja) : { element: przestrzeń.znajdźPoleBur(dokument, definicja), metodaZnalezienia: "selektor", selektor: "" };
     const wynik = { ok: false, status: "błąd", sekcja: ustawienia.sekcja || definicja.sekcja || "", pole: ustawienia.pole || definicja.etykieta || "", typPola: typPola, wartośćPrzed: "", wartośćOczekiwana: String(ustawienia.wartość || ""), wartośćPo: "", metodaZnalezienia: znalezione.metodaZnalezienia, selektor: znalezione.selektor, kodBłędu: "", komunikat: "" };
     const element = znalezione.element;
-    if (!element) { wynik.kodBłędu = "BRAK_ELEMENTU"; wynik.komunikat = "Nie znaleziono pola BUR."; return wynik; }
+    if (!element) { wynik.kodBłędu = znalezione.kodBłędu || "BRAK_ELEMENTU"; wynik.komunikat = wynik.kodBłędu === "NIEJEDNOZNACZNY_SELEKTOR" ? "Selektor wskazuje więcej niż jedno pole BUR." : "Nie znaleziono pola BUR."; return wynik; }
     wynik.wartośćPrzed = pobierzWartośćTechniczną(element, typPola);
     if (normalizujKluczBur(wynik.wartośćPrzed) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "już_zgodne"; wynik.wartośćPo = wynik.wartośćPrzed; return wynik; }
     if (wynik.wartośćPrzed && !ustawienia.zezwólNaNadpisanie) { wynik.kodBłędu = "KONFLIKT_WARTOŚCI"; wynik.komunikat = "Pole zawiera inną wartość i wymaga decyzji użytkownika."; return wynik; }
     const ustawiono = ustawPoleJeśliIstnieje(Object.assign({}, definicja, { dokument: dokument }), wynik.wartośćOczekiwana);
     if (element.blur) { element.blur(); }
-    await poczekajNaReakcję(element, function zgodne() { return normalizujKluczBur(pobierzWartośćTechniczną(element, typPola)) === normalizujKluczBur(wynik.wartośćOczekiwana); });
+    const potwierdzono = await poczekajNaReakcję(element, function zgodne() { return normalizujKluczBur(pobierzWartośćTechniczną(element, typPola)) === normalizujKluczBur(wynik.wartośćOczekiwana); });
     wynik.wartośćPo = pobierzWartośćTechniczną(element, typPola);
     if (ustawiono && normalizujKluczBur(wynik.wartośćPo) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "potwierdzone"; return wynik; }
-    wynik.kodBłędu = typPola === "select2" ? "BRAK_POTWIERDZENIA_SELECT2" : "ODRZUCONA_WARTOŚĆ";
+    wynik.kodBłędu = potwierdzono ? (typPola === "select2" ? "BRAK_POTWIERDZENIA_SELECT2" : "ODRZUCONA_WARTOŚĆ") : "TIMEOUT";
     wynik.komunikat = "BUR nie potwierdził oczekiwanej wartości po zapisie.";
     return wynik;
   }

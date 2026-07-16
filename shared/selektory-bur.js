@@ -84,6 +84,7 @@
     const szukanyKlucz = normalizujKluczBur(tekstEtykiety);
     const etykiety = Array.from(dokument.querySelectorAll("label, dt, th, span, div, p"));
 
+    const kandydaci = [];
     for (let indeks = 0; indeks < etykiety.length; indeks += 1) {
       const etykieta = etykiety[indeks];
       const tekst = normalizujKluczBur(etykieta.textContent || "");
@@ -96,23 +97,28 @@
         const polePoId = dokument.querySelector(pobierzIdBezpiecznie(etykieta.htmlFor));
 
         if (polePoId) {
-          return polePoId;
+          kandydaci.push(polePoId);
+          continue;
         }
       }
 
       const kontener = znajdźKontenerPola(etykieta);
+      if (kontener === dokument.body) {
+        continue;
+      }
       const pole = znajdźPoleWKontenerze(kontener);
 
       if (pole && pole !== etykieta) {
-        return pole;
+        kandydaci.push(pole);
+        continue;
       }
 
       if (kontener) {
-        return kontener;
+        kandydaci.push(kontener);
       }
     }
-
-    return null;
+    const unikalne = Array.from(new Set(kandydaci));
+    return unikalne.length === 1 ? unikalne[0] : null;
   }
 
   function znajdźSekcjęPoNagłówku(dokument, tekstNagłówka) {
@@ -141,8 +147,13 @@
     let pole = null;
 
     if (definicja.selektory) {
-      pole = znajdźPolePoSelektorach(dokument, definicja.selektory);
-      if (pole) { return { element: pole, metodaZnalezienia: "selektor podstawowy", selektor: definicja.selektory[0] || "" }; }
+      for (let indeks = 0; indeks < definicja.selektory.length; indeks += 1) {
+        const selektor = definicja.selektory[indeks];
+        let kandydaci = [];
+        try { kandydaci = selektor ? dokument.querySelectorAll(selektor) : []; } catch (błąd) { continue; }
+        if (kandydaci.length === 1) { return { element: kandydaci[0], metodaZnalezienia: indeks ? "selektor alternatywny" : "selektor podstawowy", selektor: selektor }; }
+        if (kandydaci.length > 1) { return { element: null, metodaZnalezienia: "niejednoznaczny selektor", selektor: selektor, kodBłędu: "NIEJEDNOZNACZNY_SELEKTOR" }; }
+      }
     }
 
     if (!pole && definicja.sekcja && definicja.etykieta) {

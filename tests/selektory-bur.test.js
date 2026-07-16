@@ -66,4 +66,8 @@
 
     sprawdzRownosc(pole.value, "selektor");
   });
+  test("niejednoznaczna etykieta nie wybiera przypadkowego pola", function sprawdź() {
+    const dokument = utwórzDokument("<label>Tytuł</label><input><label>Tytuł</label><input>");
+    sprawdzWarunek(!bur.znajdźPolePoEtykiecie(dokument, "Tytuł"), "Niejednoznaczna etykieta nie może zwrócić pola.");
+  });
 })();

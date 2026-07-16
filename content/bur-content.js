@@ -771,6 +771,11 @@
 
     if (wiadomosc.typ === komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR) {
       Promise.all((wiadomosc.propozycje || []).filter(function wybrane(propozycja) { return propozycja.zaznaczona; }).map(function ustaw(propozycja) {
+        const znalezione = przestrzen.znajdźPoleBurZSzczegółami(document, propozycja.definicjaPola);
+        const aktualna = znalezione.element ? przestrzen.pobierzWartośćPola(znalezione.element) : "";
+        if (aktualna !== propozycja.wartośćAktualna) {
+          return Promise.resolve({ ok: false, status: "konflikt_po_przygotowaniu", sekcja: propozycja.sekcja, pole: propozycja.pole, wartośćPrzed: aktualna, wartośćOczekiwana: propozycja.wartośćProponowana, wartośćPo: aktualna, kodBłędu: "KONFLIKT_PO_PRZYGOTOWANIU", komunikat: "Wartość BUR zmieniła się po przygotowaniu podglądu." });
+        }
         return przestrzen.ustawPoleBurZWeryfikacją(document, { sekcja: propozycja.sekcja, pole: propozycja.pole, typPola: propozycja.typPola, wartość: propozycja.wartośćProponowana, definicjaPola: propozycja.definicjaPola, zezwólNaNadpisanie: propozycja.status === "konflikt" });
       })).then(function odpowiedzWynikiem(wyniki) { odpowiedz({ typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR, wynik: { wyniki: wyniki, ok: wyniki.every(function poprawne(wynik) { return wynik.ok; }) } }); });
       return true;
