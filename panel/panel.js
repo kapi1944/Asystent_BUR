@@ -18,9 +18,11 @@
     przyciskSzukajLinku: document.getElementById("przycisk-szukaj-linku"),
     przyciskUzupełnijZLinku: document.getElementById("przycisk-uzupelnij-z-linku"),
     przyciskWypełnijFormularz: document.getElementById("przycisk-wypełnij-formularz"),
+    przyciskZastosujZmianyBur: document.getElementById("przycisk-zastosuj-zmiany-bur"),
     linkLubFrazaSemper: document.getElementById("link-lub-fraza-semper"),
     wynikiSemper: document.getElementById("wyniki-semper"),
     wynikWypełnianiaBur: document.getElementById("wynik-wypełniania-bur"),
+    podglądZmianBur: document.getElementById("podglad-zmian-bur"),
     wybórTerminuSemper: document.getElementById("wybor-terminu-semper"),
     przyciskWalidujBur: document.getElementById("przycisk-waliduj-bur"),
     przyciskWyczyśćPodświetlenia: document.getElementById("przycisk-wyczysc-podswietlenia"),
@@ -54,6 +56,7 @@
   let ostatniWybranyTerminSemperIndex = null;
   let czyAktywnaKartaBur = false;
   let aktywnaOperacjaBur = null;
+  let podglądWypełnieniaBur = null;
   const diagnostykaSemper = {
     fraza: "",
     źródłoFrazy: "",
@@ -1561,7 +1564,7 @@
 
   function wypełnijFormularzBurZPanelu() {
     wyczyśćWynikWypełnianiaBur();
-    ustawStatus(elementy.statusSemper, "Przygotowuję wypełnienie formularza BUR...", "status-neutralny");
+    ustawStatus(elementy.statusSemper, "Przygotowuję podgląd zmian formularza BUR...", "status-neutralny");
 
     Promise.all([
       pobierzAktywnąKartę(),
@@ -1585,27 +1588,20 @@
           throw new Error("Otwórz formularz BUR, aby wypełnić pola.");
         }
 
-        return wyślijDoKarty(karta, {
-          typ: komunikaty.WYPEŁNIJ_FORMULARZ_BUR,
+        return rozpocznijOperacjęBur(karta, szkolenieSemper, wybór.indeks).then(function przygotujOperację() { return wyślijDoKarty(karta, {
+          typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR,
           szkolenieSemper: szkolenieSemper,
           wybranyTermin: wybór.termin
-        });
+        }); });
       })
       .then(function pokażOdpowiedź(odpowiedź) {
-        const wynik = odpowiedź && odpowiedź.wynik;
-
-        if (!odpowiedź || (odpowiedź.typ !== komunikaty.ODPOWIEDŹ_WYPEŁNIJ_FORMULARZ_BUR && odpowiedź.typ !== komunikaty.BŁĄD_WYPEŁNIANIA_FORMULARZA_BUR)) {
-          throw new Error("Nieznana odpowiedź wypełniania formularza BUR.");
-        }
-
-        pokażWynikWypełnianiaBur(wynik || {});
-
-        if (!wynik || !wynik.ok) {
-          ustawStatus(elementy.statusSemper, "Wypełnianie zakończone z problemami. Sprawdź raport.", "status-ostrzezenie");
-          return;
-        }
-
-        ustawStatus(elementy.statusSemper, "Formularz został wypełniony. Sprawdź dane i uruchom walidację BUR.", "status-odczytano");
+        const propozycje = odpowiedź && odpowiedź.wynik && odpowiedź.wynik.propozycje;
+        if (!propozycje) { throw new Error("Nie udało się przygotować podglądu zmian BUR."); }
+        podglądWypełnieniaBur = { propozycje: propozycje, kartaId: aktywnaOperacjaBur.identyfikatorKartyBur, indeksTerminu: aktywnaOperacjaBur.indeksTerminu, odciskSzkolenia: aktywnaOperacjaBur.odciskSzkolenia };
+        aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "oczekuje_na_zatwierdzenie");
+        zapiszStorage({ podglądWypełnieniaBur: podglądWypełnieniaBur, aktywnaOperacjaBur: aktywnaOperacjaBur });
+        renderujPodglądWypełnieniaBur(); odświeżStatusOperacjiBur(); elementy.przyciskZastosujZmianyBur.disabled = false;
+        ustawStatus(elementy.statusSemper, "Podgląd zmian jest gotowy. Zaznacz zmiany i zatwierdź.", "status-odczytano");
       })
       .catch(function pokażBłąd(błąd) {
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wypełnić formularza BUR.", "status-blad");
@@ -1613,6 +1609,25 @@
       .finally(function odśwież() {
         pobierzAktywnąKartę().then(ustawStatusStronyDlaKarty);
       });
+  }
+
+  function renderujPodglądWypełnieniaBur() {
+    elementy.podglądZmianBur.textContent = "";
+    (podglądWypełnieniaBur && podglądWypełnieniaBur.propozycje || []).forEach(function dodaj(propozycja) {
+      const etykieta = document.createElement("label"); const checkbox = document.createElement("input"); const tekst = document.createElement("span");
+      checkbox.type = "checkbox"; checkbox.checked = propozycja.domyślnieZaznaczona; checkbox.disabled = propozycja.status === "bez_zmiany" || propozycja.status === "brak_pola_bur";
+      checkbox.addEventListener("change", function zapiszDecyzję() { propozycja.zaznaczona = checkbox.checked; zapiszStorage({ podglądWypełnieniaBur: podglądWypełnieniaBur }); });
+      propozycja.zaznaczona = checkbox.checked; tekst.textContent = propozycja.sekcja + " — " + propozycja.pole + ": „" + propozycja.wartośćAktualna + "” → „" + propozycja.wartośćProponowana + "” (" + propozycja.status + ")";
+      etykieta.appendChild(checkbox); etykieta.appendChild(tekst); elementy.podglądZmianBur.appendChild(etykieta);
+    });
+  }
+
+  function zastosujZatwierdzoneZmianyBur() {
+    if (!podglądWypełnieniaBur || !aktywnaOperacjaBur) { return; }
+    pobierzAktywnąKartę().then(function zastosuj(karta) {
+      if (!karta || karta.id !== podglądWypełnieniaBur.kartaId) { throw new Error("Zmieniła się karta BUR — przygotuj podgląd ponownie."); }
+      aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "wprowadzanie"); return wyślijDoKarty(karta, { typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR, propozycje: podglądWypełnieniaBur.propozycje });
+    }).then(function raportuj(odpowiedź) { pokażWynikWypełnianiaBur({ uzupełnione: (odpowiedź.wynik.wyniki || []).filter(function filtruj(w) { return w.ok; }), ostrzeżenia: [], błędy: (odpowiedź.wynik.wyniki || []).filter(function filtruj(w) { return !w.ok; }), pominięte: [] }); aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "walidowanie"); aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "zakończono"); return zapiszStorage({ aktywnaOperacjaBur: aktywnaOperacjaBur }); }).then(function zakończ() { odświeżStatusOperacjiBur(); elementy.przyciskZastosujZmianyBur.disabled = true; ustawStatus(elementy.statusSemper, "Zastosowano zmiany — sprawdź raport.", "status-odczytano"); }).catch(function błąd(wyjątek) { ustawStatus(elementy.statusSemper, wyjątek.message, "status-blad"); });
   }
 
   function odczytajOstatniImport() {
@@ -1658,6 +1673,7 @@
   elementy.przyciskSzukajLinku.addEventListener("click", szukajLinkuSemper);
   elementy.przyciskUzupełnijZLinku.addEventListener("click", importujSzkolenieZLinku);
   elementy.przyciskWypełnijFormularz.addEventListener("click", wypełnijFormularzBurZPanelu);
+  elementy.przyciskZastosujZmianyBur.addEventListener("click", zastosujZatwierdzoneZmianyBur);
   elementy.wybórTerminuSemper.addEventListener("change", zapiszWybórTerminuSemper);
   elementy.przyciskWalidujBur.addEventListener("click", walidujFormularzBurZPanelu);
   elementy.przyciskWyczyśćPodświetlenia.addEventListener("click", wyczyśćPodświetleniaBurZPanelu);

@@ -29,7 +29,8 @@
           <button id="przycisk-szukaj-linku" type="button">Szukaj linku</button>
           <button id="przycisk-uzupelnij-z-linku" type="button">Uzupełnij z linku</button>
         </div>
-        <button id="przycisk-wypełnij-formularz" class="przycisk-główny" type="button">Wypełnij formularz</button>
+        <button id="przycisk-wypełnij-formularz" class="przycisk-główny" type="button">Przygotuj wypełnienie</button>
+        <button id="przycisk-zastosuj-zmiany-bur" type="button" disabled>Zastosuj zatwierdzone zmiany</button>
         <div id="status-operacji-bur" class="komunikat">Brak aktywnej operacji BUR.</div>
         <div id="status-semper" class="komunikat">Gotowy do wyszukiwania.</div>
         <details class="diagnostyka-semper">
@@ -56,6 +57,7 @@
         </details>
         <div id="wyniki-semper" class="wyniki-semper"></div>
         <div id="wynik-wypełniania-bur" class="wynik-wypełniania"></div>
+        <div id="podglad-zmian-bur" class="wynik-wypełniania"></div>
       </section>
 
       <section id="ostrzezenia-karta" class="karta ukryty">
@@ -146,6 +148,7 @@
     <script src="../shared/bur-program-harmonogram.js"></script>
     <script src="../shared/wyszukiwarka-semper.js"></script>
     <script src="../shared/parser-semper.js"></script>
+    <script src="../shared/przygotowanie-wypelnienia-bur.js"></script>
     <script src="panel.js"></script>
   </body>
 </html>

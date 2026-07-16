@@ -764,6 +764,18 @@
       return true;
     }
 
+    if (wiadomosc.typ === komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR) {
+      odpowiedz({ typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR, wynik: { propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}) } });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR) {
+      Promise.all((wiadomosc.propozycje || []).filter(function wybrane(propozycja) { return propozycja.zaznaczona; }).map(function ustaw(propozycja) {
+        return przestrzen.ustawPoleBurZWeryfikacją(document, { sekcja: propozycja.sekcja, pole: propozycja.pole, typPola: propozycja.typPola, wartość: propozycja.wartośćProponowana, definicjaPola: propozycja.definicjaPola, zezwólNaNadpisanie: propozycja.status === "konflikt" });
+      })).then(function odpowiedzWynikiem(wyniki) { odpowiedz({ typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR, wynik: { wyniki: wyniki, ok: wyniki.every(function poprawne(wynik) { return wynik.ok; }) } }); });
+      return true;
+    }
+
     if (wiadomosc.typ === komunikaty.WYCZYŚĆ_PODŚWIETLENIA_BUR) {
       wyczyśćPodświetleniaBur(document);
       odpowiedz({

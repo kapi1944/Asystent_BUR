@@ -60,6 +60,7 @@
         "shared/wyszukiwarka-semper.js",
         "shared/selektory-bur.js",
         "shared/walidatory-bur.js",
+        "shared/przygotowanie-wypelnienia-bur.js",
         "shared/wypełniacz-bur.js",
         "content/bur-content.js"
       ],
