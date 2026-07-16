@@ -6,6 +6,7 @@
     statusStrony: document.getElementById("status-strony"),
     statusAkcji: document.getElementById("status-akcji"),
     statusSemper: document.getElementById("status-semper"),
+    statusOperacjiBur: document.getElementById("status-operacji-bur"),
     diagnostykaFraza: document.getElementById("diagnostyka-fraza"),
     diagnostykaŹródłoFrazy: document.getElementById("diagnostyka-zrodlo-frazy"),
     diagnostykaKandydaci: document.getElementById("diagnostyka-kandydaci"),
@@ -52,6 +53,7 @@
   let ostatnieSzkolenieSemperZPanelu = null;
   let ostatniWybranyTerminSemperIndex = null;
   let czyAktywnaKartaBur = false;
+  let aktywnaOperacjaBur = null;
   const diagnostykaSemper = {
     fraza: "",
     źródłoFrazy: "",
@@ -68,6 +70,27 @@
 
   function ustawStatusProgramuHarmonogramu(tekst, klasa) {
     ustawStatus(elementy.statusProgramuHarmonogramu, tekst, klasa || "status-neutralny");
+  }
+
+  function odświeżStatusOperacjiBur() {
+    if (!aktywnaOperacjaBur) {
+      ustawStatus(elementy.statusOperacjiBur, "Brak aktywnej operacji BUR.", "status-neutralny");
+      return;
+    }
+    if (przestrzeń.czyOperacjaBurWygasła(aktywnaOperacjaBur)) {
+      aktywnaOperacjaBur = przestrzeń.zwolnijWygasłąOperacjęBur(aktywnaOperacjaBur);
+      zapiszStorage({ aktywnaOperacjaBur: aktywnaOperacjaBur });
+    }
+    const błąd = aktywnaOperacjaBur.błąd;
+    ustawStatus(elementy.statusOperacjiBur, błąd ? "Operacja BUR: " + błąd.komunikat : "Operacja BUR: " + aktywnaOperacjaBur.etap + ".", błąd ? "status-ostrzezenie" : "status-neutralny");
+  }
+
+  function rozpocznijOperacjęBur(karta, szkolenie, indeksTerminu) {
+    const dane = { identyfikatorKartyBur: karta.id, odciskSzkolenia: JSON.stringify([szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "", elementy.linkLubFrazaSemper.value]), indeksTerminu: indeksTerminu };
+    const konflikt = aktywnaOperacjaBur && przestrzeń.znajdźKonfliktOperacjiBur([aktywnaOperacjaBur], dane);
+    if (konflikt) { throw new Error("Ta karta i termin mają już aktywną operację BUR."); }
+    aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(przestrzeń.utwórzOperacjęBur(dane), "przygotowywanie");
+    return zapiszStorage({ aktywnaOperacjaBur: aktywnaOperacjaBur }).then(function zwróć() { odświeżStatusOperacjiBur(); return aktywnaOperacjaBur; });
   }
 
   function wyczyśćDecyzjęHarmonogramuBur() {
@@ -1593,8 +1616,10 @@
   }
 
   function odczytajOstatniImport() {
-    odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieŁączeSemper", "dataImportuSemper", "wybranyTerminSemperIndex"])
+    odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieŁączeSemper", "dataImportuSemper", "wybranyTerminSemperIndex", "aktywnaOperacjaBur"])
       .then(function pokażDane(dane) {
+        aktywnaOperacjaBur = dane.aktywnaOperacjaBur || null;
+        odświeżStatusOperacjiBur();
         if (!dane.ostatnieSzkolenieSemper) {
           return;
         }
