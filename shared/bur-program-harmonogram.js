@@ -445,33 +445,119 @@
     return pozycje;
   }
 
-  function wygenerujTagXml(nazwa, wartość) {
-    const tekst = String(wartość || "");
+  const NAGŁÓWKI_XLSX_HARMONOGRAMU = [
+    "Przedmiot / temat (max 200 znaków)",
+    "Prowadzący (adres email lub \"Podmiot zewnętrzny\")",
+    "Termin (w formacie dd-mm-yyyy)",
+    "Godzina od (w formacie hh:mm)",
+    "Godzina do (w formacie hh:mm)",
+    "Typ aktywności (Zajęcia/Walidacja/Przerwa)"
+  ];
 
-    if (!tekst) {
-      return "<" + nazwa + "/>";
+  function obliczCrc32(dane) {
+    let crc = 0xffffffff;
+
+    for (let indeks = 0; indeks < dane.length; indeks += 1) {
+      crc ^= dane[indeks];
+      for (let bit = 0; bit < 8; bit += 1) {
+        crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+      }
     }
 
-    return "<" + nazwa + ">" + escapujXml(tekst) + "</" + nazwa + ">";
+    return (crc ^ 0xffffffff) >>> 0;
   }
 
-  function wygenerujXmlHarmonogramu(pozycje) {
-    const wiersze = (Array.isArray(pozycje) ? pozycje : []).map(function dodajWiersz(pozycja) {
-      const wartości = pozycja || {};
+  function zapiszLiczbę(dane, pozycja, wartość, liczbaBajtów) {
+    for (let indeks = 0; indeks < liczbaBajtów; indeks += 1) {
+      dane[pozycja + indeks] = (wartość >>> (indeks * 8)) & 0xff;
+    }
+  }
 
-      return [
-        "    <row>",
-        "      " + wygenerujTagXml("przedmiot", wartości.przedmiot),
-        "      " + wygenerujTagXml("prowadzacy", wartości.prowadzacy),
-        "      " + wygenerujTagXml("dzien_swiadczenia", wartości.dzien_swiadczenia),
-        "      " + wygenerujTagXml("czas_rozpoczecia", wartości.czas_rozpoczecia),
-        "      " + wygenerujTagXml("czas_zakonczenia", wartości.czas_zakonczenia),
-        "      " + wygenerujTagXml("typ_aktywnosci", wartości.typ_aktywnosci),
-        "    </row>"
-      ].join("\n");
+  function połączBajty(fragmenty) {
+    const długość = fragmenty.reduce(function zsumuj(suma, fragment) {
+      return suma + fragment.length;
+    }, 0);
+    const wynik = new Uint8Array(długość);
+    let pozycja = 0;
+
+    fragmenty.forEach(function skopiuj(fragment) {
+      wynik.set(fragment, pozycja);
+      pozycja += fragment.length;
     });
 
-    return ["<response>", "  <data>", wiersze.join("\n"), "  </data>", "</response>"].join("\n");
+    return wynik;
+  }
+
+  function utwórzArchiwumZip(pliki) {
+    const encoder = new TextEncoder();
+    const wpisy = pliki.map(function utwórzWpis(plik) {
+      const nazwa = encoder.encode(plik.nazwa);
+      const dane = encoder.encode(plik.zawartość);
+      const crc = obliczCrc32(dane);
+      const nagłówek = new Uint8Array(30 + nazwa.length);
+
+      zapiszLiczbę(nagłówek, 0, 0x04034b50, 4);
+      zapiszLiczbę(nagłówek, 4, 20, 2);
+      zapiszLiczbę(nagłówek, 6, 0x0800, 2);
+      zapiszLiczbę(nagłówek, 14, crc, 4);
+      zapiszLiczbę(nagłówek, 18, dane.length, 4);
+      zapiszLiczbę(nagłówek, 22, dane.length, 4);
+      zapiszLiczbę(nagłówek, 26, nazwa.length, 2);
+      nagłówek.set(nazwa, 30);
+
+      return { nazwa: nazwa, dane: dane, crc: crc, lokalny: połączBajty([nagłówek, dane]) };
+    });
+    let przesunięcie = 0;
+    const katalog = wpisy.map(function utwórzWpisKatalogu(wpis) {
+      const nagłówek = new Uint8Array(46 + wpis.nazwa.length);
+
+      zapiszLiczbę(nagłówek, 0, 0x02014b50, 4);
+      zapiszLiczbę(nagłówek, 4, 20, 2);
+      zapiszLiczbę(nagłówek, 6, 20, 2);
+      zapiszLiczbę(nagłówek, 8, 0x0800, 2);
+      zapiszLiczbę(nagłówek, 16, wpis.crc, 4);
+      zapiszLiczbę(nagłówek, 20, wpis.dane.length, 4);
+      zapiszLiczbę(nagłówek, 24, wpis.dane.length, 4);
+      zapiszLiczbę(nagłówek, 28, wpis.nazwa.length, 2);
+      zapiszLiczbę(nagłówek, 42, przesunięcie, 4);
+      nagłówek.set(wpis.nazwa, 46);
+      przesunięcie += wpis.lokalny.length;
+      return nagłówek;
+    });
+    const daneKatalogu = połączBajty(katalog);
+    const zakończenie = new Uint8Array(22);
+
+    zapiszLiczbę(zakończenie, 0, 0x06054b50, 4);
+    zapiszLiczbę(zakończenie, 8, wpisy.length, 2);
+    zapiszLiczbę(zakończenie, 10, wpisy.length, 2);
+    zapiszLiczbę(zakończenie, 12, daneKatalogu.length, 4);
+    zapiszLiczbę(zakończenie, 16, przesunięcie, 4);
+    return połączBajty(wpisy.map(function pobierzLokalny(wpis) { return wpis.lokalny; }).concat([daneKatalogu, zakończenie]));
+  }
+
+  function utwórzKomórkęTekstową(kolumna, wiersz, wartość) {
+    return '<c r="' + kolumna + wiersz + '" t="inlineStr"><is><t xml:space="preserve">' + escapujXml(String(wartość || "")) + "</t></is></c>";
+  }
+
+  function wygenerujDaneXlsxHarmonogramu(pozycje) {
+    const wiersze = [NAGŁÓWKI_XLSX_HARMONOGRAMU].concat((Array.isArray(pozycje) ? pozycje : []).map(function mapujPozycję(pozycja) {
+      const wartości = pozycja || {};
+      return [wartości.przedmiot, wartości.prowadzacy, wartości.dzien_swiadczenia, wartości.czas_rozpoczecia, wartości.czas_zakonczenia, wartości.typ_aktywnosci];
+    }));
+    const arkusz = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>' +
+      wiersze.map(function utwórzWiersz(wartości, indeksWiersza) {
+        return '<row r="' + (indeksWiersza + 1) + '">' + wartości.map(function utwórzKomórkę(wartość, indeksKolumny) {
+          return utwórzKomórkęTekstową(String.fromCharCode(65 + indeksKolumny), indeksWiersza + 1, wartość);
+        }).join("") + "</row>";
+      }).join("") + "</sheetData></worksheet>";
+
+    return utwórzArchiwumZip([
+      { nazwa: "[Content_Types].xml", zawartość: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>' },
+      { nazwa: "_rels/.rels", zawartość: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+      { nazwa: "xl/workbook.xml", zawartość: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Harmonogram" sheetId="1" r:id="rId1"/></sheets></workbook>' },
+      { nazwa: "xl/_rels/workbook.xml.rels", zawartość: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>' },
+      { nazwa: "xl/worksheets/sheet1.xml", zawartość: arkusz }
+    ]);
   }
 
   function czyTenSamIndeksTerminu(indeksPrzygotowany, indeksAktualny) {
@@ -484,9 +570,7 @@
   function sprawdźGotowośćHarmonogramuBur(dane) {
     const źródło = dane || {};
     const pozycje = Array.isArray(źródło.ostatniePozycjeHarmonogramuBur) ? źródło.ostatniePozycjeHarmonogramuBur : [];
-    const xml = typeof źródło.ostatniXmlHarmonogramuBur === "string" ? źródło.ostatniXmlHarmonogramuBur.trim() : "";
-
-    if (!źródło.harmonogramBurPrzygotowany || !pozycje.length || !xml) {
+    if (!źródło.harmonogramBurPrzygotowany || !pozycje.length) {
       return {
         ok: false,
         komunikat: "Najpierw kliknij »Przygotuj harmonogram« i sprawdź podgląd."
@@ -504,7 +588,6 @@
     return {
       ok: true,
       pozycje: pozycje,
-      xml: xml,
       indeksTerminu: źródło.ostatniWybranyTerminHarmonogramuBur
     };
   }
@@ -560,7 +643,7 @@
     return Boolean(
       stan.tabelaIstnieje &&
       stan.klikniętoWprowadzenie &&
-      stan.xmlNieudany &&
+      stan.xlsxNieudany &&
       !stan.istniejącePozycje &&
       Array.isArray(stan.pozycje) &&
       stan.pozycje.length > 0
@@ -578,7 +661,8 @@
   przestrzeń.pobierzDatyHarmonogramuZTerminu = pobierzDatyHarmonogramuZTerminu;
   przestrzeń.wybierzTerminHarmonogramu = wybierzTerminHarmonogramu;
   przestrzeń.zbudujPozycjeHarmonogramu = zbudujPozycjeHarmonogramu;
-  przestrzeń.wygenerujXmlHarmonogramu = wygenerujXmlHarmonogramu;
+  przestrzeń.NAGŁÓWKI_XLSX_HARMONOGRAMU = NAGŁÓWKI_XLSX_HARMONOGRAMU;
+  przestrzeń.wygenerujDaneXlsxHarmonogramu = wygenerujDaneXlsxHarmonogramu;
   przestrzeń.sprawdźGotowośćHarmonogramuBur = sprawdźGotowośćHarmonogramuBur;
   przestrzeń.czyTabelaHarmonogramuMaPozycje = czyTabelaHarmonogramuMaPozycje;
   przestrzeń.czyUruchomićFallbackHarmonogramu = czyUruchomićFallbackHarmonogramu;

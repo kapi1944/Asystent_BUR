@@ -48,7 +48,7 @@
     decyzjaHarmonogramuBur: document.getElementById("decyzja-harmonogramu-bur"),
     przyciskUzupełnijProgram: document.getElementById("przycisk-uzupelnij-program"),
     przyciskGenerujHarmonogram: document.getElementById("przycisk-generuj-harmonogram"),
-    przyciskImportujHarmonogramXml: document.getElementById("przycisk-importuj-harmonogram-xml"),
+    przyciskImportujHarmonogramXlsx: document.getElementById("przycisk-importuj-harmonogram-xlsx"),
     przyciskWypełnijHarmonogramRęcznie: document.getElementById("przycisk-wypelnij-harmonogram-recznie")
   };
   let ostatnieTerminySemper = [];
@@ -329,7 +329,7 @@
         }
       });
     }).then(function pokażInformację() {
-      elementy.przyciskImportujHarmonogramXml.disabled = true;
+      elementy.przyciskImportujHarmonogramXlsx.disabled = true;
       ustawStatusProgramuHarmonogramu("Zmieniono termin SEMPER. Kliknij ponownie »Przygotuj harmonogram«.", "status-ostrzezenie");
     }).catch(function pomińBłądZapisu() {});
   }
@@ -664,7 +664,6 @@
         tryb: czyOnline ? "online" : "stacjonarny",
         ostrzeżenia: ostrzeżenia,
         pozycje: pozycje,
-        xml: przestrzeń.wygenerujXmlHarmonogramu(pozycje)
       };
     });
   }
@@ -756,7 +755,6 @@
   function zapiszDaneHarmonogramu(dane) {
     return zapiszStorage({
       ostatniePozycjeHarmonogramuBur: dane.pozycje,
-      ostatniXmlHarmonogramuBur: dane.xml,
       ostatniWybranyTerminHarmonogramuBur: dane.indeksTerminu,
       ostatnieOstrzeżeniaHarmonogramuBur: dane.ostrzeżenia || [],
       ostrzezeniaHarmonogramuBur: dane.ostrzeżenia || [],
@@ -769,7 +767,6 @@
   function odczytajPrzygotowanyHarmonogram() {
     return odczytajStorage([
       "ostatniePozycjeHarmonogramuBur",
-      "ostatniXmlHarmonogramuBur",
       "ostatniWybranyTerminHarmonogramuBur",
       "ostatnieOstrzeżeniaHarmonogramuBur",
       "ostrzezeniaHarmonogramuBur",
@@ -785,7 +782,6 @@
 
       return {
         pozycje: dane.ostatniePozycjeHarmonogramuBur,
-        xml: dane.ostatniXmlHarmonogramuBur,
         indeksTerminu: dane.ostatniWybranyTerminHarmonogramuBur,
         ostrzeżenia: dane.ostatnieOstrzeżeniaHarmonogramuBur || dane.ostrzezeniaHarmonogramuBur || [],
         przygotowanyAt: dane.harmonogramBurPrzygotowanyAt
@@ -796,14 +792,13 @@
   function odświeżStanPrzygotowaniaHarmonogramu() {
     return odczytajStorage([
       "ostatniePozycjeHarmonogramuBur",
-      "ostatniXmlHarmonogramuBur",
       "ostatniWybranyTerminHarmonogramuBur",
       "harmonogramBurPrzygotowany",
       "wybranyTerminSemperIndex"
     ]).then(function pokaż(dane) {
       const gotowość = przestrzeń.sprawdźGotowośćHarmonogramuBur(dane);
 
-      elementy.przyciskImportujHarmonogramXml.disabled = !gotowość.ok;
+      elementy.przyciskImportujHarmonogramXlsx.disabled = !gotowość.ok;
 
       if (!gotowość.ok && !dane.harmonogramBurPrzygotowany) {
         ustawStatusProgramuHarmonogramu("Brak przygotowanego harmonogramu.", "status-neutralny");
@@ -811,7 +806,7 @@
         ustawStatusProgramuHarmonogramu(gotowość.komunikat, "status-ostrzezenie");
       }
     }).catch(function pomińBłądStorage() {
-      elementy.przyciskImportujHarmonogramXml.disabled = true;
+      elementy.przyciskImportujHarmonogramXlsx.disabled = true;
     });
   }
 
@@ -821,10 +816,10 @@
 
     if (raport.istniejącePozycje) {
       części.push("Nie wprowadzono harmonogramu, ponieważ w BUR istnieją już pozycje.");
-    } else if (raport.ok && raport.metoda === "XML") {
-      części.push("Wprowadzono przez import XML.");
+    } else if (raport.ok && raport.metoda === "XLSX") {
+      części.push("Wprowadzono przez import XLSX.");
     } else if (raport.ok && raport.metoda === "fallback ręczny") {
-      części.push("Import XML nie powiódł się — użyto ręcznego wypełniania.");
+      części.push("Import XLSX nie powiódł się — użyto ręcznego wypełniania.");
     } else if (raport.ok) {
       części.push(raport.komunikat || "Harmonogram wprowadzony.");
     } else {
@@ -839,8 +834,8 @@
       części.push("Pozycje w tabeli po operacji: " + raport.liczbaPozycjiWTabeli + ".");
     }
 
-    if (raport.błądXml) {
-      części.push("Błąd XML: " + raport.błądXml);
+    if (raport.błądXlsx) {
+      części.push("Błąd XLSX: " + raport.błądXlsx);
     }
 
     if (raport.błąd) {
@@ -914,7 +909,7 @@
       .then(function pokażWynik(dane) {
         pokażPodglądHarmonogramu(dane);
         return zapiszDaneHarmonogramu(dane).then(function pokaż() {
-          elementy.przyciskImportujHarmonogramXml.disabled = false;
+          elementy.przyciskImportujHarmonogramXlsx.disabled = false;
           ustawStatusProgramuHarmonogramu("Harmonogram przygotowany. Sprawdź podgląd przed wprowadzeniem do BUR.", dane.ostrzeżenia.length ? "status-ostrzezenie" : "status-odczytano");
         });
       })
@@ -970,7 +965,6 @@
         return bezpiecznieWyślijDoAktywnejKarty({
           typ: typKomunikatu,
           pozycje: dane.pozycje,
-          xml: dane.xml,
           indeksTerminu: dane.indeksTerminu,
           przygotowanyAt: dane.przygotowanyAt
         });
@@ -1268,7 +1262,6 @@
       "dataImportuSemper",
       "wybranyTerminSemperIndex",
       "ostatniePozycjeHarmonogramuBur",
-      "ostatniXmlHarmonogramuBur",
       "ostatniWybranyTerminHarmonogramuBur",
       "ostatnieOstrzeżeniaHarmonogramuBur",
       "ostrzezeniaHarmonogramuBur",
@@ -1284,7 +1277,7 @@
     wyczyśćDecyzjęHarmonogramuBur();
     pokażPodglądHarmonogramu({});
     elementy.linkLubFrazaSemper.value = "";
-    elementy.przyciskImportujHarmonogramXml.disabled = true;
+    elementy.przyciskImportujHarmonogramXlsx.disabled = true;
     diagnostykaSemper.fraza = "";
     diagnostykaSemper.źródłoFrazy = "";
     diagnostykaSemper.liczbaKandydatów = "";
@@ -1689,7 +1682,7 @@
   przestrzeń.odświeżDaneSzkoleniaZMagazynu = odświeżDaneSzkoleniaZMagazynu;
   pokażDiagnostykęSemper();
   odświeżDostępnośćWypełniania();
-  elementy.przyciskImportujHarmonogramXml.disabled = true;
+  elementy.przyciskImportujHarmonogramXlsx.disabled = true;
 
   elementy.przyciskPobierz.addEventListener("click", pobierzDaneZeStrony);
   elementy.przyciskWyczyśćPanel.addEventListener("click", wyczyśćPanelImportu);
@@ -1702,7 +1695,7 @@
   elementy.przyciskWyczyśćPodświetlenia.addEventListener("click", wyczyśćPodświetleniaBurZPanelu);
   elementy.przyciskUzupełnijProgram.addEventListener("click", uzupełnijProgramWPanelu);
   elementy.przyciskGenerujHarmonogram.addEventListener("click", przygotujHarmonogramWPanelu);
-  elementy.przyciskImportujHarmonogramXml.addEventListener("click", function importujXml() {
+  elementy.przyciskImportujHarmonogramXlsx.addEventListener("click", function importujXlsx() {
     wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR);
   });
   elementy.przyciskWypełnijHarmonogramRęcznie.addEventListener("click", function wypełnijRęcznie() {

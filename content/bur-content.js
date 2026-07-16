@@ -128,7 +128,7 @@
     return kandydaci[0] || null;
   }
 
-  async function importujHarmonogramPrzezXml(xml, pozycje) {
+  async function importujHarmonogramPrzezXlsx(pozycje) {
     const inputPliku = znajdźInputPlikuImportu();
 
     if (!document.querySelector(selektory.importHarmonogramu)) {
@@ -141,12 +141,13 @@
     if (!inputPliku) {
       return {
         ok: false,
-        błąd: "Nie znaleziono technicznego inputa pliku dla importu XML. Nie otwieram natywnego okna wyboru pliku."
+        błąd: "Nie znaleziono technicznego inputa pliku dla importu XLSX. Nie otwieram natywnego okna wyboru pliku."
       };
     }
 
     try {
-      const plik = new File([xml], "harmonogram-bur.xml", { type: "application/xml" });
+      const daneXlsx = przestrzen.wygenerujDaneXlsxHarmonogramu(pozycje || []);
+      const plik = new File([daneXlsx], "harmonogram-bur.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
       const transfer = new DataTransfer();
 
       transfer.items.add(plik);
@@ -159,14 +160,14 @@
       if (!raport.ok) {
         return {
           ok: false,
-          błąd: "Import XML nie potwierdził poprawnego uzupełnienia tabeli: " + raport.błędy.join(" ")
+          błąd: "Import XLSX nie potwierdził poprawnego uzupełnienia tabeli: " + raport.błędy.join(" ")
         };
       }
 
       return {
         ok: true,
-        metoda: "XML",
-        komunikat: "Zaimportowano harmonogram XML. Sprawdź dane przed zapisaniem usługi.",
+        metoda: "XLSX",
+        komunikat: "Zaimportowano harmonogram XLSX. Sprawdź dane przed zapisaniem usługi.",
         liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
         liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
         raport: raport
@@ -174,7 +175,7 @@
     } catch (błąd) {
       return {
         ok: false,
-        błąd: błąd && błąd.message ? błąd.message : "Nie udało się przekazać pliku XML do importu."
+        błąd: błąd && błąd.message ? błąd.message : "Nie udało się przekazać pliku XLSX do importu."
       };
     }
   }
@@ -365,7 +366,7 @@
     };
   }
 
-  async function importujXmlZFallbackiem(xml, pozycje) {
+  async function importujXlsxZFallbackiem(pozycje) {
     const tabela = document.querySelector(selektory.tabelaHarmonogramu);
     const obecneWiersze = odczytajWierszeHarmonogramu();
     const istniejącePozycje = przestrzen.czyTabelaHarmonogramuMaPozycje(obecneWiersze);
@@ -390,7 +391,7 @@
       };
     }
 
-    const wynikImportu = await importujHarmonogramPrzezXml(xml, pozycje);
+    const wynikImportu = await importujHarmonogramPrzezXlsx(pozycje);
 
     if (wynikImportu.ok) {
       return wynikImportu;
@@ -399,13 +400,13 @@
     if (!przestrzen.czyUruchomićFallbackHarmonogramu({
       tabelaIstnieje: Boolean(tabela),
       istniejącePozycje: istniejącePozycje,
-      xmlNieudany: true,
+      xlsxNieudany: true,
       klikniętoWprowadzenie: true,
       pozycje: pozycje
     })) {
       return {
         ok: false,
-        metoda: "XML",
+        metoda: "XLSX",
         błąd: wynikImportu.błąd,
         liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
         liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli()
@@ -415,32 +416,32 @@
     const wynikRęczny = await wypelnijHarmonogramRecznie(pozycje);
 
     if (wynikRęczny.ok) {
-      wynikRęczny.komunikat = "Import XML nie był dostępny, użyto trybu ręcznego. Sprawdź dane przed zapisaniem usługi.";
-      wynikRęczny.błądXml = wynikImportu.błąd;
+      wynikRęczny.komunikat = "Import XLSX nie był dostępny, użyto trybu ręcznego. Sprawdź dane przed zapisaniem usługi.";
+      wynikRęczny.błądXlsx = wynikImportu.błąd;
       return wynikRęczny;
     }
 
     return {
       ok: false,
       metoda: "fallback ręczny",
-      błądXml: wynikImportu.błąd,
-      błąd: "Import XML: " + wynikImportu.błąd + " Fallback ręczny: " + wynikRęczny.błąd,
+      błądXlsx: wynikImportu.błąd,
+      błąd: "Import XLSX: " + wynikImportu.błąd + " Fallback ręczny: " + wynikRęczny.błąd,
       liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
       liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli()
     };
   }
 
-  async function wprowadźHarmonogramDoBur(xml, pozycje) {
+  async function wprowadźHarmonogramDoBur(pozycje) {
     const pozycjeHarmonogramu = Array.isArray(pozycje) ? pozycje : [];
 
-    if (!pozycjeHarmonogramu.length || !xml) {
+    if (!pozycjeHarmonogramu.length) {
       return {
         ok: false,
-        błąd: "Brak przygotowanego harmonogramu lub XML."
+        błąd: "Brak przygotowanego harmonogramu XLSX."
       };
     }
 
-    return importujXmlZFallbackiem(xml, pozycjeHarmonogramu);
+    return importujXlsxZFallbackiem(pozycjeHarmonogramu);
   }
 
   async function wypełnijPrzygotowanyHarmonogramRęcznie(pozycje) {
@@ -824,8 +825,8 @@
       return true;
     }
 
-    if (wiadomosc.typ === komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR || wiadomosc.typ === komunikaty.IMPORTUJ_HARMONOGRAM_XML_BUR) {
-      wprowadźHarmonogramDoBur(wiadomosc.xml, wiadomosc.pozycje || [])
+    if (wiadomosc.typ === komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR || wiadomosc.typ === komunikaty.IMPORTUJ_HARMONOGRAM_XLSX_BUR) {
+      wprowadźHarmonogramDoBur(wiadomosc.pozycje || [])
         .then(function zwróćWynik(wynik) {
           odpowiedz({
             typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR,
@@ -837,7 +838,7 @@
             typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR,
             wynik: {
               ok: false,
-              błąd: błąd && błąd.message ? błąd.message : "Nie udało się importować harmonogramu XML."
+              błąd: błąd && błąd.message ? błąd.message : "Nie udało się importować harmonogramu XLSX."
             }
           });
         });

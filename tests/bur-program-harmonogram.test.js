@@ -84,8 +84,8 @@
     sprawdzRownosc(pozycje[4].prowadzacy, "koordynator@szkolenia-semper.pl", "Walidacja powinna mieć koordynatora.");
   });
 
-  test("XML escapuje znaki specjalne", function sprawdź() {
-    const xml = asystent.wygenerujXmlHarmonogramu([{
+  test("XLSX jest archiwum ZIP", function sprawdź() {
+    const xlsx = asystent.wygenerujDaneXlsxHarmonogramu([{
       przedmiot: "A & B < C > D \"E\" 'F'",
       prowadzacy: "trener@szkolenia-semper.pl",
       dzien_swiadczenia: "07-07-2027",
@@ -94,11 +94,12 @@
       typ_aktywnosci: "Zajęcia"
     }]);
 
-    sprawdzWarunek(xml.includes("A &amp; B &lt; C &gt; D &quot;E&quot; &apos;F&apos;"), "XML nie escapuje znaków specjalnych.");
+    sprawdzRownosc(xlsx[0], 0x50, "XLSX nie ma sygnatury ZIP.");
+    sprawdzRownosc(xlsx[1], 0x4b, "XLSX nie ma sygnatury ZIP.");
   });
 
-  test("XML zawiera polskie znaki", function sprawdź() {
-    const xml = asystent.wygenerujXmlHarmonogramu([{
+  test("XLSX tworzy dane jako bajty", function sprawdź() {
+    const xlsx = asystent.wygenerujDaneXlsxHarmonogramu([{
       przedmiot: "Zażółć gęślą jaźń",
       prowadzacy: "trener@szkolenia-semper.pl",
       dzien_swiadczenia: "07-07-2027",
@@ -107,7 +108,7 @@
       typ_aktywnosci: "Zajęcia"
     }]);
 
-    sprawdzWarunek(xml.includes("Zażółć gęślą jaźń"), "XML nie zachował polskich znaków.");
+    sprawdzWarunek(xlsx instanceof Uint8Array, "Generator XLSX powinien zwracać Uint8Array.");
   });
 
   test("przerwy mają pusty przedmiot i pustego prowadzącego", function sprawdź() {
@@ -257,38 +258,26 @@
     sprawdzWarunek(temat.includes("Zażółć gęślą jaźń"), "Temat nie zachował polskich znaków.");
   });
 
-  test("XML zawiera te same wartości co pozycje harmonogramu", function sprawdź() {
+  test("XLSX zawiera wymagane nagłówki BUR", function sprawdź() {
     const pozycje = asystent.zbudujPozycjeHarmonogramu({
       tematSzkolenia: "Prawo ochrony środowiska",
       daty: ["07-07-2027"],
       czyOnline: false
     });
-    const xml = asystent.wygenerujXmlHarmonogramu(pozycje);
+    const xlsx = asystent.wygenerujDaneXlsxHarmonogramu(pozycje);
+    const tekst = new TextDecoder().decode(xlsx);
 
-    pozycje.forEach(function sprawdźPozycję(pozycja) {
-      ["dzien_swiadczenia", "czas_rozpoczecia", "czas_zakonczenia", "typ_aktywnosci"].forEach(function sprawdźPole(pole) {
-        sprawdzWarunek(xml.includes("<" + pole + ">" + pozycja[pole] + "</" + pole + ">"), "XML nie zawiera wartości pola " + pole + ".");
-      });
-
-      if (pozycja.przedmiot) {
-        sprawdzWarunek(xml.includes("<przedmiot>" + pozycja.przedmiot + "</przedmiot>"), "XML nie zawiera tematu pozycji.");
-      } else {
-        sprawdzWarunek(xml.includes("<przedmiot/>"), "XML nie zawiera pustego tematu pozycji.");
-      }
-
-      if (pozycja.prowadzacy) {
-        sprawdzWarunek(xml.includes("<prowadzacy>" + pozycja.prowadzacy + "</prowadzacy>"), "XML nie zawiera prowadzącego pozycji.");
-      } else {
-        sprawdzWarunek(xml.includes("<prowadzacy/>"), "XML nie zawiera pustego prowadzącego pozycji.");
-      }
+    asystent.NAGŁÓWKI_XLSX_HARMONOGRAMU.forEach(function sprawdźNagłówek(nagłówek) {
+      sprawdzWarunek(tekst.includes(nagłówek.replace(/"/g, "&quot;")), "XLSX nie zawiera nagłówka: " + nagłówek);
     });
+    sprawdzWarunek(tekst.includes('t="inlineStr"'), "Daty i godziny powinny być zapisane jako tekst.");
+    sprawdzWarunek(!tekst.includes("dd1.mm.rrrr"), "XLSX nie może zawierać symbolicznej daty dd1.");
   });
 
-  test("wprowadzenie harmonogramu wymaga przygotowanych pozycji i XML", function sprawdź() {
+  test("wprowadzenie harmonogramu wymaga przygotowanych pozycji", function sprawdź() {
     const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
       harmonogramBurPrzygotowany: false,
       ostatniePozycjeHarmonogramuBur: [],
-      ostatniXmlHarmonogramuBur: "",
       wybranyTerminSemperIndex: 1,
       ostatniWybranyTerminHarmonogramuBur: 1
     });
@@ -297,32 +286,29 @@
     sprawdzWarunek(gotowość.komunikat.includes("Przygotuj harmonogram"), "Komunikat powinien kierować do przygotowania harmonogramu.");
   });
 
-  test("zmiana terminu po przygotowaniu blokuje użycie starego XML", function sprawdź() {
+  test("zmiana terminu po przygotowaniu blokuje użycie starego harmonogramu", function sprawdź() {
     const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
       harmonogramBurPrzygotowany: true,
       ostatniePozycjeHarmonogramuBur: [{ typ_aktywnosci: "Zajęcia" }],
-      ostatniXmlHarmonogramuBur: "<response></response>",
       ostatniWybranyTerminHarmonogramuBur: 0,
       wybranyTerminSemperIndex: 1
     });
 
-    sprawdzRownosc(gotowość.ok, false, "Stary XML nie powinien być gotowy po zmianie terminu.");
+    sprawdzRownosc(gotowość.ok, false, "Stary harmonogram nie powinien być gotowy po zmianie terminu.");
     sprawdzRownosc(gotowość.nieaktualny, true, "Blokada powinna oznaczać nieaktualny harmonogram.");
   });
 
-  test("przygotowane pozycje i XML są źródłem prawdy dla wprowadzenia", function sprawdź() {
+  test("przygotowane pozycje są źródłem prawdy dla wprowadzenia", function sprawdź() {
     const pozycje = [{ typ_aktywnosci: "Zajęcia" }];
     const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
       harmonogramBurPrzygotowany: true,
       ostatniePozycjeHarmonogramuBur: pozycje,
-      ostatniXmlHarmonogramuBur: "<response></response>",
       ostatniWybranyTerminHarmonogramuBur: 1,
       wybranyTerminSemperIndex: "1"
     });
 
     sprawdzRownosc(gotowość.ok, true, "Przygotowany harmonogram powinien być gotowy.");
     sprawdzRownosc(gotowość.pozycje, pozycje, "Wprowadzenie powinno używać zapisanych pozycji.");
-    sprawdzRownosc(gotowość.xml, "<response></response>", "Wprowadzenie powinno używać zapisanego XML.");
   });
 
   test("istniejące pozycje w tabeli blokują import bez potwierdzenia", function sprawdź() {
@@ -349,7 +335,7 @@
     const czyUruchomić = asystent.czyUruchomićFallbackHarmonogramu({
       tabelaIstnieje: true,
       klikniętoWprowadzenie: true,
-      xmlNieudany: true,
+      xlsxNieudany: true,
       istniejącePozycje: true,
       pozycje: [{ typ_aktywnosci: "Zajęcia" }]
     });
