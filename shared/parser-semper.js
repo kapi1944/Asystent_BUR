@@ -170,6 +170,53 @@
     return dopasowanie ? dopasowanie[1].replace(/\s+/g, "").replace(",", ".") : "";
   }
 
+  function rozpoznajCenęTerminu(tekst) {
+    const dopasowanie = String(tekst || "").match(/(\d[\d\s]*(?:[,.]\d{1,2})?)\s*(?:zł|zl|pln)\s*(netto|brutto)?/i);
+
+    if (!dopasowanie) {
+      return null;
+    }
+
+    return {
+      wartość: dopasowanie[1].replace(/\s+/g, "").replace(",", "."),
+      rodzaj: (dopasowanie[2] || "").toLowerCase()
+    };
+  }
+
+  function czyTrzydniowyTerminStacjonarny(termin) {
+    return termin && termin.forma === przestrzeń.FORMY_SZKOLENIA.STACJONARNA && /^3\s*dni?$/i.test(String(termin.czasTrwania || "").trim());
+  }
+
+  function zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, wybranyTermin, ostrzeżenia) {
+    const komunikat = "Nie rozpoznano ceny bez zakwaterowania w sekcji Inwestycja.";
+    const wynikOstrzeżeń = Array.isArray(ostrzeżenia) ? ostrzeżenia : [];
+
+    if (!czyTrzydniowyTerminStacjonarny(wybranyTermin)) {
+      return wynikOstrzeżeń;
+    }
+
+    const cena = rozpoznajCenęTerminu(wybranyTermin.cena);
+
+    if (!cena) {
+      if (!wynikOstrzeżeń.includes(komunikat)) {
+        wynikOstrzeżeń.push(komunikat);
+      }
+      return wynikOstrzeżeń;
+    }
+
+    wybranyTermin.cenaBezZakwaterowania = cena.wartość;
+    wybranyTermin.cenaBezZakwaterowaniaRodzaj = cena.rodzaj;
+    szkolenie.cenaBezZakwaterowania = cena.wartość;
+    szkolenie.cenaBezZakwaterowaniaRodzaj = cena.rodzaj;
+    szkolenie.sekcje = szkolenie.sekcje || {};
+    szkolenie.sekcje.cenaBezZakwaterowania = cena.wartość;
+    szkolenie.sekcje.cenaBezZakwaterowaniaRodzaj = cena.rodzaj;
+
+    return wynikOstrzeżeń.filter(function usuńNieaktualneOstrzeżenie(ostrzeżenie) {
+      return ostrzeżenie !== komunikat;
+    });
+  }
+
   function czyTreśćWyglądaJakTabelaTerminów(treść) {
     const tekst = normalizujKlucz(treść);
     const frazy = [
@@ -629,7 +676,7 @@
     return przestrzeń.utworzSekcjeOpisuSemper(sekcje);
   }
 
-  function parsujStroneSemper(dokument, locationHref) {
+  function parsujStroneSemper(dokument, locationHref, wybranyTermin) {
     const ostrzeżenia = [];
     const tytułOryginalny = oczyśćTekstElementu(dokument.querySelector("h1"));
 
@@ -641,6 +688,7 @@
       ? przestrzeń.normalizujTytułBur(tytułOryginalny)
       : przestrzeń.normalizujTytulBur(tytułOryginalny);
     const sekcje = parsujSekcje(dokument, ostrzeżenia);
+    const terminy = parsujTerminySemper(dokument, ostrzeżenia);
     const szkolenie = przestrzeń.utworzSzkolenieSemper({
       urlZrodla: locationHref || "",
       urlŹródła: locationHref || "",
@@ -649,36 +697,40 @@
       tytulBur: tytułBur,
       tytułBur: tytułBur,
       tytułPoNormalizacjiBur: tytułBur,
-      terminy: parsujTerminySemper(dokument, ostrzeżenia),
+      terminy: terminy,
       sekcje: sekcje,
       cenaBezZakwaterowania: sekcje.cenaBezZakwaterowania,
       inwestycja: sekcje.inwestycja,
       inwestycjaHtml: sekcje.inwestycjaHtml
     });
 
+    const ostrzeżeniaPoWyborze = zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, wybranyTermin, ostrzeżenia);
+
     return {
       typ: "SEMPER",
       url: locationHref || "",
       szkolenie: szkolenie,
-      ostrzeżenia: ostrzeżenia,
-      ostrzezenia: ostrzeżenia
+      ostrzeżenia: ostrzeżeniaPoWyborze,
+      ostrzezenia: ostrzeżeniaPoWyborze
     };
   }
 
-  function parsujHtmlSemper(html, url) {
+  function parsujHtmlSemper(html, url, wybranyTermin) {
     if (typeof DOMParser === "undefined") {
       throw new Error("DOMParser nie jest dostępny w tym kontekście.");
     }
 
     const dokument = new DOMParser().parseFromString(String(html || ""), "text/html");
 
-    return parsujStroneSemper(dokument, url || "");
+    return parsujStroneSemper(dokument, url || "", wybranyTermin);
   }
 
   przestrzeń.parsujZakresDat = parsujZakresDat;
   przestrzeń.rozpoznajMiastoZTekstu = rozpoznajMiastoZTekstu;
   przestrzeń.rozpoznajCenęZTekstu = rozpoznajCenęZTekstu;
   przestrzeń.rozpoznajCenęBezZakwaterowania = rozpoznajCenęBezZakwaterowania;
+  przestrzeń.rozpoznajCenęTerminu = rozpoznajCenęTerminu;
+  przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu = zastosujCenęBezZakwaterowaniaWybranegoTerminu;
   przestrzeń.czyTreśćWyglądaJakTabelaTerminów = czyTreśćWyglądaJakTabelaTerminów;
   przestrzeń.czyTekstTerminuPotwierdzony = czyTekstTerminuPotwierdzony;
   przestrzeń.parsujTerminy = parsujTerminySemper;

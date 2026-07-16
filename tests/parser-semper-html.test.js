@@ -241,6 +241,37 @@
     sprawdzRownosc(wynik.szkolenie.sekcje.cenaBezZakwaterowania, "2890.00");
   });
 
+  test("3-dniowy termin stacjonarny ustawia cenę bez zakwaterowania z własnej ceny", function sprawdź() {
+    const termin = semper.utworzTerminSzkolenia({ forma: "stacjonarna", czasTrwania: "3 dni", cena: "2 500,00 zł netto" });
+    const szkolenie = semper.utworzSzkolenieSemper({ sekcje: { inwestycja: "Cena ustalana indywidualnie." } });
+    const ostrzeżenia = semper.zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, termin, ["Nie rozpoznano ceny bez zakwaterowania w sekcji Inwestycja."]);
+
+    sprawdzRownosc(szkolenie.cenaBezZakwaterowania, "2500.00");
+    sprawdzRownosc(szkolenie.cenaBezZakwaterowaniaRodzaj, "netto");
+    sprawdzRownosc(termin.cena, "2 500,00 zł netto");
+    sprawdzWarunek(!ostrzeżenia.includes("Nie rozpoznano ceny bez zakwaterowania w sekcji Inwestycja."), "Poprawna cena wybranego terminu nie może generować ostrzeżenia.");
+  });
+
+  test("cena bez zakwaterowania pochodzi wyłącznie z wybranego terminu", function sprawdź() {
+    const pierwszyTermin = semper.utworzTerminSzkolenia({ forma: "stacjonarna", czasTrwania: "3 dni", cena: "1990 zł brutto" });
+    const wybranyTermin = semper.utworzTerminSzkolenia({ forma: "stacjonarna", czasTrwania: "3 dni", cena: "2750 zł netto" });
+    const szkolenie = semper.utworzSzkolenieSemper({ terminy: [pierwszyTermin, wybranyTermin], sekcje: {} });
+
+    semper.zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, wybranyTermin, ["Nie rozpoznano ceny bez zakwaterowania w sekcji Inwestycja."]);
+
+    sprawdzRownosc(szkolenie.cenaBezZakwaterowania, "2750");
+    sprawdzRownosc(szkolenie.cenaBezZakwaterowaniaRodzaj, "netto");
+  });
+
+  test("brak ceny wybranego 3-dniowego terminu stacjonarnego pozostawia ostrzeżenie", function sprawdź() {
+    const termin = semper.utworzTerminSzkolenia({ forma: "stacjonarna", czasTrwania: "3 dni", cena: "do ustalenia" });
+    const szkolenie = semper.utworzSzkolenieSemper({ sekcje: {} });
+    const ostrzeżenia = semper.zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, termin, []);
+
+    sprawdzRownosc(szkolenie.cenaBezZakwaterowania, "");
+    sprawdzWarunek(ostrzeżenia.includes("Nie rozpoznano ceny bez zakwaterowania w sekcji Inwestycja."), "Brak ceny wybranego terminu musi generować ostrzeżenie.");
+  });
+
   test("parser zwraca ostrzeżenia, jeśli brakuje sekcji", function sprawdź() {
     const wynik = semper.parsujHtmlSemper(przykładowyHtml(""), "https://www.szkolenia-semper.pl/component/trainings/details/szkolenie,411.html");
 

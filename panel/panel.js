@@ -310,10 +310,24 @@
       return;
     }
 
-    zapiszStorage({
-      wybranyTerminSemperIndex: indeks,
-      harmonogramBurPrzygotowany: false,
-      harmonogramBurNieaktualny: true
+    odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieOstrzezeniaSemper"]).then(function zastosujCenęWybranegoTerminu(dane) {
+      const szkolenie = dane.ostatnieSzkolenieSemper;
+      const termin = szkolenie && szkolenie.terminy && szkolenie.terminy[indeks];
+      const ostrzeżenia = przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu
+        ? przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie || {}, termin, dane.ostatnieOstrzezeniaSemper || [])
+        : (dane.ostatnieOstrzezeniaSemper || []);
+
+      return zapiszStorage({
+        ostatnieSzkolenieSemper: szkolenie,
+        ostatnieOstrzezeniaSemper: ostrzeżenia,
+        wybranyTerminSemperIndex: indeks,
+        harmonogramBurPrzygotowany: false,
+        harmonogramBurNieaktualny: true
+      }).then(function odświeżWidok() {
+        if (szkolenie) {
+          pokażSzkolenie({ szkolenie: szkolenie, ostrzeżenia: ostrzeżenia, wybranyTerminSemperIndex: indeks });
+        }
+      });
     }).then(function pokażInformację() {
       elementy.przyciskImportujHarmonogramXml.disabled = true;
       ustawStatusProgramuHarmonogramu("Zmieniono termin SEMPER. Kliknij ponownie »Przygotuj harmonogram«.", "status-ostrzezenie");
@@ -387,10 +401,11 @@
   }
 
   function odświeżDaneSzkoleniaZMagazynu() {
-    return odczytajStorage(["ostatnieSzkolenieSemper", "wybranyTerminSemperIndex"]).then(function pokaż(dane) {
+    return odczytajStorage(["ostatnieSzkolenieSemper", "wybranyTerminSemperIndex", "ostatnieOstrzezeniaSemper"]).then(function pokaż(dane) {
       if (dane.ostatnieSzkolenieSemper) {
         renderujDaneSzkolenia(dane.ostatnieSzkolenieSemper, {
-          wybranyTerminSemperIndex: dane.wybranyTerminSemperIndex
+          wybranyTerminSemperIndex: dane.wybranyTerminSemperIndex,
+          ostrzeżenia: dane.ostatnieOstrzezeniaSemper || []
         });
       }
     });
@@ -1490,9 +1505,17 @@
         const wynikParsera = przestrzeń.parsujHtmlSemper(wynik.html, wynik.url || url);
         const szkolenie = wynikParsera.szkolenie;
         const wybranyTerminSemperIndex = szkolenie.terminy && szkolenie.terminy.length === 1 ? 0 : null;
+        const wybranyTermin = wybranyTerminSemperIndex === null ? null : szkolenie.terminy[wybranyTerminSemperIndex];
+        const ostrzeżenia = przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu
+          ? przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, wybranyTermin, wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || [])
+          : (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []);
+
+        wynikParsera.ostrzeżenia = ostrzeżenia;
+        wynikParsera.ostrzezenia = ostrzeżenia;
 
         return zapiszStorage({
           ostatnieSzkolenieSemper: szkolenie,
+          ostatnieOstrzezeniaSemper: ostrzeżenia,
           ostatnieŁączeSemper: wynik.url || url,
           dataImportuSemper: new Date().toISOString(),
           wybranyTerminSemperIndex: wybranyTerminSemperIndex,
