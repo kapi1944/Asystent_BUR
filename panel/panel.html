@@ -105,11 +105,17 @@
           <button id="przycisk-uzupelnij-program" type="button">Uzupełnij program</button>
           <button id="przycisk-generuj-harmonogram" type="button">Przygotuj harmonogram</button>
           <button id="przycisk-importuj-harmonogram-xlsx" type="button">Wprowadź harmonogram do BUR</button>
+          <button id="przycisk-pobierz-harmonogram-csv" type="button">Pobierz CSV do testu ręcznego</button>
           <button id="przycisk-wypelnij-harmonogram-recznie" type="button">Wypełnij ręcznie (awaryjne)</button>
         </div>
         <p class="opis-akcji">Przygotowanie tworzy podgląd oraz plik CSV zgodny ze wzorcem BUR w pamięci wtyczki. Nie zmienia danych w BUR.</p>
         <p class="opis-akcji">Wprowadzenie używa przygotowanego podglądu i pliku CSV, modyfikując tylko tabelę harmonogramu BUR.</p>
         <div id="status-programu-harmonogramu" class="komunikat">Gotowy.</div>
+        <details class="diagnostyka-importu-csv">
+          <summary>Diagnostyka importu CSV</summary>
+          <p>Pobierz ten sam plik i wybierz go ręcznie w BUR, aby rozdzielić błąd formatu od blokady syntetycznych zdarzeń.</p>
+          <pre id="diagnostyka-importu-harmonogramu">Brak wykonanej próby importu.</pre>
+        </details>
         <div id="podglad-harmonogramu" class="podglad-harmonogramu"></div>
         <div id="decyzja-harmonogramu-bur" class="decyzja-harmonogramu ukryty"></div>
       </section>

@@ -581,3 +581,26 @@ body[data-aktywna-zakladka="diagnostyka"] .karta[data-zakladki~="diagnostyka"] {
 .ukryty {
   display: none;
 }
+
+.diagnostyka-importu-csv {
+  margin-top: 10px;
+}
+
+.diagnostyka-importu-csv p {
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.diagnostyka-importu-csv pre {
+  max-height: 420px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.25);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.4;
+}
+

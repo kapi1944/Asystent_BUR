@@ -66,6 +66,8 @@
     przyciskUzupełnijProgram: document.getElementById("przycisk-uzupelnij-program"),
     przyciskGenerujHarmonogram: document.getElementById("przycisk-generuj-harmonogram"),
     przyciskImportujHarmonogramXlsx: document.getElementById("przycisk-importuj-harmonogram-xlsx"),
+    przyciskPobierzHarmonogramCsv: document.getElementById("przycisk-pobierz-harmonogram-csv"),
+    diagnostykaImportuHarmonogramu: document.getElementById("diagnostyka-importu-harmonogramu"),
     przyciskWypełnijHarmonogramRęcznie: document.getElementById("przycisk-wypelnij-harmonogram-recznie")
   };
   let ostatnieTerminySemper = [];
@@ -956,6 +958,7 @@
       const gotowość = przestrzeń.sprawdźGotowośćHarmonogramuBur(dane);
 
       elementy.przyciskImportujHarmonogramXlsx.disabled = !gotowość.ok;
+      elementy.przyciskPobierzHarmonogramCsv.disabled = !gotowość.ok;
 
       if (!gotowość.ok && !dane.harmonogramBurPrzygotowany) {
         ustawStatusProgramuHarmonogramu("Brak przygotowanego harmonogramu.", "status-neutralny");
@@ -964,7 +967,69 @@
       }
     }).catch(function pomińBłądStorage() {
       elementy.przyciskImportujHarmonogramXlsx.disabled = true;
+      elementy.przyciskPobierzHarmonogramCsv.disabled = true;
     });
+  }
+
+  function pokażDiagnostykęImportuHarmonogramu(diagnostyka) {
+    if (!elementy.diagnostykaImportuHarmonogramu) {
+      return;
+    }
+
+    if (!diagnostyka) {
+      elementy.diagnostykaImportuHarmonogramu.textContent = "Brak danych diagnostycznych z formularza BUR.";
+      return;
+    }
+
+    elementy.diagnostykaImportuHarmonogramu.textContent = JSON.stringify(diagnostyka, null, 2);
+  }
+
+  function pobierzPrzygotowanyCsvDoTestu() {
+    ustawStatusProgramuHarmonogramu("Przygotowuję CSV do ręcznego testu...", "status-neutralny");
+
+    odczytajPrzygotowanyHarmonogram()
+      .then(function pobierzCsv(dane) {
+        if (typeof przestrzeń.wygenerujDaneCsvHarmonogramu !== "function") {
+          throw new Error("Generator CSV nie jest dostępny w panelu.");
+        }
+
+        const bajtyCsv = przestrzeń.wygenerujDaneCsvHarmonogramu(dane.pozycje || []);
+        const plik = new Blob([bajtyCsv], {
+          type: "text/csv;charset=utf-8"
+        });
+        const url = URL.createObjectURL(plik);
+        const link = document.createElement("a");
+
+        link.href = url;
+        link.download = "harmonogram-bur.csv";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.setTimeout(function zwolnijUrl() {
+          URL.revokeObjectURL(url);
+        }, 5000);
+
+        pokażDiagnostykęImportuHarmonogramu({
+          tryb: "ręczny test pliku",
+          nazwaPliku: "harmonogram-bur.csv",
+          typPliku: plik.type,
+          rozmiarPliku: plik.size,
+          liczbaPozycji: Array.isArray(dane.pozycje) ? dane.pozycje.length : 0,
+          instrukcja: "Kliknij ręcznie „Wybierz plik” w BUR i wskaż pobrany plik. Jeśli ręczny import zadziała, format CSV jest poprawny, a BUR ignoruje syntetyczne zdarzenia rozszerzenia."
+        });
+
+        ustawStatusProgramuHarmonogramu(
+          "Pobrano harmonogram-bur.csv. Wybierz go teraz ręcznie przyciskiem „Wybierz plik” w BUR.",
+          "status-odczytano"
+        );
+      })
+      .catch(function pokażBłąd(błąd) {
+        ustawStatusProgramuHarmonogramu(
+          błąd && błąd.message ? błąd.message : "Nie udało się pobrać CSV.",
+          "status-blad"
+        );
+      });
   }
 
   function zbudujKomunikatRaportuHarmonogramu(wynik) {
@@ -1067,6 +1132,7 @@
         pokażPodglądHarmonogramu(dane);
         return zapiszDaneHarmonogramu(dane).then(function pokaż() {
           elementy.przyciskImportujHarmonogramXlsx.disabled = false;
+          elementy.przyciskPobierzHarmonogramCsv.disabled = false;
           ustawStatusProgramuHarmonogramu("Harmonogram przygotowany. Sprawdź podgląd przed wprowadzeniem do BUR.", dane.ostrzeżenia.length ? "status-ostrzezenie" : "status-odczytano");
         });
       })
@@ -1129,6 +1195,11 @@
       .then(function pokażWynik(odpowiedź) {
         const wynik = odpowiedź && odpowiedź.wynik ? odpowiedź.wynik : {};
         const komunikat = zbudujKomunikatRaportuHarmonogramu(wynik);
+
+        pokażDiagnostykęImportuHarmonogramu(wynik.diagnostyka || {
+          komunikat: "Formularz BUR nie zwrócił szczegółowej diagnostyki.",
+          wynik: wynik
+        });
 
         if (wynik.istniejącePozycje) {
           pokażKonfliktHarmonogramuBur(wynik);
@@ -1478,6 +1549,8 @@
     pokażPodglądHarmonogramu({});
     elementy.linkLubFrazaSemper.value = "";
     elementy.przyciskImportujHarmonogramXlsx.disabled = true;
+    elementy.przyciskPobierzHarmonogramCsv.disabled = true;
+    pokażDiagnostykęImportuHarmonogramu(null);
     diagnostykaSemper.fraza = "";
     diagnostykaSemper.źródłoFrazy = "";
     diagnostykaSemper.liczbaKandydatów = "";
@@ -1883,6 +1956,7 @@
   pokażDiagnostykęSemper();
   odświeżDostępnośćWypełniania();
   elementy.przyciskImportujHarmonogramXlsx.disabled = true;
+  elementy.przyciskPobierzHarmonogramCsv.disabled = true;
 
   elementy.przyciskPobierz.addEventListener("click", pobierzDaneZeStrony);
   elementy.przyciskWyczyśćPanel.addEventListener("click", wyczyśćPanelImportu);
@@ -1895,9 +1969,14 @@
   elementy.przyciskWyczyśćPodświetlenia.addEventListener("click", wyczyśćPodświetleniaBurZPanelu);
   elementy.przyciskUzupełnijProgram.addEventListener("click", uzupełnijProgramWPanelu);
   elementy.przyciskGenerujHarmonogram.addEventListener("click", przygotujHarmonogramWPanelu);
-  elementy.przyciskImportujHarmonogramXlsx.addEventListener("click", function importujXlsx() {
+  elementy.przyciskImportujHarmonogramXlsx.addEventListener("click", function importujCsv() {
+    pokażDiagnostykęImportuHarmonogramu({
+      etap: "PANEL_WYSYŁA_POLECENIE_IMPORTU",
+      czas: new Date().toISOString()
+    });
     wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR);
   });
+  elementy.przyciskPobierzHarmonogramCsv.addEventListener("click", pobierzPrzygotowanyCsvDoTestu);
   elementy.przyciskWypełnijHarmonogramRęcznie.addEventListener("click", function wypełnijRęcznie() {
     wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR);
   });

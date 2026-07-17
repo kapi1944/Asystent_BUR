@@ -1,7 +1,7 @@
 (function uruchomBurContent(globalny) {
   const przestrzen = globalny.BurAsystent || {};
   const komunikaty = przestrzen.KOMUNIKATY;
-  const WERSJA_SKRYPTU_BUR = "hotfix-import-csv-2026-07-17-v1";
+  const WERSJA_SKRYPTU_BUR = "hotfix-diagnostyka-import-csv-2026-07-17-v2";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
     tabelaHarmonogramu: "#harmonogram-grid > div > table",
@@ -235,37 +235,163 @@
     };
   }
 
+  function pobierzMigawkęZasobówSieciowych() {
+    if (typeof performance === "undefined" || typeof performance.getEntriesByType !== "function") {
+      return [];
+    }
+
+    return performance.getEntriesByType("resource").map(function mapujZasób(wpis) {
+      return {
+        nazwa: wpis.name,
+        typ: wpis.initiatorType || "",
+        start: Math.round(wpis.startTime || 0),
+        czas: Math.round(wpis.duration || 0)
+      };
+    });
+  }
+
+  function utwórzDiagnostykęImportuCsv(pozycje) {
+    return {
+      wersja: WERSJA_SKRYPTU_BUR,
+      rozpoczęto: new Date().toISOString(),
+      czasStartMs: Date.now(),
+      oczekiwanePozycje: Array.isArray(pozycje) ? pozycje.length : 0,
+      etapy: [],
+      input: null,
+      plik: null,
+      eventy: [],
+      tabela: {
+        przed: pobierzLiczbęPozycjiWTabeli(),
+        po: null,
+        liczbaMutacji: 0
+      },
+      sieć: {
+        przed: pobierzMigawkęZasobówSieciowych(),
+        noweZasoby: []
+      },
+      wniosek: ""
+    };
+  }
+
+  function dodajEtapDiagnostyki(diagnostyka, etap, szczegóły) {
+    const wpis = {
+      etap: etap,
+      poMs: Date.now() - diagnostyka.czasStartMs
+    };
+
+    if (szczegóły !== undefined) {
+      wpis.szczegóły = szczegóły;
+    }
+
+    diagnostyka.etapy.push(wpis);
+    console.info("[BUR-DIAG]", etap, szczegóły === undefined ? "" : szczegóły);
+  }
+
   async function importujHarmonogramPrzezCsv(pozycje) {
+    const diagnostyka = utwórzDiagnostykęImportuCsv(pozycje);
+    const tabela = document.querySelector(selektory.tabelaHarmonogramu);
+    let obserwatorTabeli = null;
+
+    function zakończ(wynik) {
+      if (obserwatorTabeli) {
+        obserwatorTabeli.disconnect();
+      }
+
+      diagnostyka.tabela.po = pobierzLiczbęPozycjiWTabeli();
+      diagnostyka.zakończono = new Date().toISOString();
+      diagnostyka.czasCałkowityMs = Date.now() - diagnostyka.czasStartMs;
+
+      const zasobyPo = pobierzMigawkęZasobówSieciowych();
+      const kluczePrzed = new Set(diagnostyka.sieć.przed.map(function zbudujKlucz(wpis) {
+        return wpis.nazwa + "|" + wpis.start;
+      }));
+
+      diagnostyka.sieć.noweZasoby = zasobyPo.filter(function tylkoNowe(wpis) {
+        return !kluczePrzed.has(wpis.nazwa + "|" + wpis.start);
+      }).slice(-30);
+
+      if (wynik.ok) {
+        diagnostyka.wniosek = "BUR dodał oczekiwane wiersze harmonogramu.";
+      } else if (diagnostyka.tabela.liczbaMutacji === 0 && diagnostyka.sieć.noweZasoby.length === 0) {
+        diagnostyka.wniosek = "Po syntetycznych zdarzeniach input/change nie wykryto zmiany tabeli ani nowego zasobu sieciowego. Najbardziej prawdopodobne: BUR ignoruje zdarzenia z isTrusted=false.";
+      } else if (diagnostyka.sieć.noweZasoby.length > 0 && diagnostyka.tabela.po === diagnostyka.tabela.przed) {
+        diagnostyka.wniosek = "Po imporcie wykryto aktywność sieciową, ale tabela pozostała bez zmian. Sprawdź kartę Network oraz odpowiedź serwera BUR.";
+      } else if (diagnostyka.tabela.liczbaMutacji > 0 && diagnostyka.tabela.po === diagnostyka.tabela.przed) {
+        diagnostyka.wniosek = "Tabela zmieniła DOM, ale liczba pozycji nadal wynosi 0. Możliwy komunikat walidacyjny BUR albo nieaktualny selektor wierszy.";
+      } else {
+        diagnostyka.wniosek = "Import nie został potwierdzony. Sprawdź etapy, eventy i nowe zasoby sieciowe.";
+      }
+
+      wynik.diagnostyka = diagnostyka;
+      console.info("[BUR-DIAG] PODSUMOWANIE", diagnostyka);
+      return wynik;
+    }
+
+    dodajEtapDiagnostyki(diagnostyka, "START_IMPORTU_CSV");
+
+    if (tabela && typeof MutationObserver !== "undefined") {
+      obserwatorTabeli = new MutationObserver(function zliczMutacje(mutacje) {
+        diagnostyka.tabela.liczbaMutacji += mutacje.length;
+      });
+      obserwatorTabeli.observe(tabela, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true
+      });
+      dodajEtapDiagnostyki(diagnostyka, "OBSERWATOR_TABELI_URUCHOMIONY");
+    } else {
+      dodajEtapDiagnostyki(diagnostyka, "BRAK_TABELI_LUB_MUTATION_OBSERVER");
+    }
+
     const inputPliku = await znajdźInputPlikuImportu();
 
     if (!inputPliku) {
-      return {
+      dodajEtapDiagnostyki(diagnostyka, "INPUT_PLIKU_NIEZNALEZIONY");
+      return zakończ({
         ok: false,
         metoda: "CSV",
         błąd: "Nie znaleziono jednoznacznego inputa pliku powiązanego z przyciskiem #import."
-      };
+      });
     }
 
+    diagnostyka.input = {
+      id: inputPliku.id || "",
+      name: inputPliku.name || "",
+      accept: inputPliku.accept || "",
+      disabled: Boolean(inputPliku.disabled),
+      className: String(inputPliku.className || ""),
+      istniejącePliki: inputPliku.files ? inputPliku.files.length : 0
+    };
+    dodajEtapDiagnostyki(diagnostyka, "INPUT_PLIKU_ZNALEZIONY", diagnostyka.input);
+
     if (inputPliku.disabled) {
-      return {
+      dodajEtapDiagnostyki(diagnostyka, "INPUT_PLIKU_ZABLOKOWANY");
+      return zakończ({
         ok: false,
         metoda: "CSV",
         błąd: "Pole importu harmonogramu BUR jest zablokowane."
-      };
+      });
     }
 
     if (typeof przestrzen.wygenerujDaneCsvHarmonogramu !== "function") {
-      return {
+      dodajEtapDiagnostyki(diagnostyka, "BRAK_GENERATORA_CSV");
+      return zakończ({
         ok: false,
         metoda: "CSV",
         błąd: "Generator CSV harmonogramu nie został załadowany."
-      };
+      });
     }
 
     try {
       const liczbaPrzed = pobierzLiczbęPozycjiWTabeli();
       const daneCsv = przestrzen.wygenerujDaneCsvHarmonogramu(pozycje || []);
       const bajtyCsv = daneCsv instanceof Uint8Array ? daneCsv : new Uint8Array(daneCsv);
+
+      dodajEtapDiagnostyki(diagnostyka, "CSV_WYGENEROWANY", {
+        liczbaBajtów: bajtyCsv.length,
+        bom: Array.from(bajtyCsv.slice(0, 3))
+      });
 
       if (bajtyCsv.length < 4
         || bajtyCsv[0] !== 0xef
@@ -290,6 +416,14 @@
       });
       const transfer = new DataTransfer();
 
+      diagnostyka.plik = {
+        nazwa: plik.name,
+        typ: plik.type,
+        rozmiar: plik.size,
+        nagłówek: tekstKontrolny.replace(/^\uFEFF/, "").split("\r\n")[0]
+      };
+      dodajEtapDiagnostyki(diagnostyka, "PLIK_CSV_UTWORZONY", diagnostyka.plik);
+
       if (!plik.size) {
         throw new Error("Wygenerowany plik harmonogram-bur.csv jest pusty.");
       }
@@ -304,14 +438,53 @@
         throw new Error("Pole BUR nie przyjęło przygotowanego pliku CSV.");
       }
 
-      inputPliku.dispatchEvent(new Event("input", {
+      dodajEtapDiagnostyki(diagnostyka, "PLIK_PRZYPISANY_DO_INPUT_FILES", {
+        liczbaPlików: inputPliku.files.length,
+        nazwa: inputPliku.files[0].name,
+        rozmiar: inputPliku.files[0].size
+      });
+
+      function zapiszEvent(event) {
+        diagnostyka.eventy.push({
+          typ: event.type,
+          isTrusted: event.isTrusted,
+          bubbles: event.bubbles,
+          composed: event.composed,
+          liczbaPlików: event.target && event.target.files ? event.target.files.length : null,
+          poMs: Date.now() - diagnostyka.czasStartMs
+        });
+      }
+
+      inputPliku.addEventListener("input", zapiszEvent, {
+        capture: true,
+        once: true
+      });
+      inputPliku.addEventListener("change", zapiszEvent, {
+        capture: true,
+        once: true
+      });
+
+      const eventInput = new Event("input", {
         bubbles: true,
         composed: true
-      }));
-      inputPliku.dispatchEvent(new Event("change", {
+      });
+      const eventChange = new Event("change", {
         bubbles: true,
         composed: true
-      }));
+      });
+      const wynikInput = inputPliku.dispatchEvent(eventInput);
+
+      dodajEtapDiagnostyki(diagnostyka, "EVENT_INPUT_WYSŁANY", {
+        dispatchEvent: wynikInput,
+        isTrusted: eventInput.isTrusted
+      });
+
+      const wynikChange = inputPliku.dispatchEvent(eventChange);
+
+      dodajEtapDiagnostyki(diagnostyka, "EVENT_CHANGE_WYSŁANY", {
+        dispatchEvent: wynikChange,
+        isTrusted: eventChange.isTrusted
+      });
 
       await opóźnij(350);
 
@@ -319,15 +492,29 @@
         const przyciskWykonaniaImportu = znajdźPrzyciskWykonaniaImportu(inputPliku);
 
         if (przyciskWykonaniaImportu) {
+          dodajEtapDiagnostyki(diagnostyka, "PRZYCISK_WYKONANIA_IMPORTU_ZNALEZIONY", {
+            id: przyciskWykonaniaImportu.id || "",
+            tekst: String(pobierzWartośćElementu(przyciskWykonaniaImportu) || "").replace(/\s+/g, " ").trim()
+          });
           przyciskWykonaniaImportu.click();
+          dodajEtapDiagnostyki(diagnostyka, "PRZYCISK_WYKONANIA_IMPORTU_KLIKNIĘTY");
+        } else {
+          dodajEtapDiagnostyki(diagnostyka, "BRAK_OSOBNEGO_PRZYCISKU_WYKONANIA_IMPORTU");
         }
       }
 
+      dodajEtapDiagnostyki(diagnostyka, "OCZEKIWANIE_NA_WYNIK_IMPORTU");
       const wynikOczekiwania = await poczekajNaWynikImportu(pozycje || [], liczbaPrzed);
       const raport = wynikOczekiwania.raport || sprawdzHarmonogramPoWypelnieniu(pozycje || []);
 
+      dodajEtapDiagnostyki(diagnostyka, "KONIEC_OCZEKIWANIA", {
+        powodzenie: wynikOczekiwania.ok,
+        pozycjeWTabeli: pobierzLiczbęPozycjiWTabeli(),
+        błędyWalidacji: raport.błędy || []
+      });
+
       if (!wynikOczekiwania.ok) {
-        return {
+        return zakończ({
           ok: false,
           metoda: "CSV",
           błąd: "Plik CSV został przypisany do pola BUR, ale import nie dodał poprawnych wierszy w ciągu 12 sekund. "
@@ -337,10 +524,10 @@
           nazwaPliku: plik.name,
           typPliku: plik.type,
           rozmiarPliku: plik.size
-        };
+        });
       }
 
-      return {
+      return zakończ({
         ok: true,
         metoda: "CSV",
         komunikat: "Zaimportowano harmonogram CSV. Sprawdź dane przed zapisaniem usługi.",
@@ -350,15 +537,19 @@
         typPliku: plik.type,
         rozmiarPliku: plik.size,
         raport: raport
-      };
+      });
     } catch (błąd) {
-      return {
+      dodajEtapDiagnostyki(diagnostyka, "WYJĄTEK_IMPORTU_CSV", {
+        komunikat: błąd && błąd.message ? błąd.message : String(błąd)
+      });
+
+      return zakończ({
         ok: false,
         metoda: "CSV",
         błąd: błąd && błąd.message
           ? błąd.message
           : "Nie udało się przekazać pliku CSV do importu."
-      };
+      });
     }
   }
 
@@ -645,7 +836,8 @@
       liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
       nazwaPliku: wynikImportu.nazwaPliku || "harmonogram-bur.csv",
       typPliku: wynikImportu.typPliku || "text/csv;charset=utf-8",
-      rozmiarPliku: wynikImportu.rozmiarPliku || 0
+      rozmiarPliku: wynikImportu.rozmiarPliku || 0,
+      diagnostyka: wynikImportu.diagnostyka || null
     };
   }
 
