@@ -57,6 +57,7 @@
   let czyAktywnaKartaBur = false;
   let aktywnaOperacjaBur = null;
   let podglądWypełnieniaBur = null;
+  let ostatniWynikWalidacjiBur = null;
   const diagnostykaSemper = {
     fraza: "",
     źródłoFrazy: "",
@@ -512,6 +513,37 @@
         }
 
         resolve(dane || {});
+      });
+    });
+  }
+
+  function zapiszStanSesjiWalidacji() {
+    if (!chrome.storage.session) {
+      return Promise.resolve();
+    }
+    return new Promise(function utwórzPromise(resolve) {
+      chrome.storage.session.set({
+        stanWalidacjiBur: {
+          wynik: ostatniWynikWalidacjiBur,
+          pozycjaPrzewijania: document.documentElement.scrollTop || document.body.scrollTop || 0
+        }
+      }, resolve);
+    });
+  }
+
+  function odczytajStanSesjiWalidacji() {
+    if (!chrome.storage.session) {
+      return;
+    }
+    chrome.storage.session.get(["stanWalidacjiBur"], function pokażStan(dane) {
+      const stan = dane && dane.stanWalidacjiBur;
+      if (!stan || !stan.wynik) {
+        return;
+      }
+      ostatniWynikWalidacjiBur = stan.wynik;
+      pokażWynikWalidacjiBur(stan.wynik, false);
+      requestAnimationFrame(function przywróćPrzewijanie() {
+        window.scrollTo(0, stan.pozycjaPrzewijania || 0);
       });
     });
   }
@@ -993,8 +1025,12 @@
       });
   }
 
-  function wyczyśćWynikWalidacjiBur() {
+  function wyczyśćWynikWalidacjiBur(zapiszStan) {
     elementy.wynikWalidacjiBur.textContent = "";
+    ostatniWynikWalidacjiBur = null;
+    if (zapiszStan !== false) {
+      zapiszStanSesjiWalidacji();
+    }
   }
 
   function wyczyśćWynikWypełnianiaBur() {
@@ -1064,13 +1100,37 @@
     kontener.appendChild(licznik);
   }
 
-  function pokażWynikWalidacjiBur(wynik) {
+  function przejdźDoPolaWalidacji(cel) {
+    if (!cel) {
+      ustawStatus(elementy.statusWalidacjiBur, "Nie znaleziono odpowiadającego pola w aktualnej wersji formularza BUR.", "status-ostrzezenie");
+      return;
+    }
+    pobierzAktywnąKartę()
+      .then(function sprawdźKartę(karta) {
+        if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") {
+          throw new Error("Otwórz formularz BUR, aby przejść do pola.");
+        }
+        return wyślijDoKarty(karta, { typ: komunikaty.PRZEJDŹ_DO_POLA_BUR, cel: cel });
+      })
+      .then(function obsłużOdpowiedź(odpowiedź) {
+        const wynik = odpowiedź && odpowiedź.wynik;
+        if (!wynik || !wynik.ok) {
+          throw new Error(wynik && wynik.błąd ? wynik.błąd : "Nie znaleziono odpowiadającego pola w aktualnej wersji formularza BUR.");
+        }
+        ustawStatus(elementy.statusWalidacjiBur, "Przejście do pola formularza BUR.", "status-odczytano");
+      })
+      .catch(function pokażBłąd(błąd) {
+        ustawStatus(elementy.statusWalidacjiBur, błąd && błąd.message ? błąd.message : "Nie znaleziono odpowiadającego pola w aktualnej wersji formularza BUR.", "status-ostrzezenie");
+      });
+  }
+
+  function pokażWynikWalidacjiBur(wynik, zapiszStan) {
     const pozycje = wynik && Array.isArray(wynik.pozycje) ? wynik.pozycje : [];
     const liczniki = policzPozycjeWalidacji(pozycje);
     const podsumowanie = document.createElement("div");
     const grupy = new Map();
 
-    wyczyśćWynikWalidacjiBur();
+    wyczyśćWynikWalidacjiBur(false);
     podsumowanie.className = "podsumowanie-walidacji";
     dodajLicznikWalidacji(podsumowanie, "błędy", liczniki.błędy, "walidacja-błąd");
     dodajLicznikWalidacji(podsumowanie, "ostrzeżenia", liczniki.ostrzeżenia, "walidacja-ostrzeżenie");
@@ -1096,18 +1156,24 @@
       sekcja.appendChild(nagłówek);
 
       lista.forEach(function pokażPozycję(pozycja) {
-        const element = document.createElement("div");
+        const element = document.createElement("button");
         const tytuł = document.createElement("strong");
         const komunikat = document.createElement("span");
         const wartości = document.createElement("span");
 
+        element.type = "button";
         element.className = "pozycja-walidacji walidacja-" + pozycja.status;
+        element.dataset.celFormularza = pozycja.celFormularza || "";
+        element.setAttribute("aria-label", "Przejdź do pola: " + pozycja.pole);
         tytuł.textContent = pozycja.pole + " - " + pozycja.status;
         komunikat.textContent = pozycja.komunikat || "";
         wartości.textContent = "Aktualnie: " + (pozycja.aktualnaWartość || "-") + " | Oczekiwane: " + (pozycja.oczekiwanaWartość || "-");
         element.appendChild(tytuł);
         element.appendChild(komunikat);
         element.appendChild(wartości);
+        element.addEventListener("click", function przejdźDoPola() {
+          przejdźDoPolaWalidacji(pozycja.celFormularza);
+        });
         sekcja.appendChild(element);
       });
 
@@ -1119,6 +1185,10 @@
       "Walidacja zakończona: " + liczniki.błędy + " błędów, " + liczniki.ostrzeżenia + " ostrzeżeń, " + liczniki.poprawne + " poprawnych pól.",
       liczniki.błędy ? "status-blad" : (liczniki.ostrzeżenia ? "status-ostrzezenie" : "status-odczytano")
     );
+    ostatniWynikWalidacjiBur = wynik;
+    if (zapiszStan !== false) {
+      zapiszStanSesjiWalidacji();
+    }
   }
 
   function obsłużOdpowiedźWalidacjiBur(odpowiedź) {
@@ -1701,6 +1771,11 @@
   elementy.przyciskWypełnijHarmonogramRęcznie.addEventListener("click", function wypełnijRęcznie() {
     wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR);
   });
+  window.addEventListener("scroll", function zapiszPozycjęWalidacji() {
+    if (ostatniWynikWalidacjiBur) {
+      zapiszStanSesjiWalidacji();
+    }
+  }, { passive: true });
 
   pobierzAktywnąKartę()
     .then(ustawStatusStronyDlaKarty)
@@ -1711,6 +1786,7 @@
     });
 
   odczytajOstatniImport();
+  odczytajStanSesjiWalidacji();
   odświeżStanProgramuHarmonogramu();
   odświeżStanPrzygotowaniaHarmonogramu();
 })(globalThis);

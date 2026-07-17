@@ -15,3 +15,10 @@
   background: rgba(217, 48, 37, 0.13) !important;
   box-shadow: 0 0 0 2px rgba(217, 48, 37, 0.16) !important;
 }
+
+.bur-asystent-cel-nawigacji {
+  outline: 3px solid #7c3aed !important;
+  outline-offset: 6px !important;
+  box-shadow: 0 0 18px 7px rgba(124, 58, 237, 0.62) !important;
+  transition: outline-color 500ms ease, box-shadow 500ms ease !important;
+}

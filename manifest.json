@@ -52,6 +52,7 @@
       ],
       "js": [
         "shared/komunikaty.js",
+        "shared/cele-formularza-bur.js",
         "shared/model-walidacji.js",
         "shared/normalizacja-tytulu.js",
         "shared/daty.js",

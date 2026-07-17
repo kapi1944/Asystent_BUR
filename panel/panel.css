@@ -473,11 +473,21 @@ li + li {
 }
 
 .pozycja-walidacji {
+  width: 100%;
   padding: 9px;
   border: 1px solid var(--ramka);
   border-left-width: 4px;
   border-radius: 6px;
   background: var(--panel-drugi);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pozycja-walidacji:focus-visible {
+  outline: 3px solid #7c3aed;
+  outline-offset: 2px;
 }
 
 .pozycja-walidacji strong,

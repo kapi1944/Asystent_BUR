@@ -3,8 +3,13 @@
 
   function utwórzPozycjęWalidacjiBur(dane) {
     const wartości = dane || {};
+    const cel = przestrzeń.pobierzCelDlaPozycjiWalidacji
+      ? przestrzeń.pobierzCelDlaPozycjiWalidacji(wartości.pole || "")
+      : { id: "nieznanePole", celFormularza: "" };
 
     return {
+      id: wartości.id || cel.id,
+      celFormularza: wartości.celFormularza || cel.celFormularza,
       sekcja: wartości.sekcja || "",
       pole: wartości.pole || "",
       status: wartości.status || "ostrzeżenie",

@@ -644,6 +644,42 @@
     });
   }
 
+  function znajdźElementDoNawigacji(element, typKontrolki) {
+    if (!element) {
+      return null;
+    }
+    if (typKontrolki === "select2") {
+      return element.closest(".select2-container") || element.querySelector && element.querySelector(".select2-container") || element;
+    }
+    if (typKontrolki === "edytorTekstowy") {
+      return element.closest(".ql-container") || element;
+    }
+    return element;
+  }
+
+  function podświetlCelNawigacji(element) {
+    element.classList.remove("bur-asystent-cel-nawigacji");
+    void element.offsetWidth;
+    element.classList.add("bur-asystent-cel-nawigacji");
+    setTimeout(function usuńPodświetlenie() {
+      element.classList.remove("bur-asystent-cel-nawigacji");
+    }, 5000);
+  }
+
+  function przejdźDoPolaBur(cel) {
+    const znalezione = przestrzen.znajdźCelFormularzaBur(document, cel);
+    if (!znalezione.ok) {
+      return znalezione;
+    }
+    const element = znajdźElementDoNawigacji(znalezione.element, znalezione.cel.typKontrolki);
+    element.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    if (typeof element.focus === "function" && !element.matches("table, div")) {
+      element.focus({ preventScroll: true });
+    }
+    podświetlCelNawigacji(element);
+    return { ok: true, cel: cel };
+  }
+
   function obsłużWalidacjęFormularzaBur(odpowiedz) {
     odczytajStorageWalidacjiBur()
       .then(function uruchomWalidację(dane) {
@@ -756,6 +792,14 @@
     if (wiadomosc.typ === komunikaty.WALIDUJ_FORMULARZ_BUR) {
       obsłużWalidacjęFormularzaBur(odpowiedz);
 
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.PRZEJDŹ_DO_POLA_BUR) {
+      odpowiedz({
+        typ: komunikaty.ODPOWIEDŹ_PRZEJDŹ_DO_POLA_BUR,
+        wynik: przejdźDoPolaBur(wiadomosc.cel)
+      });
       return true;
     }
 
