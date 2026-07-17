@@ -6,18 +6,18 @@
     <title>BUR Asystent</title>
     <link rel="stylesheet" href="panel.css">
   </head>
-  <body>
+  <body data-aktywna-zakladka="semper">
     <header class="naglowek">
       <h1>BUR Asystent</h1>
       <div id="status-strony" class="status status-neutralny">Sprawdzanie strony...</div>
     </header>
 
     <nav class="zakladki-panelu" aria-label="Sekcje Asystenta BUR">
-      <button type="button" data-przelacz-zakladke="semper">SEMPER</button>
-      <button type="button" data-przelacz-zakladke="terminy">Terminy</button>
-      <button type="button" data-przelacz-zakladke="checklista">Checklista</button>
-      <button type="button" data-przelacz-zakladke="harmonogram">Harmonogram</button>
-      <button type="button" data-przelacz-zakladke="diagnostyka">Diagnostyka</button>
+      <button type="button" data-przelacz-zakladke="semper" aria-pressed="true">SEMPER</button>
+      <button type="button" data-przelacz-zakladke="terminy" aria-pressed="false">Terminy</button>
+      <button type="button" data-przelacz-zakladke="checklista" aria-pressed="false">Checklista</button>
+      <button type="button" data-przelacz-zakladke="harmonogram" aria-pressed="false">Harmonogram</button>
+      <button type="button" data-przelacz-zakladke="diagnostyka" aria-pressed="false">Diagnostyka</button>
     </nav>
 
     <main class="panel">
@@ -71,6 +71,10 @@
       <section id="karta-terminy" class="karta" data-zakladki="terminy">
         <h2>Terminy</h2>
         <div id="kontener-wyboru-terminu"></div>
+        <label class="etykieta" for="wybor-terminu-semper">Termin SEMPER do walidacji</label>
+        <select id="wybor-terminu-semper">
+          <option value="">Brak zaimportowanych terminów</option>
+        </select>
       </section>
 
       <section id="ostrzezenia-karta" class="karta ukryty" data-zakladki="diagnostyka">

@@ -59,6 +59,7 @@
   let podglądWypełnieniaBur = null;
   let ostatniWynikWalidacjiBur = null;
   let aktywnaZakładkaPanelu = "semper";
+  let czyUżytkownikWybrałZakładkę = false;
   const diagnostykaSemper = {
     fraza: "",
     źródłoFrazy: "",
@@ -549,15 +550,21 @@
     });
   }
 
-  function ustawAktywnąZakładkęPanelu(zakładka, zapiszStan) {
+  function ustawAktywnąZakładkęPanelu(zakładka, zapiszStan, wybórRęczny) {
     const dozwolone = ["semper", "terminy", "checklista", "harmonogram", "diagnostyka"];
     aktywnaZakładkaPanelu = dozwolone.includes(zakładka) ? zakładka : "semper";
+    if (wybórRęczny === true) {
+      czyUżytkownikWybrałZakładkę = true;
+    }
     document.body.dataset.aktywnaZakladka = aktywnaZakładkaPanelu;
     document.querySelectorAll("[data-przelacz-zakladke]").forEach(function ustawPrzycisk(przycisk) {
       przycisk.setAttribute("aria-pressed", String(przycisk.dataset.przelaczZakladke === aktywnaZakładkaPanelu));
     });
     if (zapiszStan !== false && chrome.storage.session) {
-      chrome.storage.session.set({ stanPaneluBur: { aktywnaZakładka: aktywnaZakładkaPanelu } });
+      chrome.storage.session.set({ stanPaneluBur: {
+        aktywnaZakładka: aktywnaZakładkaPanelu,
+        wybranaRęcznie: czyUżytkownikWybrałZakładkę
+      } });
     }
   }
 
@@ -577,7 +584,12 @@
       return;
     }
     chrome.storage.session.get(["stanPaneluBur"], function przywróćStan(dane) {
-      ustawAktywnąZakładkęPanelu(dane && dane.stanPaneluBur && dane.stanPaneluBur.aktywnaZakładka, false);
+      const stan = dane && dane.stanPaneluBur;
+      if (!stan || !stan.aktywnaZakładka) {
+        return;
+      }
+      czyUżytkownikWybrałZakładkę = stan.wybranaRęcznie !== false;
+      ustawAktywnąZakładkęPanelu(stan.aktywnaZakładka, false);
     });
   }
 
@@ -1297,7 +1309,9 @@
 
   function ustawStatusStronyDlaKarty(karta) {
     const typ = rozpoznajTypStrony(karta ? karta.url : "");
-    ustawAktywnąZakładkęPanelu(wybierzZakładkęDlaKarty(karta));
+    if (!czyUżytkownikWybrałZakładkę) {
+      ustawAktywnąZakładkęPanelu(wybierzZakładkęDlaKarty(karta), false);
+    }
 
     if (typ === "Nieobsługiwana strona") {
       ustawStatus(elementy.statusStrony, typ, "status-ostrzezenie");
@@ -1315,7 +1329,7 @@
         odświeżStanProgramuHarmonogramu();
       })
       .catch(function pokażŁagodnyBłąd() {
-        ustawStatus(elementy.statusStrony, typ + " - odśwież stronę, jeśli panel nie odpowiada", "status-ostrzezenie");
+        ustawStatus(elementy.statusStrony, "Nie udało się połączyć z formularzem BUR. Odśwież stronę i spróbuj ponownie.", "status-ostrzezenie");
         elementy.przyciskPobierz.disabled = false;
         ustawDostępnośćWalidacji(typ === "BUR");
         odświeżStanProgramuHarmonogramu();
@@ -1807,7 +1821,7 @@
   });
   document.querySelectorAll("[data-przelacz-zakladke]").forEach(function dodajObsługęZakładki(przycisk) {
     przycisk.addEventListener("click", function wybierzZakładkę() {
-      ustawAktywnąZakładkęPanelu(przycisk.dataset.przelaczZakladke);
+      ustawAktywnąZakładkęPanelu(przycisk.dataset.przelaczZakladke, true, true);
     });
   });
   document.getElementById("kontener-wyboru-terminu").appendChild(document.querySelector("label[for='wybor-terminu-semper']"));

@@ -1,0 +1,107 @@
+(function testujNawigacjęPanelu() {
+  function pobierzPlik(ścieżka) {
+    return fetch(ścieżka).then(function sprawdźOdpowiedź(odpowiedź) {
+      if (!odpowiedź.ok) {
+        throw new Error("Nie udało się odczytać pliku: " + ścieżka);
+      }
+      return odpowiedź.text();
+    });
+  }
+
+  function pobierzElementyNawigacji(html) {
+    const dokument = new DOMParser().parseFromString(html, "text/html");
+    return Array.from(dokument.querySelectorAll("[data-przelacz-zakladke]"));
+  }
+
+  function utwórzPanelTestowy(czySkryptStronyDostępny) {
+    return pobierzPlik("../panel/panel.html").then(function utwórzRamkę(html) {
+      const ramka = document.createElement("iframe");
+      const konfiguracjaChrome = JSON.stringify(Boolean(czySkryptStronyDostępny));
+      const mockChrome = "<base href='../panel/'><script>"
+        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b({});}},storage:{local:{get:function(a,b){b({});},set:function(a,b){if(b){b();}},remove:function(a,b){if(b){b();}}},session:{get:function(a,b){b({});},set:function(a,b){if(b){b();}}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list'}]);},sendMessage:function(a,b,c){if(!"
+        + konfiguracjaChrome
+        + "){window.chrome.runtime.lastError={message:'Brak skryptu'};c();window.chrome.runtime.lastError=null;return;}c({typStrony:'BUR'});},onActivated:{addListener:function(){}}}};"
+        + "</script>";
+      ramka.hidden = true;
+      ramka.srcdoc = html.replace("<head>", "<head>" + mockChrome);
+      document.body.appendChild(ramka);
+      return new Promise(function poczekaj(resolve, reject) {
+        ramka.addEventListener("load", function gotowe() {
+          if (ramka.contentWindow.document.body.dataset.aktywnaZakladka) {
+            resolve(ramka);
+            return;
+          }
+          reject(new Error("Panel nie ustawił aktywnej sekcji."));
+        }, { once: true });
+      });
+    });
+  }
+
+  test("Panel ma pięć pionowych przycisków nawigacji", function sprawdźPrzyciski() {
+    return Promise.all([pobierzPlik("../panel/panel.html"), pobierzPlik("../panel/panel.css")]).then(function sprawdźPliki(wyniki) {
+      const przyciski = pobierzElementyNawigacji(wyniki[0]);
+      const zakładki = przyciski.map(function pobierzZakładkę(przycisk) { return przycisk.dataset.przelaczZakladke; });
+
+      sprawdzRownosc(przyciski.length, 5, "Panel powinien zawierać pięć przycisków nawigacji.");
+      sprawdzRownosc(zakładki.join(","), "semper,terminy,checklista,harmonogram,diagnostyka", "Kolejność zakładek jest niepoprawna.");
+      sprawdzWarunek(/\.zakladki-panelu\s*\{[^}]*flex-direction:\s*column;/s.test(wyniki[1]), "Nawigacja musi być pionowa.");
+      sprawdzWarunek(!/\.zakladki-panelu\s*\{[^}]*overflow-x:\s*auto;/s.test(wyniki[1]), "Nawigacja nie może wymagać poziomego przewijania.");
+    });
+  });
+
+  test("Domyślnie aktywna jest tylko sekcja SEMPER", function sprawdźStanDomyślny() {
+    return pobierzPlik("../panel/panel.html").then(function sprawdźHtml(html) {
+      const dokument = new DOMParser().parseFromString(html, "text/html");
+      const aktywne = Array.from(dokument.querySelectorAll('[aria-pressed="true"]'));
+
+      sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, "semper", "Panel musi mieć domyślną zakładkę.");
+      sprawdzRownosc(aktywne.length, 1, "Tylko jeden przycisk może być aktywny.");
+      sprawdzRownosc(aktywne[0].dataset.przelaczZakladke, "semper", "SEMPER powinien być aktywny przy starcie.");
+    });
+  });
+
+  test("Przyciski przełączają sekcję kliknięciem oraz klawiaturą", function sprawdźObsługęPrzełączania() {
+    return utwórzPanelTestowy(true).then(function sprawdźPanel(ramka) {
+      const dokument = ramka.contentWindow.document;
+      const zakładki = ["semper", "terminy", "checklista", "harmonogram", "diagnostyka"];
+
+      zakładki.forEach(function sprawdźZakładkę(nazwa) {
+        const przycisk = dokument.querySelector('[data-przelacz-zakladke="' + nazwa + '"]');
+        przycisk.click();
+        sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, nazwa, "Kliknięcie nie przełączyło zakładki " + nazwa + ".");
+        sprawdzRownosc(dokument.querySelectorAll('[aria-pressed="true"]').length, 1, "Aktywna może być tylko jedna zakładka.");
+        sprawdzRownosc(przycisk.getAttribute("aria-pressed"), "true", "Aktywny przycisk musi mieć aria-pressed=true.");
+      });
+
+      const przyciskChecklista = dokument.querySelector('[data-przelacz-zakladke="checklista"]');
+      przyciskChecklista.click();
+      return Promise.resolve().then(function sprawdźRęcznyWybór() {
+        sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, "checklista", "Ręczny wybór nie może zostać nadpisany po odświeżeniu statusu.");
+
+        const przyciskSemper = dokument.querySelector('[data-przelacz-zakladke="semper"]');
+      przyciskSemper.focus();
+      przyciskSemper.dispatchEvent(new ramka.contentWindow.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+      przyciskSemper.click();
+      przyciskSemper.dispatchEvent(new ramka.contentWindow.KeyboardEvent("keydown", { key: " ", bubbles: true }));
+      przyciskSemper.click();
+      sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, "semper", "Enter i Spacja muszą pozostawiać aktywną wybraną sekcję.");
+      ramka.remove();
+      return pobierzPlik("../panel/panel.js").then(function sprawdźWarunekRęcznegoWyboru(skrypt) {
+        sprawdzWarunek(/if \(!czyUżytkownikWybrałZakładkę\) \{\s*ustawAktywnąZakładkęPanelu/s.test(skrypt), "Odświeżenie statusu nie może nadpisywać ręcznego wyboru.");
+      });
+      });
+    });
+  });
+
+  test("Brak skryptu strony nie pozostawia pustego panelu", function sprawdźBłądPołączenia() {
+    return utwórzPanelTestowy(false).then(function sprawdźPanel(ramka) {
+      const dokument = ramka.contentWindow.document;
+      const komunikat = dokument.getElementById("status-strony").textContent;
+
+      sprawdzWarunek(komunikat.includes("Nie udało się połączyć z formularzem BUR."), "Brakuje czytelnego komunikatu po błędzie połączenia.");
+      sprawdzRownosc(dokument.querySelectorAll('[aria-pressed="true"]').length, 1, "Błąd połączenia nie może ukrywać nawigacji.");
+      sprawdzWarunek(Boolean(dokument.querySelector('[data-zakladki="terminy"]')), "Błąd połączenia nie może usuwać treści panelu.");
+      ramka.remove();
+    });
+  });
+})();
