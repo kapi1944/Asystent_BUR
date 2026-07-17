@@ -1,6 +1,7 @@
 (function uruchomBurContent(globalny) {
   const przestrzen = globalny.BurAsystent || {};
   const komunikaty = przestrzen.KOMUNIKATY;
+  const WERSJA_SKRYPTU_BUR = "hotfix-import-harmonogramu-2026-07-17-v2";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
     tabelaHarmonogramu: "#harmonogram-grid > div > table",
@@ -82,8 +83,20 @@
       return [];
     }
 
-    return Array.from(tabela.querySelectorAll("tbody tr, tr")).filter(function pomińNagłówek(wiersz) {
-      return wiersz.querySelectorAll("td").length > 0;
+    return Array.from(tabela.querySelectorAll("tbody tr, tr")).filter(function zostawPozycjęHarmonogramu(wiersz) {
+      const komórki = Array.from(wiersz.children || []).filter(function tylkoTd(element) {
+        return element.tagName === "TD";
+      });
+      const numerPozycji = komórki.length
+        ? String(komórki[0].textContent || "").replace(/\s+/g, " ").trim()
+        : "";
+
+      /*
+       * Tabela BUR zawiera także pięć wierszy podsumowania godzin.
+       * Pozycja harmonogramu ma numer w pierwszej kolumnie i komplet kolumn,
+       * dlatego nie wolno traktować podsumowań jako istniejących pozycji.
+       */
+      return komórki.length >= 7 && /^\d+$/.test(numerPozycji);
     });
   }
 
@@ -102,65 +115,201 @@
     return odczytajWierszeHarmonogramu().length;
   }
 
-  function znajdźInputPlikuImportu() {
+  function znajdźPowiązanyInputPlikuImportu(przyciskImportu) {
+    if (!przyciskImportu) {
+      return null;
+    }
+
+    const idInputa = przyciskImportu.getAttribute("for")
+      || przyciskImportu.getAttribute("data-target")
+      || przyciskImportu.getAttribute("aria-controls");
+
+    if (idInputa) {
+      const powiązanyInput = document.getElementById(idInputa.replace(/^#/, ""));
+
+      if (powiązanyInput && powiązanyInput.matches("input[type='file']")) {
+        return powiązanyInput;
+      }
+    }
+
+    let kontener = przyciskImportu.parentElement;
+
+    for (let poziom = 0; kontener && poziom < 8; poziom += 1, kontener = kontener.parentElement) {
+      const kandydaci = Array.from(kontener.querySelectorAll("input[type='file']"));
+      const dokładni = kandydaci.filter(function pasujeDoHarmonogramu(input) {
+        const opis = [
+          input.id,
+          input.name,
+          input.getAttribute("accept"),
+          input.getAttribute("aria-label"),
+          input.getAttribute("data-purpose")
+        ].join(" ");
+
+        return /harmonogram|xlsx|spreadsheetml|excel|import/i.test(opis);
+      });
+
+      if (dokładni.length === 1) {
+        return dokładni[0];
+      }
+
+      if (kandydaci.length === 1
+        && /import\s+harmonogramu/i.test(String(kontener.textContent || "").replace(/\s+/g, " "))) {
+        return kandydaci[0];
+      }
+    }
+
+    return null;
+  }
+
+  async function znajdźInputPlikuImportu() {
     const przyciskImportu = document.querySelector(selektory.importHarmonogramu);
-    const kandydaci = Array.from(document.querySelectorAll("input[type='file']"));
 
-    if (kandydaci.length === 1) {
-      return kandydaci[0];
+    if (!przyciskImportu || przyciskImportu.id !== "import") {
+      return null;
     }
 
-    if (przyciskImportu) {
-      const kontener = przyciskImportu.closest("form, section, div") || document;
-      const lokalnyInput = kontener.querySelector("input[type='file']");
+    let inputPliku = znajdźPowiązanyInputPlikuImportu(przyciskImportu);
 
-      if (lokalnyInput) {
-        return lokalnyInput;
-      }
+    if (inputPliku) {
+      return inputPliku;
+    }
 
-      const idInputa = przyciskImportu.getAttribute("for") || przyciskImportu.getAttribute("data-target");
+    /*
+     * BUR może tworzyć techniczny input dopiero po użyciu przycisku
+     * „Wybierz plik”. Uruchamiamy wyłącznie #import — nigdy globalny
+     * przycisk zaczynający się od słowa „Dodaj”.
+     */
+    przyciskImportu.click();
 
-      if (idInputa) {
-        return document.getElementById(idInputa.replace(/^#/, ""));
+    for (let próba = 0; próba < 10; próba += 1) {
+      await opóźnij(75);
+      inputPliku = znajdźPowiązanyInputPlikuImportu(przyciskImportu);
+
+      if (inputPliku) {
+        return inputPliku;
       }
     }
 
-    return kandydaci[0] || null;
+    return null;
+  }
+
+  function znajdźPrzyciskWykonaniaImportu(inputPliku) {
+    const kontener = inputPliku
+      ? inputPliku.closest("form, section, fieldset, .form-group, .row, div")
+      : null;
+
+    if (!kontener) {
+      return null;
+    }
+
+    return Array.from(kontener.querySelectorAll("button, input[type='button'], input[type='submit']"))
+      .find(function znajdź(element) {
+        const tekst = String(pobierzWartośćElementu(element) || element.getAttribute("aria-label") || "")
+          .replace(/\s+/g, " ")
+          .trim();
+
+        return czyWidoczny(element)
+          && !element.disabled
+          && /^(importuj|wczytaj|zaimportuj)\b/i.test(tekst);
+      }) || null;
+  }
+
+  async function poczekajNaWynikImportu(pozycje, liczbaPrzed) {
+    let ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || []);
+
+    for (let próba = 0; próba < 24; próba += 1) {
+      await opóźnij(500);
+      ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || []);
+
+      if (pobierzLiczbęPozycjiWTabeli() > liczbaPrzed && ostatniRaport.ok) {
+        return {
+          ok: true,
+          raport: ostatniRaport
+        };
+      }
+    }
+
+    return {
+      ok: false,
+      raport: ostatniRaport
+    };
   }
 
   async function importujHarmonogramPrzezXlsx(pozycje) {
-    const inputPliku = znajdźInputPlikuImportu();
-
-    if (!document.querySelector(selektory.importHarmonogramu)) {
-      return {
-        ok: false,
-        błąd: "Nie znaleziono przycisku importu harmonogramu."
-      };
-    }
+    const inputPliku = await znajdźInputPlikuImportu();
 
     if (!inputPliku) {
       return {
         ok: false,
-        błąd: "Nie znaleziono technicznego inputa pliku dla importu XLSX. Nie otwieram natywnego okna wyboru pliku."
+        błąd: "Nie znaleziono jednoznacznego inputa pliku w sekcji importu harmonogramu BUR."
+      };
+    }
+
+    if (inputPliku.disabled) {
+      return {
+        ok: false,
+        błąd: "Pole importu harmonogramu BUR jest zablokowane."
       };
     }
 
     try {
+      const liczbaPrzed = pobierzLiczbęPozycjiWTabeli();
       const daneXlsx = przestrzen.wygenerujDaneXlsxHarmonogramu(pozycje || []);
-      const plik = new File([daneXlsx], "harmonogram-bur.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const bajtyXlsx = daneXlsx instanceof Uint8Array ? daneXlsx : new Uint8Array(daneXlsx);
+
+      if (bajtyXlsx.length < 4 || bajtyXlsx[0] !== 0x50 || bajtyXlsx[1] !== 0x4b) {
+        throw new Error("Wygenerowane dane nie mają poprawnej sygnatury pliku XLSX/ZIP.");
+      }
+
+      const plik = new File([bajtyXlsx], "harmonogram-bur.xlsx", {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
       const transfer = new DataTransfer();
+
+      if (!plik.size) {
+        throw new Error("Wygenerowany plik harmonogram-bur.xlsx jest pusty.");
+      }
 
       transfer.items.add(plik);
       inputPliku.files = transfer.files;
-      wywołajZdarzenia(inputPliku);
-      await opóźnij(900);
 
-      const raport = sprawdzHarmonogramPoWypelnieniu(pozycje || []);
+      if (!inputPliku.files
+        || inputPliku.files.length !== 1
+        || inputPliku.files[0].name !== "harmonogram-bur.xlsx"
+        || inputPliku.files[0].size < 1) {
+        throw new Error("Pole BUR nie przyjęło przygotowanego pliku XLSX.");
+      }
 
-      if (!raport.ok) {
+      inputPliku.dispatchEvent(new Event("input", {
+        bubbles: true,
+        composed: true
+      }));
+      inputPliku.dispatchEvent(new Event("change", {
+        bubbles: true,
+        composed: true
+      }));
+
+      await opóźnij(350);
+
+      if (pobierzLiczbęPozycjiWTabeli() === liczbaPrzed) {
+        const przyciskWykonaniaImportu = znajdźPrzyciskWykonaniaImportu(inputPliku);
+
+        if (przyciskWykonaniaImportu) {
+          przyciskWykonaniaImportu.click();
+        }
+      }
+
+      const wynikOczekiwania = await poczekajNaWynikImportu(pozycje || [], liczbaPrzed);
+      const raport = wynikOczekiwania.raport || sprawdzHarmonogramPoWypelnieniu(pozycje || []);
+
+      if (!wynikOczekiwania.ok) {
         return {
           ok: false,
-          błąd: "Import XLSX nie potwierdził poprawnego uzupełnienia tabeli: " + raport.błędy.join(" ")
+          metoda: "XLSX",
+          błąd: "Plik został przypisany do pola BUR, ale import nie dodał poprawnych wierszy w ciągu 12 sekund. " + (raport.błędy || []).join(" "),
+          liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
+          liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+          rozmiarPliku: plik.size
         };
       }
 
@@ -170,11 +319,13 @@
         komunikat: "Zaimportowano harmonogram XLSX. Sprawdź dane przed zapisaniem usługi.",
         liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
         liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+        rozmiarPliku: plik.size,
         raport: raport
       };
     } catch (błąd) {
       return {
         ok: false,
+        metoda: "XLSX",
         błąd: błąd && błąd.message ? błąd.message : "Nie udało się przekazać pliku XLSX do importu."
       };
     }
@@ -269,12 +420,67 @@
     return brakujące;
   }
 
+  function znajdźPrzyciskDodajPozycjęHarmonogramu() {
+    const tabela = document.querySelector(selektory.tabelaHarmonogramu);
+    const przyciskImportu = document.querySelector(selektory.importHarmonogramu);
+    const korzenie = [];
+    let kontener = tabela ? tabela.closest("#harmonogram-grid") : null;
+
+    if (kontener) {
+      korzenie.push(kontener);
+    }
+
+    kontener = przyciskImportu ? przyciskImportu.parentElement : null;
+
+    for (let poziom = 0; kontener && poziom < 8; poziom += 1, kontener = kontener.parentElement) {
+      if (!korzenie.includes(kontener)) {
+        korzenie.push(kontener);
+      }
+
+      if (tabela && kontener.contains(tabela)) {
+        break;
+      }
+    }
+
+    for (let indeks = 0; indeks < korzenie.length; indeks += 1) {
+      const kandydaci = Array.from(korzenie[indeks].querySelectorAll(
+        "button, a, input[type='button'], input[type='submit']"
+      ));
+      const znaleziony = kandydaci.find(function sprawdźPrzycisk(element) {
+        const tekst = String(
+          pobierzWartośćElementu(element)
+          || element.getAttribute("value")
+          || element.getAttribute("aria-label")
+          || ""
+        ).replace(/\s+/g, " ").trim();
+        const identyfikator = [
+          element.id,
+          element.getAttribute("name"),
+          element.getAttribute("data-action")
+        ].join(" ");
+
+        return czyWidoczny(element)
+          && !element.disabled
+          && (
+            /^dodaj\s+pozycj(?:ę|e)$/i.test(tekst)
+            || (/harmonogram/i.test(identyfikator) && /dodaj/i.test(identyfikator))
+          );
+      });
+
+      if (znaleziony) {
+        return znaleziony;
+      }
+    }
+
+    return null;
+  }
+
   async function wypelnijHarmonogramRecznie(pozycje) {
     const pozycjeHarmonogramu = Array.isArray(pozycje) ? pozycje : [];
     const błędy = [];
 
     for (let indeks = 0; indeks < pozycjeHarmonogramu.length; indeks += 1) {
-      const przyciskDodaj = znajdźPrzyciskPoTekście([/dodaj/i, /nowa\s+pozycja/i]);
+      const przyciskDodaj = znajdźPrzyciskDodajPozycjęHarmonogramu();
 
       if (!przyciskDodaj) {
         return {
@@ -292,7 +498,7 @@
         błędy.push("Pozycja " + (indeks + 1) + ": nie znaleziono pól " + brakujące.join(", ") + ".");
       }
 
-      const przyciskZapisz = znajdźPrzyciskPoTekście([/zapisz/i, /dodaj/i, /zatwierdź/i]);
+      const przyciskZapisz = znajdźPrzyciskPoTekście([/^zapisz$/i, /^zatwierdź$/i]);
 
       if (przyciskZapisz) {
         przyciskZapisz.click();
@@ -397,37 +603,20 @@
       return wynikImportu;
     }
 
-    if (!przestrzen.czyUruchomićFallbackHarmonogramu({
-      tabelaIstnieje: Boolean(tabela),
-      istniejącePozycje: istniejącePozycje,
-      xlsxNieudany: true,
-      klikniętoWprowadzenie: true,
-      pozycje: pozycje
-    })) {
-      return {
-        ok: false,
-        metoda: "XLSX",
-        błąd: wynikImportu.błąd,
-        liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
-        liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli()
-      };
-    }
-
-    const wynikRęczny = await wypelnijHarmonogramRecznie(pozycje);
-
-    if (wynikRęczny.ok) {
-      wynikRęczny.komunikat = "Import XLSX nie był dostępny, użyto trybu ręcznego. Sprawdź dane przed zapisaniem usługi.";
-      wynikRęczny.błądXlsx = wynikImportu.błąd;
-      return wynikRęczny;
-    }
-
+    /*
+     * Przycisk „Wprowadź harmonogram do BUR” wykonuje wyłącznie import XLSX.
+     * Awaryjne wypełnianie ręczne ma osobny, świadomy przycisk w panelu.
+     * Dzięki temu błąd importu nie może otworzyć modalu „Dodaj osobę prowadzącą”.
+     */
     return {
       ok: false,
-      metoda: "fallback ręczny",
-      błądXlsx: wynikImportu.błąd,
-      błąd: "Import XLSX: " + wynikImportu.błąd + " Fallback ręczny: " + wynikRęczny.błąd,
+      metoda: "XLSX",
+      błąd: wynikImportu.błąd
+        || "BUR nie potwierdził importu harmonogramu XLSX.",
+      fallbackDostępny: true,
       liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
-      liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli()
+      liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+      rozmiarPliku: wynikImportu.rozmiarPliku || 0
     };
   }
 
@@ -765,6 +954,14 @@
     }
   }
 
+  const poprzedniaRejestracjaListenera = Number(globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ || 0);
+
+  if (Date.now() - poprzedniaRejestracjaListenera < 1000) {
+    return;
+  }
+
+  globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ = Date.now();
+
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
     if (!wiadomosc || !wiadomosc.typ) {
       return false;
@@ -772,9 +969,12 @@
 
     if (wiadomosc.typ === komunikaty.PING_SKRYPTU_STRONY) {
       odpowiedz({
+        ok: true,
         typ: komunikaty.PONG_SKRYPTU_STRONY,
         typStrony: "BUR",
-        url: location.href
+        url: location.href,
+        gotowyDom: document.readyState !== "loading",
+        wersjaSkryptu: WERSJA_SKRYPTU_BUR
       });
 
       return true;

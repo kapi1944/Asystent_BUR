@@ -2,6 +2,23 @@
   const przestrzeń = globalny.BurAsystent;
   const komunikaty = przestrzeń.KOMUNIKATY;
   const komunikatBrakuSkryptu = "Nie znaleziono skryptu strony na tej karcie. Odśwież stronę BUR/SEMPER albo otwórz obsługiwaną stronę.";
+  const plikiContentBur = [
+    "shared/komunikaty.js",
+    "shared/cele-formularza-bur.js",
+    "shared/model-walidacji.js",
+    "shared/normalizacja-tytulu.js",
+    "shared/daty.js",
+    "shared/stan-operacji-bur.js",
+    "shared/bur-program-harmonogram.js",
+    "shared/wyszukiwarka-semper.js",
+    "shared/selektory-bur.js",
+    "shared/walidatory-bur.js",
+    "shared/definicje-pol-bur.js",
+    "shared/przygotowanie-wypelnienia-bur.js",
+    "shared/wypełniacz-bur.js",
+    "content/bur-content.js"
+  ];
+  const styleContentBur = ["content/bur-highlighter.css"];
   const elementy = {
     statusStrony: document.getElementById("status-strony"),
     statusAkcji: document.getElementById("status-akcji"),
@@ -425,7 +442,7 @@
       return "SEMPER";
     }
 
-    if (/^https:\/\/uslugirozwojowe\.parp\.gov\.pl\//i.test(url || "")) {
+    if (/^https:\/\/(?:[^./]+\.)*uslugirozwojowe\.parp\.gov\.pl\//i.test(url || "")) {
       return "BUR";
     }
 
@@ -460,13 +477,72 @@
   function wyślijDoKarty(karta, komunikat) {
     return new Promise(function utwórzPromise(resolve, reject) {
       chrome.tabs.sendMessage(karta.id, komunikat, function obsłużOdpowiedź(odpowiedź) {
-        if (chrome.runtime.lastError) {
-          reject(new Error(komunikatBrakuSkryptu));
+        const błądRuntime = chrome.runtime.lastError;
+
+        if (błądRuntime) {
+          reject(new Error(błądRuntime.message || komunikatBrakuSkryptu));
           return;
         }
 
         resolve(odpowiedź);
       });
+    });
+  }
+
+  function sprawdźPołączenieKarty(karta) {
+    return wyślijDoKarty(karta, { typ: komunikaty.PING_SKRYPTU_STRONY }).then(function sprawdźPong(odpowiedź) {
+      if (!odpowiedź || odpowiedź.typ !== komunikaty.PONG_SKRYPTU_STRONY) {
+        throw new Error("Skrypt strony nie odpowiedział poprawnym komunikatem PONG.");
+      }
+
+      return odpowiedź;
+    });
+  }
+
+  function wstrzyknijContentBur(karta) {
+    if (!karta || !karta.id || rozpoznajTypStrony(karta.url) !== "BUR") {
+      return Promise.reject(new Error("Nie można wstrzyknąć skryptu do nieobsługiwanej karty."));
+    }
+
+    if (!chrome.scripting || !chrome.scripting.executeScript) {
+      return Promise.reject(new Error("Brak dostępu do chrome.scripting — przeładuj rozszerzenie."));
+    }
+
+    const wstrzyknięcieCss = chrome.scripting.insertCSS
+      ? chrome.scripting.insertCSS({
+        target: { tabId: karta.id },
+        files: styleContentBur
+      }).catch(function pomińBłądCss() {})
+      : Promise.resolve();
+
+    return wstrzyknięcieCss
+      .then(function wstrzyknijPliki() {
+        return chrome.scripting.executeScript({
+          target: { tabId: karta.id },
+          files: plikiContentBur
+        });
+      })
+      .then(function poczekajNaListener() {
+        return new Promise(function opóźnij(resolve) {
+          setTimeout(resolve, 120);
+        });
+      });
+  }
+
+  function zapewnijSkryptStrony(karta) {
+    return sprawdźPołączenieKarty(karta).catch(function spróbujPonownie(pierwszyBłąd) {
+      if (rozpoznajTypStrony(karta && karta.url) !== "BUR") {
+        throw pierwszyBłąd;
+      }
+
+      return wstrzyknijContentBur(karta)
+        .then(function sprawdźPoWstrzyknięciu() {
+          return sprawdźPołączenieKarty(karta);
+        })
+        .catch(function zwróćDokładnyBłąd(błąd) {
+          const szczegóły = błąd && błąd.message ? błąd.message : komunikatBrakuSkryptu;
+          throw new Error("Nie udało się uruchomić skryptu BUR: " + szczegóły);
+        });
     });
   }
 
@@ -476,7 +552,9 @@
         throw new Error("Aktywna karta nie jest obsługiwaną stroną BUR/SEMPER.");
       }
 
-      return wyślijDoKarty(karta, komunikat);
+      return zapewnijSkryptStrony(karta).then(function wyślijPoPołączeniu() {
+        return wyślijDoKarty(karta, komunikat);
+      });
     });
   }
 
@@ -625,7 +703,9 @@
           return null;
         }
 
-        return wyślijDoKarty(karta, { typ: komunikaty.SPRAWDŹ_PROGRAM_I_HARMONOGRAM_BUR });
+        return zapewnijSkryptStrony(karta).then(function pobierzStanPoPołączeniu() {
+          return wyślijDoKarty(karta, { typ: komunikaty.SPRAWDŹ_PROGRAM_I_HARMONOGRAM_BUR });
+        });
       })
       .then(function pokażOdpowiedź(odpowiedź) {
         if (odpowiedź && odpowiedź.wynik) {
@@ -1320,19 +1400,21 @@
       return Promise.resolve();
     }
 
-    return wyślijDoKarty(karta, { typ: komunikaty.PING_SKRYPTU_STRONY })
+    return zapewnijSkryptStrony(karta)
       .then(function pokażPong(odpowiedź) {
         const typStrony = odpowiedź && odpowiedź.typStrony ? odpowiedź.typStrony : typ;
-        ustawStatus(elementy.statusStrony, typStrony, "status-odczytano");
+        const wersja = odpowiedź && odpowiedź.wersjaSkryptu ? " · " + odpowiedź.wersjaSkryptu : "";
+        ustawStatus(elementy.statusStrony, typStrony + wersja, "status-odczytano");
         elementy.przyciskPobierz.disabled = false;
         ustawDostępnośćWalidacji(typStrony === "BUR");
         odświeżStanProgramuHarmonogramu();
       })
-      .catch(function pokażŁagodnyBłąd() {
-        ustawStatus(elementy.statusStrony, "Nie udało się połączyć z formularzem BUR. Odśwież stronę i spróbuj ponownie.", "status-ostrzezenie");
+      .catch(function pokażŁagodnyBłąd(błąd) {
+        const szczegóły = błąd && błąd.message ? " " + błąd.message : "";
+        ustawStatus(elementy.statusStrony, "Nie udało się połączyć z formularzem BUR. Odśwież stronę i spróbuj ponownie." + szczegóły, "status-ostrzezenie");
         elementy.przyciskPobierz.disabled = false;
-        ustawDostępnośćWalidacji(typ === "BUR");
-        odświeżStanProgramuHarmonogramu();
+        ustawDostępnośćWalidacji(false);
+        pokażStanProgramuHarmonogramu({});
       });
   }
 
@@ -1829,6 +1911,13 @@
   document.getElementById("karta-diagnostyka").appendChild(document.getElementById("diagnostyka-semper"));
   chrome.tabs.onActivated.addListener(function poZmianieKarty() {
     pobierzAktywnąKartę().then(ustawStatusStronyDlaKarty).catch(function pomińBłąd() {});
+  });
+  chrome.tabs.onUpdated.addListener(function poOdświeżeniuKarty(tabId, zmiana, karta) {
+    if (zmiana.status !== "complete" || !karta || !karta.active) {
+      return;
+    }
+
+    ustawStatusStronyDlaKarty(karta).catch(function pomińBłąd() {});
   });
   window.addEventListener("scroll", function zapiszPozycjęWalidacji() {
     if (ostatniWynikWalidacjiBur) {

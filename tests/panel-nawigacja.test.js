@@ -18,9 +18,9 @@
       const ramka = document.createElement("iframe");
       const konfiguracjaChrome = JSON.stringify(Boolean(czySkryptStronyDostępny));
       const mockChrome = "<base href='../panel/'><script>"
-        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b({});}},storage:{local:{get:function(a,b){b({});},set:function(a,b){if(b){b();}},remove:function(a,b){if(b){b();}}},session:{get:function(a,b){b({});},set:function(a,b){if(b){b();}}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list'}]);},sendMessage:function(a,b,c){if(!"
+        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b({});}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.reject(new Error('Brak skryptu'));}},storage:{local:{get:function(a,b){b({});},set:function(a,b){if(b){b();}},remove:function(a,b){if(b){b();}}},session:{get:function(a,b){b({});},set:function(a,b){if(b){b();}}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list',active:true}]);},sendMessage:function(a,b,c){if(!"
         + konfiguracjaChrome
-        + "){window.chrome.runtime.lastError={message:'Brak skryptu'};c();window.chrome.runtime.lastError=null;return;}c({typStrony:'BUR'});},onActivated:{addListener:function(){}}}};"
+        + "){window.chrome.runtime.lastError={message:'Brak skryptu'};c();window.chrome.runtime.lastError=null;return;}c({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});},onActivated:{addListener:function(){}},onUpdated:{addListener:function(){}}}};"
         + "</script>";
       ramka.hidden = true;
       ramka.srcdoc = html.replace("<head>", "<head>" + mockChrome);
@@ -104,4 +104,51 @@
       ramka.remove();
     });
   });
+
+  test("Panel ma fallback wstrzyknięcia content scriptu i obsługuje subdomeny BUR", function sprawdźHotfixPołączenia() {
+    return Promise.all([
+      pobierzPlik("../panel/panel.js"),
+      pobierzPlik("../content/bur-content.js"),
+      pobierzPlik("../manifest.json")
+    ]).then(function sprawdźPliki(wyniki) {
+      const panel = wyniki[0];
+      const content = wyniki[1];
+      const manifest = wyniki[2];
+
+      sprawdzWarunek(panel.includes("chrome.scripting.executeScript"), "Panel nie ma fallbacku ponownego wstrzyknięcia content scriptu.");
+      sprawdzWarunek(panel.includes("zapewnijSkryptStrony"), "Panel nie wykonuje handshake przed operacją BUR.");
+      sprawdzWarunek(content.includes("__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__"), "Content script nie chroni przed podwójnym listenerem.");
+      sprawdzWarunek(content.includes("wersjaSkryptu"), "PING content scriptu nie zwraca wersji.");
+      sprawdzWarunek(manifest.includes("https://*.uslugirozwojowe.parp.gov.pl/*"), "Manifest nie obsługuje subdomen BUR.");
+    });
+  });
+  test("Import harmonogramu używa #import i nie otwiera modalu osoby prowadzącej", function sprawdźZakresImportu() {
+    return pobierzPlik("../content/bur-content.js").then(function sprawdźContent(skrypt) {
+      sprawdzWarunek(
+        skrypt.includes("const inputPliku = await znajdźInputPlikuImportu();"),
+        "Import powinien oczekiwać na input utworzony przez przycisk #import."
+      );
+      sprawdzWarunek(
+        skrypt.includes('przyciskImportu.id !== "import"'),
+        "Import nie jest ograniczony do właściwego przycisku #import."
+      );
+      sprawdzWarunek(
+        skrypt.includes("znajdźPrzyciskDodajPozycjęHarmonogramu"),
+        "Tryb awaryjny nie ma dedykowanego wyszukiwania przycisku Dodaj pozycję."
+      );
+      sprawdzWarunek(
+        !skrypt.includes("const przyciskDodaj = znajdźPrzyciskPoTekście([/dodaj/i"),
+        "Pozostało zbyt szerokie wyszukiwanie dowolnego przycisku Dodaj."
+      );
+      sprawdzWarunek(
+        skrypt.includes("fallbackDostępny: true"),
+        "Błąd XLSX powinien pozostawić tryb ręczny jako osobną akcję."
+      );
+      sprawdzWarunek(
+        skrypt.includes("komórki.length >= 7 && /^\\d+$/"),
+        "Wiersze podsumowania godzin nadal mogą być liczone jako pozycje harmonogramu."
+      );
+    });
+  });
+
 })();

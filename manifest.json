@@ -22,7 +22,8 @@
   "host_permissions": [
     "https://szkolenia-semper.pl/*",
     "https://www.szkolenia-semper.pl/*",
-    "https://uslugirozwojowe.parp.gov.pl/*"
+    "https://uslugirozwojowe.parp.gov.pl/*",
+    "https://*.uslugirozwojowe.parp.gov.pl/*"
   ],
   "content_scripts": [
     {
@@ -45,7 +46,8 @@
     },
     {
       "matches": [
-        "https://uslugirozwojowe.parp.gov.pl/*"
+        "https://uslugirozwojowe.parp.gov.pl/*",
+        "https://*.uslugirozwojowe.parp.gov.pl/*"
       ],
       "css": [
         "content/bur-highlighter.css"
