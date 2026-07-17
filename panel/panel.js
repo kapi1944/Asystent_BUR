@@ -973,10 +973,10 @@
 
     if (raport.istniejącePozycje) {
       części.push("Nie wprowadzono harmonogramu, ponieważ w BUR istnieją już pozycje.");
-    } else if (raport.ok && raport.metoda === "XLSX") {
-      części.push("Wprowadzono przez import XLSX.");
+    } else if (raport.ok && raport.metoda === "CSV") {
+      części.push("Wprowadzono przez import CSV.");
     } else if (raport.ok && raport.metoda === "fallback ręczny") {
-      części.push("Import XLSX nie powiódł się — użyto ręcznego wypełniania.");
+      części.push("Wypełniono harmonogram ręcznie po użyciu osobnej akcji awaryjnej.");
     } else if (raport.ok) {
       części.push(raport.komunikat || "Harmonogram wprowadzony.");
     } else {
@@ -992,7 +992,7 @@
     }
 
     if (raport.błądXlsx) {
-      części.push("Błąd XLSX: " + raport.błądXlsx);
+      części.push("Błąd wcześniejszego importu: " + raport.błądXlsx);
     }
 
     if (raport.błąd) {

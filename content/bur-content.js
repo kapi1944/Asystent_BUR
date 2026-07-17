@@ -1,7 +1,7 @@
 (function uruchomBurContent(globalny) {
   const przestrzen = globalny.BurAsystent || {};
   const komunikaty = przestrzen.KOMUNIKATY;
-  const WERSJA_SKRYPTU_BUR = "hotfix-import-harmonogramu-2026-07-17-v2";
+  const WERSJA_SKRYPTU_BUR = "hotfix-import-csv-2026-07-17-v1";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
     tabelaHarmonogramu: "#harmonogram-grid > div > table",
@@ -235,39 +235,63 @@
     };
   }
 
-  async function importujHarmonogramPrzezXlsx(pozycje) {
+  async function importujHarmonogramPrzezCsv(pozycje) {
     const inputPliku = await znajdźInputPlikuImportu();
 
     if (!inputPliku) {
       return {
         ok: false,
-        błąd: "Nie znaleziono jednoznacznego inputa pliku w sekcji importu harmonogramu BUR."
+        metoda: "CSV",
+        błąd: "Nie znaleziono jednoznacznego inputa pliku powiązanego z przyciskiem #import."
       };
     }
 
     if (inputPliku.disabled) {
       return {
         ok: false,
+        metoda: "CSV",
         błąd: "Pole importu harmonogramu BUR jest zablokowane."
+      };
+    }
+
+    if (typeof przestrzen.wygenerujDaneCsvHarmonogramu !== "function") {
+      return {
+        ok: false,
+        metoda: "CSV",
+        błąd: "Generator CSV harmonogramu nie został załadowany."
       };
     }
 
     try {
       const liczbaPrzed = pobierzLiczbęPozycjiWTabeli();
-      const daneXlsx = przestrzen.wygenerujDaneXlsxHarmonogramu(pozycje || []);
-      const bajtyXlsx = daneXlsx instanceof Uint8Array ? daneXlsx : new Uint8Array(daneXlsx);
+      const daneCsv = przestrzen.wygenerujDaneCsvHarmonogramu(pozycje || []);
+      const bajtyCsv = daneCsv instanceof Uint8Array ? daneCsv : new Uint8Array(daneCsv);
 
-      if (bajtyXlsx.length < 4 || bajtyXlsx[0] !== 0x50 || bajtyXlsx[1] !== 0x4b) {
-        throw new Error("Wygenerowane dane nie mają poprawnej sygnatury pliku XLSX/ZIP.");
+      if (bajtyCsv.length < 4
+        || bajtyCsv[0] !== 0xef
+        || bajtyCsv[1] !== 0xbb
+        || bajtyCsv[2] !== 0xbf) {
+        throw new Error("Wygenerowany CSV nie ma wymaganego kodowania UTF-8 BOM.");
       }
 
-      const plik = new File([bajtyXlsx], "harmonogram-bur.xlsx", {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      const tekstKontrolny = new TextDecoder("utf-8").decode(bajtyCsv);
+      const oczekiwanyNagłówek = przestrzen.NAGŁÓWKI_CSV_HARMONOGRAMU
+        .map(function cytuj(wartość) {
+          return '"' + String(wartość).replace(/"/g, '""') + '"';
+        })
+        .join(";");
+
+      if (!tekstKontrolny.startsWith(oczekiwanyNagłówek + "\r\n")) {
+        throw new Error("Nagłówek CSV jest niezgodny ze wzorcem BUR.");
+      }
+
+      const plik = new File([bajtyCsv], "harmonogram-bur.csv", {
+        type: "text/csv;charset=utf-8"
       });
       const transfer = new DataTransfer();
 
       if (!plik.size) {
-        throw new Error("Wygenerowany plik harmonogram-bur.xlsx jest pusty.");
+        throw new Error("Wygenerowany plik harmonogram-bur.csv jest pusty.");
       }
 
       transfer.items.add(plik);
@@ -275,9 +299,9 @@
 
       if (!inputPliku.files
         || inputPliku.files.length !== 1
-        || inputPliku.files[0].name !== "harmonogram-bur.xlsx"
+        || inputPliku.files[0].name !== "harmonogram-bur.csv"
         || inputPliku.files[0].size < 1) {
-        throw new Error("Pole BUR nie przyjęło przygotowanego pliku XLSX.");
+        throw new Error("Pole BUR nie przyjęło przygotowanego pliku CSV.");
       }
 
       inputPliku.dispatchEvent(new Event("input", {
@@ -305,28 +329,35 @@
       if (!wynikOczekiwania.ok) {
         return {
           ok: false,
-          metoda: "XLSX",
-          błąd: "Plik został przypisany do pola BUR, ale import nie dodał poprawnych wierszy w ciągu 12 sekund. " + (raport.błędy || []).join(" "),
+          metoda: "CSV",
+          błąd: "Plik CSV został przypisany do pola BUR, ale import nie dodał poprawnych wierszy w ciągu 12 sekund. "
+            + (raport.błędy || []).join(" "),
           liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
           liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+          nazwaPliku: plik.name,
+          typPliku: plik.type,
           rozmiarPliku: plik.size
         };
       }
 
       return {
         ok: true,
-        metoda: "XLSX",
-        komunikat: "Zaimportowano harmonogram XLSX. Sprawdź dane przed zapisaniem usługi.",
+        metoda: "CSV",
+        komunikat: "Zaimportowano harmonogram CSV. Sprawdź dane przed zapisaniem usługi.",
         liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
         liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+        nazwaPliku: plik.name,
+        typPliku: plik.type,
         rozmiarPliku: plik.size,
         raport: raport
       };
     } catch (błąd) {
       return {
         ok: false,
-        metoda: "XLSX",
-        błąd: błąd && błąd.message ? błąd.message : "Nie udało się przekazać pliku XLSX do importu."
+        metoda: "CSV",
+        błąd: błąd && błąd.message
+          ? błąd.message
+          : "Nie udało się przekazać pliku CSV do importu."
       };
     }
   }
@@ -572,7 +603,7 @@
     };
   }
 
-  async function importujXlsxZFallbackiem(pozycje) {
+  async function importujCsvBezFallbacku(pozycje) {
     const tabela = document.querySelector(selektory.tabelaHarmonogramu);
     const obecneWiersze = odczytajWierszeHarmonogramu();
     const istniejącePozycje = przestrzen.czyTabelaHarmonogramuMaPozycje(obecneWiersze);
@@ -580,6 +611,7 @@
     if (!tabela) {
       return {
         ok: false,
+        metoda: "CSV",
         błąd: "Nie znaleziono tabeli harmonogramu BUR.",
         liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0
       };
@@ -588,6 +620,7 @@
     if (istniejącePozycje) {
       return {
         ok: false,
+        metoda: "CSV",
         istniejącePozycje: true,
         obecneWiersze: obecneWiersze,
         oczekiwanePozycje: pozycje || [],
@@ -597,25 +630,21 @@
       };
     }
 
-    const wynikImportu = await importujHarmonogramPrzezXlsx(pozycje);
+    const wynikImportu = await importujHarmonogramPrzezCsv(pozycje);
 
     if (wynikImportu.ok) {
       return wynikImportu;
     }
 
-    /*
-     * Przycisk „Wprowadź harmonogram do BUR” wykonuje wyłącznie import XLSX.
-     * Awaryjne wypełnianie ręczne ma osobny, świadomy przycisk w panelu.
-     * Dzięki temu błąd importu nie może otworzyć modalu „Dodaj osobę prowadzącą”.
-     */
     return {
       ok: false,
-      metoda: "XLSX",
-      błąd: wynikImportu.błąd
-        || "BUR nie potwierdził importu harmonogramu XLSX.",
+      metoda: "CSV",
+      błąd: wynikImportu.błąd || "BUR nie potwierdził importu harmonogramu CSV.",
       fallbackDostępny: true,
       liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
       liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+      nazwaPliku: wynikImportu.nazwaPliku || "harmonogram-bur.csv",
+      typPliku: wynikImportu.typPliku || "text/csv;charset=utf-8",
       rozmiarPliku: wynikImportu.rozmiarPliku || 0
     };
   }
@@ -626,11 +655,11 @@
     if (!pozycjeHarmonogramu.length) {
       return {
         ok: false,
-        błąd: "Brak przygotowanego harmonogramu XLSX."
+        błąd: "Brak przygotowanego harmonogramu CSV."
       };
     }
 
-    return importujXlsxZFallbackiem(pozycjeHarmonogramu);
+    return importujCsvBezFallbacku(pozycjeHarmonogramu);
   }
 
   async function wypełnijPrzygotowanyHarmonogramRęcznie(pozycje) {
@@ -1082,7 +1111,7 @@
             typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR,
             wynik: {
               ok: false,
-              błąd: błąd && błąd.message ? błąd.message : "Nie udało się importować harmonogramu XLSX."
+              błąd: błąd && błąd.message ? błąd.message : "Nie udało się importować harmonogramu CSV."
             }
           });
         });

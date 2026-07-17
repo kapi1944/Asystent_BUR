@@ -560,6 +560,42 @@
     ]);
   }
 
+
+  const NAGŁÓWKI_CSV_HARMONOGRAMU = NAGŁÓWKI_XLSX_HARMONOGRAMU.slice();
+
+  function cytujPoleCsv(wartość) {
+    return '"' + String(wartość === null || wartość === undefined ? "" : wartość)
+      .replace(/\r\n?/g, "\n")
+      .replace(/"/g, '""') + '"';
+  }
+
+  function wygenerujDaneCsvHarmonogramu(pozycje) {
+    const wiersze = [NAGŁÓWKI_CSV_HARMONOGRAMU].concat(
+      (Array.isArray(pozycje) ? pozycje : []).map(function mapujPozycję(pozycja) {
+        const wartości = pozycja || {};
+
+        return [
+          wartości.przedmiot,
+          wartości.prowadzacy,
+          wartości.dzien_swiadczenia,
+          wartości.czas_rozpoczecia,
+          wartości.czas_zakonczenia,
+          wartości.typ_aktywnosci
+        ];
+      })
+    );
+    const tekstCsv = wiersze.map(function zbudujWiersz(wartości) {
+      return wartości.map(cytujPoleCsv).join(";");
+    }).join("\r\n") + "\r\n";
+    const zawartość = new TextEncoder().encode(tekstCsv);
+    const wynik = new Uint8Array(zawartość.length + 3);
+
+    wynik.set([0xef, 0xbb, 0xbf], 0);
+    wynik.set(zawartość, 3);
+
+    return wynik;
+  }
+
   function czyTenSamIndeksTerminu(indeksPrzygotowany, indeksAktualny) {
     const przygotowany = indeksPrzygotowany === null || indeksPrzygotowany === undefined || indeksPrzygotowany === "" ? null : Number(indeksPrzygotowany);
     const aktualny = indeksAktualny === null || indeksAktualny === undefined || indeksAktualny === "" ? null : Number(indeksAktualny);
@@ -663,6 +699,8 @@
   przestrzeń.zbudujPozycjeHarmonogramu = zbudujPozycjeHarmonogramu;
   przestrzeń.NAGŁÓWKI_XLSX_HARMONOGRAMU = NAGŁÓWKI_XLSX_HARMONOGRAMU;
   przestrzeń.wygenerujDaneXlsxHarmonogramu = wygenerujDaneXlsxHarmonogramu;
+  przestrzeń.NAGŁÓWKI_CSV_HARMONOGRAMU = NAGŁÓWKI_CSV_HARMONOGRAMU;
+  przestrzeń.wygenerujDaneCsvHarmonogramu = wygenerujDaneCsvHarmonogramu;
   przestrzeń.sprawdźGotowośćHarmonogramuBur = sprawdźGotowośćHarmonogramuBur;
   przestrzeń.czyTabelaHarmonogramuMaPozycje = czyTabelaHarmonogramuMaPozycje;
   przestrzeń.czyUruchomićFallbackHarmonogramu = czyUruchomićFallbackHarmonogramu;

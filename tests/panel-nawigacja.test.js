@@ -151,4 +151,29 @@
     });
   });
 
+  test("Import harmonogramu generuje CSV zgodny ze wzorcem BUR", function sprawdźImportCsv() {
+    return Promise.all([
+      pobierzPlik("../content/bur-content.js"),
+      pobierzPlik("../panel/panel.html")
+    ]).then(function sprawdźPliki(wyniki) {
+      sprawdzWarunek(
+        wyniki[0].includes('"harmonogram-bur.csv"'),
+        "Content script nie tworzy pliku harmonogram-bur.csv."
+      );
+      sprawdzWarunek(
+        wyniki[0].includes('metoda: "CSV"'),
+        "Raport importu nie używa metody CSV."
+      );
+      sprawdzWarunek(
+        !wyniki[0].includes("return importujXlsxZFallbackiem(pozycjeHarmonogramu);"),
+        "Główna akcja nadal uruchamia import XLSX."
+      );
+      sprawdzWarunek(
+        wyniki[1].includes("plik CSV zgodny ze wzorcem BUR"),
+        "Panel nadal opisuje przygotowanie pliku XLSX."
+      );
+    });
+  });
+
+
 })();

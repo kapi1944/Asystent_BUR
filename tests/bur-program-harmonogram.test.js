@@ -342,4 +342,34 @@
 
     sprawdzRownosc(czyUruchomić, false, "Fallback nie powinien startować przy istniejących pozycjach.");
   });
+
+  test("CSV harmonogramu jest zgodny z formatem wzorca BUR", function sprawdźCsvBur() {
+    const csv = asystent.wygenerujDaneCsvHarmonogramu([{
+      przedmiot: 'Temat "specjalny"',
+      prowadzacy: "trener@szkolenia-semper.pl",
+      dzien_swiadczenia: "23-06-2027",
+      czas_rozpoczecia: "10:00",
+      czas_zakonczenia: "17:00",
+      typ_aktywnosci: "Zajęcia"
+    }]);
+    const tekst = new TextDecoder("utf-8").decode(csv);
+    const linie = tekst.replace(/^\uFEFF/, "").split("\r\n");
+
+    sprawdzWarunek(csv instanceof Uint8Array, "Generator CSV powinien zwracać Uint8Array.");
+    sprawdzRownosc(csv[0], 0xef, "CSV nie ma pierwszego bajtu BOM.");
+    sprawdzRownosc(csv[1], 0xbb, "CSV nie ma drugiego bajtu BOM.");
+    sprawdzRownosc(csv[2], 0xbf, "CSV nie ma trzeciego bajtu BOM.");
+    sprawdzRownosc(
+      linie[0],
+      '"Przedmiot / temat (max 200 znaków)";"Prowadzący (adres email lub ""Podmiot zewnętrzny"")";"Termin (w formacie dd-mm-yyyy)";"Godzina od (w formacie hh:mm)";"Godzina do (w formacie hh:mm)";"Typ aktywności (Zajęcia/Walidacja/Przerwa)"',
+      "Nagłówek CSV nie jest zgodny ze wzorcem BUR."
+    );
+    sprawdzRownosc(
+      linie[1],
+      "\"Temat \"\"specjalny\"\"\";\"trener@szkolenia-semper.pl\";\"23-06-2027\";\"10:00\";\"17:00\";\"Zajęcia\"",
+      "Wiersz CSV jest niepoprawny."
+    );
+    sprawdzWarunek(tekst.endsWith("\r\n"), "CSV powinien kończyć się CRLF.");
+  });
+
 })(globalThis);
