@@ -12,8 +12,16 @@
       <div id="status-strony" class="status status-neutralny">Sprawdzanie strony...</div>
     </header>
 
+    <nav class="zakladki-panelu" aria-label="Sekcje Asystenta BUR">
+      <button type="button" data-przelacz-zakladke="semper">SEMPER</button>
+      <button type="button" data-przelacz-zakladke="terminy">Terminy</button>
+      <button type="button" data-przelacz-zakladke="checklista">Checklista</button>
+      <button type="button" data-przelacz-zakladke="harmonogram">Harmonogram</button>
+      <button type="button" data-przelacz-zakladke="diagnostyka">Diagnostyka</button>
+    </nav>
+
     <main class="panel">
-      <section class="karta">
+      <section class="karta" data-zakladki="semper">
         <div class="siatka-przycisków">
           <button id="przycisk-pobierz" type="button">Pobierz dane ze strony</button>
           <button id="przycisk-wyczysc-panel" type="button">Wyczyść panel</button>
@@ -21,7 +29,7 @@
         <div id="status-akcji" class="komunikat">Gotowy.</div>
       </section>
 
-      <section class="karta">
+      <section class="karta" data-zakladki="semper">
         <h2>SEMPER</h2>
         <label class="etykieta" for="link-lub-fraza-semper">Link lub fraza SEMPER</label>
         <input id="link-lub-fraza-semper" type="text" autocomplete="off" placeholder="Wklej link albo wpisz frazę">
@@ -33,7 +41,7 @@
         <button id="przycisk-zastosuj-zmiany-bur" type="button" disabled>Zastosuj zatwierdzone zmiany</button>
         <div id="status-operacji-bur" class="komunikat">Brak aktywnej operacji BUR.</div>
         <div id="status-semper" class="komunikat">Gotowy do wyszukiwania.</div>
-        <details class="diagnostyka-semper">
+        <details id="diagnostyka-semper" class="diagnostyka-semper">
           <summary>Diagnostyka</summary>
           <dl class="dane dane-zwarte">
             <dt>Ostatnia fraza</dt>
@@ -60,17 +68,18 @@
         <div id="podglad-zmian-bur" class="wynik-wypełniania"></div>
       </section>
 
-      <section id="ostrzezenia-karta" class="karta ukryty">
+      <section id="karta-terminy" class="karta" data-zakladki="terminy">
+        <h2>Terminy</h2>
+        <div id="kontener-wyboru-terminu"></div>
+      </section>
+
+      <section id="ostrzezenia-karta" class="karta ukryty" data-zakladki="diagnostyka">
         <h2>Ostrzeżenia</h2>
         <ul id="lista-ostrzezen"></ul>
       </section>
 
-      <section class="karta">
+      <section class="karta" data-zakladki="checklista">
         <h2>Walidacja BUR</h2>
-        <label class="etykieta" for="wybor-terminu-semper">Termin SEMPER do walidacji</label>
-        <select id="wybor-terminu-semper">
-          <option value="">Brak zaimportowanych terminów</option>
-        </select>
         <div class="siatka-przycisków">
           <button id="przycisk-waliduj-bur" type="button">Waliduj formularz BUR</button>
           <button id="przycisk-wyczysc-podswietlenia" type="button">Wyczyść podświetlenia</button>
@@ -79,7 +88,7 @@
         <div id="wynik-walidacji-bur" class="wynik-walidacji"></div>
       </section>
 
-      <section class="karta">
+      <section class="karta" data-zakladki="harmonogram">
         <h2>Program i harmonogram usługi</h2>
         <dl class="dane dane-zwarte">
           <dt>Edytor programu</dt>
@@ -101,7 +110,7 @@
         <div id="decyzja-harmonogramu-bur" class="decyzja-harmonogramu ukryty"></div>
       </section>
 
-      <section class="karta">
+      <section class="karta" data-zakladki="semper">
         <h2>Dane szkolenia</h2>
         <dl class="dane">
           <dt>Tytuł oryginalny</dt>
@@ -137,6 +146,10 @@
           <dt>Inwestycja</dt>
           <dd id="inwestycja">-</dd>
         </dl>
+      </section>
+
+      <section id="karta-diagnostyka" class="karta" data-zakladki="diagnostyka">
+        <h2>Diagnostyka</h2>
       </section>
     </main>
 

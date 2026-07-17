@@ -58,6 +58,7 @@
   let aktywnaOperacjaBur = null;
   let podglądWypełnieniaBur = null;
   let ostatniWynikWalidacjiBur = null;
+  let aktywnaZakładkaPanelu = "semper";
   const diagnostykaSemper = {
     fraza: "",
     źródłoFrazy: "",
@@ -545,6 +546,38 @@
       requestAnimationFrame(function przywróćPrzewijanie() {
         window.scrollTo(0, stan.pozycjaPrzewijania || 0);
       });
+    });
+  }
+
+  function ustawAktywnąZakładkęPanelu(zakładka, zapiszStan) {
+    const dozwolone = ["semper", "terminy", "checklista", "harmonogram", "diagnostyka"];
+    aktywnaZakładkaPanelu = dozwolone.includes(zakładka) ? zakładka : "semper";
+    document.body.dataset.aktywnaZakladka = aktywnaZakładkaPanelu;
+    document.querySelectorAll("[data-przelacz-zakladke]").forEach(function ustawPrzycisk(przycisk) {
+      przycisk.setAttribute("aria-pressed", String(przycisk.dataset.przelaczZakladke === aktywnaZakładkaPanelu));
+    });
+    if (zapiszStan !== false && chrome.storage.session) {
+      chrome.storage.session.set({ stanPaneluBur: { aktywnaZakładka: aktywnaZakładkaPanelu } });
+    }
+  }
+
+  function wybierzZakładkęDlaKarty(karta) {
+    const url = String(karta && karta.url || "");
+    if (rozpoznajTypStrony(url) === "SEMPER") {
+      return "semper";
+    }
+    if (rozpoznajTypStrony(url) === "BUR") {
+      return /lista|list|uslugi\/?(?:\?|$)/i.test(url) ? "terminy" : "checklista";
+    }
+    return aktywnaZakładkaPanelu;
+  }
+
+  function odczytajStanPanelu() {
+    if (!chrome.storage.session) {
+      return;
+    }
+    chrome.storage.session.get(["stanPaneluBur"], function przywróćStan(dane) {
+      ustawAktywnąZakładkęPanelu(dane && dane.stanPaneluBur && dane.stanPaneluBur.aktywnaZakładka, false);
     });
   }
 
@@ -1264,6 +1297,7 @@
 
   function ustawStatusStronyDlaKarty(karta) {
     const typ = rozpoznajTypStrony(karta ? karta.url : "");
+    ustawAktywnąZakładkęPanelu(wybierzZakładkęDlaKarty(karta));
 
     if (typ === "Nieobsługiwana strona") {
       ustawStatus(elementy.statusStrony, typ, "status-ostrzezenie");
@@ -1771,6 +1805,17 @@
   elementy.przyciskWypełnijHarmonogramRęcznie.addEventListener("click", function wypełnijRęcznie() {
     wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR);
   });
+  document.querySelectorAll("[data-przelacz-zakladke]").forEach(function dodajObsługęZakładki(przycisk) {
+    przycisk.addEventListener("click", function wybierzZakładkę() {
+      ustawAktywnąZakładkęPanelu(przycisk.dataset.przelaczZakladke);
+    });
+  });
+  document.getElementById("kontener-wyboru-terminu").appendChild(document.querySelector("label[for='wybor-terminu-semper']"));
+  document.getElementById("kontener-wyboru-terminu").appendChild(elementy.wybórTerminuSemper);
+  document.getElementById("karta-diagnostyka").appendChild(document.getElementById("diagnostyka-semper"));
+  chrome.tabs.onActivated.addListener(function poZmianieKarty() {
+    pobierzAktywnąKartę().then(ustawStatusStronyDlaKarty).catch(function pomińBłąd() {});
+  });
   window.addEventListener("scroll", function zapiszPozycjęWalidacji() {
     if (ostatniWynikWalidacjiBur) {
       zapiszStanSesjiWalidacji();
@@ -1786,6 +1831,7 @@
     });
 
   odczytajOstatniImport();
+  odczytajStanPanelu();
   odczytajStanSesjiWalidacji();
   odświeżStanProgramuHarmonogramu();
   odświeżStanPrzygotowaniaHarmonogramu();

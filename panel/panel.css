@@ -490,6 +490,41 @@ li + li {
   outline-offset: 2px;
 }
 
+.zakladki-panelu {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ramka);
+  background: var(--panel-drugi);
+}
+
+.zakladki-panelu button {
+  flex: 0 0 auto;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--tekst-slaby);
+}
+
+.zakladki-panelu button[aria-pressed="true"] {
+  border-color: #7c3aed;
+  background: rgba(124, 58, 237, 0.16);
+  color: var(--tekst);
+}
+
+.karta[data-zakladki] {
+  display: none;
+}
+
+body[data-aktywna-zakladka="semper"] .karta[data-zakladki~="semper"],
+body[data-aktywna-zakladka="terminy"] .karta[data-zakladki~="terminy"],
+body[data-aktywna-zakladka="checklista"] .karta[data-zakladki~="checklista"],
+body[data-aktywna-zakladka="harmonogram"] .karta[data-zakladki~="harmonogram"],
+body[data-aktywna-zakladka="diagnostyka"] .karta[data-zakladki~="diagnostyka"] {
+  display: block;
+}
+
 .pozycja-walidacji strong,
 .pozycja-walidacji span {
   display: block;
