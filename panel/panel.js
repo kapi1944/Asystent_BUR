@@ -118,6 +118,47 @@
     return zapiszStorage({ aktywnaOperacjaBur: aktywnaOperacjaBur }).then(function zwróć() { odświeżStatusOperacjiBur(); return aktywnaOperacjaBur; });
   }
 
+  function zakończOperacjęBurBłędem(etap, komunikat) {
+    const treść = komunikat || "Nieznany błąd operacji BUR.";
+
+    if (!aktywnaOperacjaBur) {
+      podglądWypełnieniaBur = null;
+      elementy.przyciskZastosujZmianyBur.disabled = true;
+      return Promise.resolve();
+    }
+
+    if (aktywnaOperacjaBur.etap !== "błąd" && aktywnaOperacjaBur.etap !== "zakończono") {
+      try {
+        aktywnaOperacjaBur = przestrzeń.zapiszBłądOperacjiBur(
+          aktywnaOperacjaBur,
+          etap || aktywnaOperacjaBur.etap,
+          treść
+        );
+      } catch (błądStanu) {
+        aktywnaOperacjaBur = Object.assign({}, aktywnaOperacjaBur, {
+          etap: "błąd",
+          blokuje: false,
+          zaktualizowano: new Date().toISOString(),
+          błąd: {
+            etap: etap || aktywnaOperacjaBur.etap,
+            komunikat: treść,
+            czas: new Date().toISOString()
+          }
+        });
+      }
+    }
+
+    podglądWypełnieniaBur = null;
+    elementy.przyciskZastosujZmianyBur.disabled = true;
+
+    return zapiszStorage({
+      aktywnaOperacjaBur: aktywnaOperacjaBur,
+      podglądWypełnieniaBur: null
+    }).then(function odświeżPoBłędzie() {
+      odświeżStatusOperacjiBur();
+    });
+  }
+
   function wyczyśćDecyzjęHarmonogramuBur() {
     elementy.decyzjaHarmonogramuBur.textContent = "";
     elementy.decyzjaHarmonogramuBur.classList.add("ukryty");
@@ -1893,7 +1934,16 @@
         ustawStatus(elementy.statusSemper, "Podgląd zmian jest gotowy. Zaznacz zmiany i zatwierdź.", "status-odczytano");
       })
       .catch(function pokażBłąd(błąd) {
-        ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wypełnić formularza BUR.", "status-blad");
+        const komunikat = błąd && błąd.message
+          ? błąd.message
+          : "Nie udało się przygotować podglądu zmian formularza BUR.";
+
+        return zakończOperacjęBurBłędem(
+          aktywnaOperacjaBur ? aktywnaOperacjaBur.etap : "przygotowywanie",
+          komunikat
+        ).then(function pokażStatus() {
+          ustawStatus(elementy.statusSemper, komunikat, "status-blad");
+        });
       })
       .finally(function odśwież() {
         pobierzAktywnąKartę().then(ustawStatusStronyDlaKarty);
@@ -1912,13 +1962,84 @@
   }
 
   function zastosujZatwierdzoneZmianyBur() {
-    if (!podglądWypełnieniaBur || !aktywnaOperacjaBur) { return; }
-    pobierzAktywnąKartę().then(function zastosuj(karta) {
-      if (!karta || karta.id !== podglądWypełnieniaBur.kartaId) { throw new Error("Zmieniła się karta BUR — przygotuj podgląd ponownie."); }
-      aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "wprowadzanie"); return wyślijDoKarty(karta, { typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR, propozycje: podglądWypełnieniaBur.propozycje });
-    }).then(function raportuj(odpowiedź) { pokażWynikWypełnianiaBur({ uzupełnione: (odpowiedź.wynik.wyniki || []).filter(function filtruj(w) { return w.ok; }), ostrzeżenia: [], błędy: (odpowiedź.wynik.wyniki || []).filter(function filtruj(w) { return !w.ok; }), pominięte: [] }); aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "walidowanie"); aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "zakończono"); return zapiszStorage({ aktywnaOperacjaBur: aktywnaOperacjaBur }); }).then(function zakończ() { odświeżStatusOperacjiBur(); elementy.przyciskZastosujZmianyBur.disabled = true; ustawStatus(elementy.statusSemper, "Zastosowano zmiany — sprawdź raport.", "status-odczytano"); }).catch(function błąd(wyjątek) { ustawStatus(elementy.statusSemper, wyjątek.message, "status-blad"); });
-  }
+    if (!podglądWypełnieniaBur || !aktywnaOperacjaBur) {
+      return;
+    }
 
+    const wybrane = (podglądWypełnieniaBur.propozycje || []).filter(function tylkoZaznaczone(propozycja) {
+      return propozycja.zaznaczona;
+    });
+
+    if (!wybrane.length) {
+      ustawStatus(elementy.statusSemper, "Nie zaznaczono żadnych zmian do zastosowania.", "status-ostrzezenie");
+      return;
+    }
+
+    pobierzAktywnąKartę()
+      .then(function zastosuj(karta) {
+        if (!karta || karta.id !== podglądWypełnieniaBur.kartaId) {
+          throw new Error("Zmieniła się karta BUR — przygotuj podgląd ponownie.");
+        }
+
+        aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "wprowadzanie");
+
+        return zapiszStorage({ aktywnaOperacjaBur: aktywnaOperacjaBur }).then(function wyślij() {
+          return wyślijDoKarty(karta, {
+            typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR,
+            propozycje: podglądWypełnieniaBur.propozycje
+          });
+        });
+      })
+      .then(function raportuj(odpowiedź) {
+        const wynik = odpowiedź && odpowiedź.wynik ? odpowiedź.wynik : {};
+        const wyniki = Array.isArray(wynik.wyniki) ? wynik.wyniki : [];
+        const nieudane = wyniki.filter(function tylkoNieudane(pozycja) {
+          return !pozycja.ok;
+        });
+
+        pokażWynikWypełnianiaBur({
+          uzupełnione: wyniki.filter(function tylkoUdane(pozycja) { return pozycja.ok; }),
+          ostrzeżenia: [],
+          błędy: nieudane,
+          pominięte: []
+        });
+
+        if (!wynik.ok || nieudane.length) {
+          const pierwszyBłąd = nieudane[0];
+          throw new Error(
+            pierwszyBłąd && pierwszyBłąd.komunikat
+              ? pierwszyBłąd.komunikat
+              : "Nie wszystkie zatwierdzone zmiany zostały potwierdzone przez BUR."
+          );
+        }
+
+        aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "walidowanie");
+        aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "zakończono");
+        podglądWypełnieniaBur = null;
+
+        return zapiszStorage({
+          aktywnaOperacjaBur: aktywnaOperacjaBur,
+          podglądWypełnieniaBur: null
+        });
+      })
+      .then(function zakończ() {
+        odświeżStatusOperacjiBur();
+        elementy.przyciskZastosujZmianyBur.disabled = true;
+        ustawStatus(elementy.statusSemper, "Zastosowano i potwierdzono wszystkie wybrane zmiany.", "status-odczytano");
+      })
+      .catch(function pokażBłąd(wyjątek) {
+        const komunikat = wyjątek && wyjątek.message
+          ? wyjątek.message
+          : "Nie udało się zastosować zmian BUR.";
+
+        return zakończOperacjęBurBłędem(
+          aktywnaOperacjaBur ? aktywnaOperacjaBur.etap : "wprowadzanie",
+          komunikat
+        ).then(function pokażStatus() {
+          ustawStatus(elementy.statusSemper, komunikat + " Przygotuj podgląd ponownie.", "status-blad");
+        });
+      });
+  }
   function odczytajOstatniImport() {
     odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieŁączeSemper", "dataImportuSemper", "wybranyTerminSemperIndex", "aktywnaOperacjaBur"])
       .then(function pokażDane(dane) {
