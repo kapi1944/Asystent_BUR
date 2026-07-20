@@ -273,6 +273,50 @@ select:focus {
   font-weight: 700;
 }
 
+.oznaczenie-zgodnej-daty {
+  flex: 0 0 auto;
+  color: var(--tekst-slaby);
+  font-size: 11px;
+}
+
+.wybor-niejednoznacznego-terminu {
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--ramka);
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+.wybor-niejednoznacznego-terminu h3 {
+  margin: 0 0 6px;
+  color: var(--tekst);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.przyciski-wyboru-niejednoznacznego {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.przyciski-wyboru-niejednoznacznego button {
+  min-height: 30px;
+  padding: 4px 7px;
+  border: 1px solid var(--ramka);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--tekst);
+  font: inherit;
+  cursor: pointer;
+}
+
+.przyciski-wyboru-niejednoznacznego button:hover,
+.przyciski-wyboru-niejednoznacznego button:focus-visible {
+  border-color: var(--czerwony);
+  background: rgba(229, 57, 53, 0.12);
+}
+
 .pusta-lista-terminow {
   margin: 0;
   padding: 8px 0;

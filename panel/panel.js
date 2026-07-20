@@ -43,6 +43,7 @@
     podglądZmianBur: document.getElementById("podglad-zmian-bur"),
     wybórTerminuSemper: document.getElementById("wybor-terminu-semper"),
     listaTerminówSemper: document.getElementById("lista-terminow-semper"),
+    wybórNiejednoznacznegoTerminu: document.getElementById("wybor-niejednoznacznego-terminu"),
     aktualnyTerminBur: document.getElementById("aktualny-termin-bur"),
     aktualnyZakresBur: document.getElementById("aktualny-zakres-bur"),
     aktualneSzczegółyBur: document.getElementById("aktualne-szczegoly-bur"),
@@ -330,6 +331,23 @@
     elementy.aktualnyTerminBur.classList.remove("ukryty");
   }
 
+  function czyWybranyTerminJestWłaściwyDlaBur() {
+    const indeks = ostatniWybranyTerminSemperIndex;
+
+    if (!Number.isInteger(indeks) || !aktualnyTerminBur || !ostatnieTerminySemper[indeks]
+      || !przestrzeń.czyDatyTerminówZgodne(ostatnieTerminySemper[indeks], aktualnyTerminBur)) {
+      return false;
+    }
+
+    if (stanDopasowaniaTerminuBur.status === "dopasowany") {
+      return stanDopasowaniaTerminuBur.indeks === indeks;
+    }
+
+    return stanDopasowaniaTerminuBur.status === "niejednoznaczny"
+      && źródłoWyboruTerminuSemper === "ręczny"
+      && stanDopasowaniaTerminuBur.indeksy.includes(indeks);
+  }
+
   function pokażStatusDopasowaniaTerminu() {
     const wybrany = Number.isInteger(ostatniWybranyTerminSemperIndex)
       ? ostatnieTerminySemper[ostatniWybranyTerminSemperIndex]
@@ -345,10 +363,10 @@
       ustawStatus(elementy.statusDopasowaniaTerminu, "Nie odczytano jeszcze dat z formularza BUR.", "status-neutralny");
     } else if (wybrany && !przestrzeń.czyDatyTerminówZgodne(wybrany, aktualnyTerminBur)) {
       ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrany ręcznie termin SEMPER jest niezgodny z aktualnymi datami BUR: " + zakresBur + ".", "status-ostrzezenie");
-    } else if (stanDopasowaniaTerminuBur.status === "dopasowany" && wybrany) {
+    } else if (czyWybranyTerminJestWłaściwyDlaBur()) {
       ustawStatus(elementy.statusDopasowaniaTerminu, źródłoWyboruTerminuSemper === "automatyczny" ? "Automatycznie dopasowano termin SEMPER do BUR." : "Wybrany termin jest zgodny z aktualnym terminem BUR.", "status-odczytano");
-    } else if (stanDopasowaniaTerminuBur.status === "niejednoznaczny" && wybrany) {
-      ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrano ręcznie wariant zgodny z datami BUR.", "status-odczytano");
+    } else if (wybrany) {
+      ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrany ręcznie termin SEMPER nie jest zgodny z rozpoznanym trybem lub lokalizacją BUR.", "status-ostrzezenie");
     } else if (stanDopasowaniaTerminuBur.status === "niejednoznaczny") {
       ustawStatus(elementy.statusDopasowaniaTerminu, "Znaleziono kilka terminów SEMPER zgodnych z datą aktualnej usługi BUR. Wybierz właściwą lokalizację lub tryb.", "status-ostrzezenie");
     } else if (stanDopasowaniaTerminuBur.status === "brak") {
@@ -356,6 +374,46 @@
     } else {
       ustawStatus(elementy.statusDopasowaniaTerminu, "Wczytaj terminy SEMPER, aby wykonać dopasowanie.", "status-neutralny");
     }
+  }
+
+  function renderujWybórNiejednoznacznegoTerminu() {
+    const kontener = elementy.wybórNiejednoznacznegoTerminu;
+    kontener.textContent = "";
+
+    if (stanDopasowaniaTerminuBur.status !== "niejednoznaczny" || czyWybranyTerminJestWłaściwyDlaBur()) {
+      kontener.classList.add("ukryty");
+      return;
+    }
+
+    const daty = aktualnyTerminBur && przestrzeń.pobierzDatyTerminuBur(aktualnyTerminBur);
+    const kandydaci = stanDopasowaniaTerminuBur.indeksy
+      .filter(function zachowajIstniejące(indeks) { return Boolean(ostatnieTerminySemper[indeks]); });
+
+    if (!daty || !kandydaci.length) {
+      kontener.classList.add("ukryty");
+      return;
+    }
+
+    const nagłówek = document.createElement("h3");
+    const przyciski = document.createElement("div");
+    nagłówek.textContent = "Wybierz termin dla " + przestrzeń.formatujZakresDatPrezentacyjny(daty.dataRozpoczęcia, daty.dataZakończenia);
+    przyciski.className = "przyciski-wyboru-niejednoznacznego";
+
+    kandydaci.forEach(function dodajKandydata(indeks) {
+      const przycisk = document.createElement("button");
+      przycisk.type = "button";
+      przycisk.dataset.indeksKandydata = String(indeks);
+      przycisk.textContent = przestrzeń.opiszWariantTerminuSemper(ostatnieTerminySemper[indeks]);
+      przycisk.addEventListener("click", function wybierzKandydata() {
+        elementy.wybórTerminuSemper.value = String(indeks);
+        zapiszWybórTerminuSemper("ręczny");
+      });
+      przyciski.appendChild(przycisk);
+    });
+
+    kontener.appendChild(nagłówek);
+    kontener.appendChild(przyciski);
+    kontener.classList.remove("ukryty");
   }
 
   function renderujListęTerminówSemper() {
@@ -367,6 +425,7 @@
       pustaLista.className = "pusta-lista-terminow";
       pustaLista.textContent = ostatnieTerminySemper.length ? "Brak terminów dla wybranego filtra." : "Brak zaimportowanych terminów.";
       elementy.listaTerminówSemper.appendChild(pustaLista);
+      renderujWybórNiejednoznacznegoTerminu();
       return;
     }
 
@@ -382,16 +441,17 @@
         const przycisk = document.createElement("button");
         const opis = document.createElement("span");
         const zgodnyZBur = aktualnyTerminBur && przestrzeń.czyDatyTerminówZgodne(pozycja.termin, aktualnyTerminBur);
+        const wybranyJakoWłaściwy = pozycja.indeks === ostatniWybranyTerminSemperIndex && czyWybranyTerminJestWłaściwyDlaBur();
         przycisk.type = "button";
         przycisk.className = "pozycja-terminu-semper" + (pozycja.indeks === ostatniWybranyTerminSemperIndex ? " wybrany" : "");
         przycisk.dataset.indeksTerminu = String(pozycja.indeks);
         przycisk.setAttribute("aria-pressed", pozycja.indeks === ostatniWybranyTerminSemperIndex ? "true" : "false");
         opis.textContent = przestrzeń.opiszTerminSemper(pozycja.termin, pozycja.indeks);
         przycisk.appendChild(opis);
-        if (zgodnyZBur) {
+        if (wybranyJakoWłaściwy || zgodnyZBur) {
           const oznaczenie = document.createElement("span");
-          oznaczenie.className = "oznaczenie-bur";
-          oznaczenie.textContent = "✓ BUR";
+          oznaczenie.className = wybranyJakoWłaściwy ? "oznaczenie-bur" : "oznaczenie-zgodnej-daty";
+          oznaczenie.textContent = wybranyJakoWłaściwy ? "✓ BUR" : "zgodna data";
           przycisk.appendChild(oznaczenie);
         }
         przycisk.addEventListener("click", function wybierzRęcznie() {
@@ -402,6 +462,7 @@
       });
       elementy.listaTerminówSemper.appendChild(sekcja);
     });
+    renderujWybórNiejednoznacznegoTerminu();
   }
 
   function ustawFiltrTerminówSemper(filtr) {
@@ -1191,6 +1252,7 @@
 
   function zapiszDaneHarmonogramu(dane) {
     const datyTerminu = przestrzeń.pobierzDatyTerminuSemper(dane.termin);
+    const kontekstTerminu = przestrzeń.utwórzKontekstTerminuSemper(dane.termin, dane.indeksTerminu);
     return zapiszStorage({
       ostatniePozycjeHarmonogramuBur: dane.pozycje,
       ostatniWybranyTerminHarmonogramuBur: dane.indeksTerminu,
@@ -1200,6 +1262,7 @@
       harmonogramBurNieaktualny: false,
       harmonogramBurPrzygotowanyAt: new Date().toISOString(),
       datyPrzygotowanegoHarmonogramuBur: datyTerminu,
+      kontekstPrzygotowanegoHarmonogramuBur: kontekstTerminu,
       odciskTerminuBurPrzygotowanegoHarmonogramu: aktualnyTerminBur ? przestrzeń.utwórzOdciskTerminuBur(aktualnyTerminBur) : ""
     });
   }
@@ -1213,6 +1276,7 @@
       "harmonogramBurPrzygotowany",
       "harmonogramBurPrzygotowanyAt",
       "datyPrzygotowanegoHarmonogramuBur",
+      "kontekstPrzygotowanegoHarmonogramuBur",
       "wybranyTerminSemperIndex"
     ]).then(function sprawdź(dane) {
       const gotowość = przestrzeń.sprawdźGotowośćHarmonogramuBur(dane);
@@ -1226,22 +1290,35 @@
         indeksTerminu: dane.ostatniWybranyTerminHarmonogramuBur,
         ostrzeżenia: dane.ostatnieOstrzeżeniaHarmonogramuBur || dane.ostrzezeniaHarmonogramuBur || [],
         przygotowanyAt: dane.harmonogramBurPrzygotowanyAt,
-        terminHarmonogramu: dane.datyPrzygotowanegoHarmonogramuBur
+        terminHarmonogramu: dane.datyPrzygotowanegoHarmonogramuBur,
+        kontekstTerminu: dane.kontekstPrzygotowanegoHarmonogramuBur
       };
     });
   }
 
   function zweryfikujPrzygotowanyHarmonogramZBur() {
     return synchronizujAktualnyTerminBur().then(function odczytajDatyPrzygotowania() {
-      return odczytajStorage(["datyPrzygotowanegoHarmonogramuBur"]);
+      return odczytajStorage(["datyPrzygotowanegoHarmonogramuBur", "kontekstPrzygotowanegoHarmonogramuBur"]);
     }).then(function porównajDaty(dane) {
       const zgodność = przestrzeń.sprawdźZgodnośćPrzygotowanegoHarmonogramu(dane.datyPrzygotowanegoHarmonogramuBur, aktualnyTerminBur);
-      if (zgodność.ok) {
-        return true;
+      if (!zgodność.ok) {
+        const zakresHarmonogramu = przestrzeń.formatujZakresDatPrezentacyjny(zgodność.datyHarmonogramu.dataRozpoczęcia, zgodność.datyHarmonogramu.dataZakończenia) || "brak danych";
+        const zakresBur = przestrzeń.formatujZakresDatPrezentacyjny(zgodność.datyBur.dataRozpoczęcia, zgodność.datyBur.dataZakończenia) || "brak danych";
+        throw new Error("Harmonogram został przygotowany dla innego terminu.\n\nPrzygotowany harmonogram:\n" + zakresHarmonogramu + "\n\nAktualnie edytowany termin BUR:\n" + zakresBur + "\n\nPrzygotuj harmonogram ponownie dla aktualnego terminu.");
       }
-      const zakresHarmonogramu = przestrzeń.formatujZakresDatPrezentacyjny(zgodność.datyHarmonogramu.dataRozpoczęcia, zgodność.datyHarmonogramu.dataZakończenia) || "brak danych";
-      const zakresBur = przestrzeń.formatujZakresDatPrezentacyjny(zgodność.datyBur.dataRozpoczęcia, zgodność.datyBur.dataZakończenia) || "brak danych";
-      throw new Error("Harmonogram został przygotowany dla innego terminu.\n\nPrzygotowany harmonogram:\n" + zakresHarmonogramu + "\n\nAktualnie edytowany termin BUR:\n" + zakresBur + "\n\nPrzygotuj harmonogram ponownie dla aktualnego terminu.");
+
+      const wybranyTermin = Number.isInteger(ostatniWybranyTerminSemperIndex)
+        ? ostatnieTerminySemper[ostatniWybranyTerminSemperIndex]
+        : null;
+      const aktualnyKontekst = wybranyTermin
+        ? przestrzeń.utwórzKontekstTerminuSemper(wybranyTermin, ostatniWybranyTerminSemperIndex)
+        : null;
+
+      if (!aktualnyKontekst || !przestrzeń.czyKontekstTerminuSemperZgodny(dane.kontekstPrzygotowanegoHarmonogramuBur, aktualnyKontekst)) {
+        throw new Error("Harmonogram został przygotowany dla innego wariantu terminu SEMPER. Przygotuj harmonogram ponownie dla aktualnie wybranego terminu.");
+      }
+
+      return true;
     });
   }
 

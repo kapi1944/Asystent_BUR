@@ -70,16 +70,36 @@
     };
   }
 
+  function normalizujTrybTerminu(wartość) {
+    const tekst = String(wartość || "")
+      .toLocaleLowerCase("pl-PL")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    if (/online|zdaln|remote|wideokonferenc|e-learning|elearning/.test(tekst)) {
+      return "online";
+    }
+    if (/stacjon/.test(tekst)) {
+      return "stacjonarny";
+    }
+    return "";
+  }
+
+  function pobierzTrybTerminu(termin) {
+    const dane = termin || {};
+    return normalizujTrybTerminu([dane.forma, dane.miejsce].filter(Boolean).join(" "));
+  }
+
   function czyTerminOnline(termin) {
-    return /online/i.test([termin && termin.forma, termin && termin.miejsce].join(" "));
+    return pobierzTrybTerminu(termin) === "online";
   }
 
   function czyTerminMaTryb(termin, trybBur) {
-    const tryb = String(trybBur || "").toLowerCase();
-    if (!/online|stacjon/.test(tryb)) {
+    const tryb = normalizujTrybTerminu(trybBur);
+    if (!tryb) {
       return true;
     }
-    return /online/.test(tryb) === czyTerminOnline(termin);
+    return pobierzTrybTerminu(termin) === tryb;
   }
 
   function normalizujLokalizację(wartość) {
@@ -112,7 +132,7 @@
     const datyBur = pobierzDatyTerminuBur(terminBur);
 
     if (!datyBur.dataRozpoczęcia || !datyBur.dataZakończenia) {
-      return { status: "brak-dat-bur", indeks: null, indeksy: [] };
+      return { status: "brak-dat-bur", indeks: null, indeksy: [], indeksyZgodneDaty: [] };
     }
 
     let kandydaci = lista.map(function dodajIndeks(termin, indeks) {
@@ -122,11 +142,13 @@
     });
 
     if (!kandydaci.length) {
-      return { status: "brak", indeks: null, indeksy: [] };
+      return { status: "brak", indeks: null, indeksy: [], indeksyZgodneDaty: [] };
     }
 
+    const indeksyZgodneDaty = kandydaci.map(function pobierzIndeks(kandydat) { return kandydat.indeks; });
+
     if (kandydaci.length === 1) {
-      return { status: "dopasowany", indeks: kandydaci[0].indeks, indeksy: [kandydaci[0].indeks] };
+      return { status: "dopasowany", indeks: kandydaci[0].indeks, indeksy: [kandydaci[0].indeks], indeksyZgodneDaty: indeksyZgodneDaty };
     }
 
     const poTrybie = kandydaci.filter(function zgodnyTryb(kandydat) {
@@ -137,7 +159,7 @@
     }
 
     if (kandydaci.length === 1) {
-      return { status: "dopasowany", indeks: kandydaci[0].indeks, indeksy: [kandydaci[0].indeks], kryterium: "tryb" };
+      return { status: "dopasowany", indeks: kandydaci[0].indeks, indeksy: [kandydaci[0].indeks], indeksyZgodneDaty: indeksyZgodneDaty, kryterium: "tryb" };
     }
 
     const poLokalizacji = kandydaci.filter(function zgodnaLokalizacja(kandydat) {
@@ -148,13 +170,14 @@
     }
 
     if (kandydaci.length === 1) {
-      return { status: "dopasowany", indeks: kandydaci[0].indeks, indeksy: [kandydaci[0].indeks], kryterium: "lokalizacja" };
+      return { status: "dopasowany", indeks: kandydaci[0].indeks, indeksy: [kandydaci[0].indeks], indeksyZgodneDaty: indeksyZgodneDaty, kryterium: "lokalizacja" };
     }
 
     return {
       status: "niejednoznaczny",
       indeks: null,
-      indeksy: kandydaci.map(function pobierzIndeks(kandydat) { return kandydat.indeks; })
+      indeksy: kandydaci.map(function pobierzIndeks(kandydat) { return kandydat.indeks; }),
+      indeksyZgodneDaty: indeksyZgodneDaty
     };
   }
 
@@ -206,6 +229,48 @@
     return ["Termin " + (indeks + 1), termin && termin.miejsce, "stacjonarna"].filter(Boolean).join(" · ");
   }
 
+  function opiszWariantTerminuSemper(termin) {
+    if (czyTerminOnline(termin)) {
+      return "Online";
+    }
+    return [termin && termin.miejsce, "stacjonarna"].filter(Boolean).join(" · ") || "Stacjonarna";
+  }
+
+  function utwórzKontekstTerminuSemper(termin, indeks) {
+    const dane = termin || {};
+    const daty = pobierzDatyTerminuSemper(dane);
+    const tryb = pobierzTrybTerminu(dane);
+    const lokalizacja = tryb === "online" ? "" : normalizujLokalizację(dane.miejsce);
+    const stabilnyId = dane.id || dane.identyfikator || [
+      daty.dataRozpoczęcia,
+      daty.dataZakończenia,
+      tryb,
+      lokalizacja,
+      dane.cena || "",
+      dane.czasTrwania || "",
+      Number.isInteger(indeks) ? indeks : ""
+    ].join("|");
+
+    return {
+      dataRozpoczęcia: daty.dataRozpoczęcia,
+      dataZakończenia: daty.dataZakończenia,
+      tryb: tryb,
+      lokalizacja: lokalizacja,
+      stabilnyId: stabilnyId
+    };
+  }
+
+  function czyKontekstTerminuSemperZgodny(pierwszy, drugi) {
+    const a = pierwszy || {};
+    const b = drugi || {};
+    return Boolean(a.stabilnyId && b.stabilnyId)
+      && a.stabilnyId === b.stabilnyId
+      && a.dataRozpoczęcia === b.dataRozpoczęcia
+      && a.dataZakończenia === b.dataZakończenia
+      && a.tryb === b.tryb
+      && a.lokalizacja === b.lokalizacja;
+  }
+
   function utwórzOdciskTerminuBur(terminBur) {
     const daty = pobierzDatyTerminuBur(terminBur);
     return [daty.dataRozpoczęcia, daty.dataZakończenia, String(terminBur && terminBur.tryb || "").toLowerCase(), normalizujLokalizację(terminBur && terminBur.lokalizacja), terminBur && terminBur.url || ""].join("|");
@@ -228,12 +293,17 @@
   przestrzeń.pobierzDatyTerminuSemper = pobierzDatyTerminuSemper;
   przestrzeń.pobierzDatyTerminuBur = pobierzDatyTerminuBur;
   przestrzeń.czyTerminOnlineBur = czyTerminOnline;
+  przestrzeń.normalizujTrybTerminu = normalizujTrybTerminu;
+  przestrzeń.pobierzTrybTerminuSemper = pobierzTrybTerminu;
   przestrzeń.czyDatyTerminówZgodne = czyDatyTerminówZgodne;
   przestrzeń.dopasujTerminSemperDoBur = dopasujTerminSemperDoBur;
   przestrzeń.filtrujTerminySemper = filtrujTerminySemper;
   przestrzeń.grupujTerminySemper = grupujTerminySemper;
   przestrzeń.opiszTerminSemper = opiszTerminSemper;
+  przestrzeń.opiszWariantTerminuSemper = opiszWariantTerminuSemper;
   przestrzeń.utwórzOdciskTerminuBur = utwórzOdciskTerminuBur;
+  przestrzeń.utwórzKontekstTerminuSemper = utwórzKontekstTerminuSemper;
+  przestrzeń.czyKontekstTerminuSemperZgodny = czyKontekstTerminuSemperZgodny;
   przestrzeń.sprawdźZgodnośćPrzygotowanegoHarmonogramu = sprawdźZgodnośćPrzygotowanegoHarmonogramu;
 
   globalny.BurAsystent = przestrzeń;
