@@ -76,6 +76,42 @@
     };
   }
 
+  function normalizujTekstTabeli(tekst) {
+    return String(tekst || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim().toLocaleLowerCase("pl-PL");
+  }
+
+  function pobierzKomórkiWiersza(wiersz) {
+    return Array.from(wiersz.children || []).filter(function tylkoKomórki(element) {
+      return element.tagName === "TD" || element.tagName === "TH";
+    });
+  }
+
+  function znajdźIndeksyKolumnHarmonogramu(tabela) {
+    const nagłówek = Array.from(tabela.querySelectorAll("thead tr, tr")).find(function znajdź(wiersz) {
+      const tekst = normalizujTekstTabeli(wiersz.textContent);
+      return /typ\s+aktywno|rodzaj\s+zaj|przedmiot|temat/.test(tekst)
+        && /prowad|trener/.test(tekst)
+        && /data|dzień|dzien/.test(tekst);
+    });
+    const indeksy = { numer: 0, typAktywności: 1, data: 2, od: 3, do: 4, przedmiot: 5, prowadzący: 6 };
+
+    if (!nagłówek) {
+      return indeksy;
+    }
+
+    pobierzKomórkiWiersza(nagłówek).forEach(function przypisz(komórka, indeks) {
+      const tekst = normalizujTekstTabeli(komórka.textContent);
+      if (/^lp\.?$|liczba|numer/.test(tekst)) { indeksy.numer = indeks; }
+      else if (/typ\s+aktywno|rodzaj\s+zaj/.test(tekst)) { indeksy.typAktywności = indeks; }
+      else if (/data|dzień|dzien|termin/.test(tekst)) { indeksy.data = indeks; }
+      else if (/^od$|rozpoczę/.test(tekst)) { indeksy.od = indeks; }
+      else if (/^do$|zakończe/.test(tekst)) { indeksy.do = indeks; }
+      else if (/przedmiot|temat/.test(tekst)) { indeksy.przedmiot = indeks; }
+      else if (/prowad|trener/.test(tekst)) { indeksy.prowadzący = indeks; }
+    });
+    return indeksy;
+  }
+
   function pobierzWierszeTabeliHarmonogramu() {
     const tabela = document.querySelector(selektory.tabelaHarmonogramu);
 
@@ -84,9 +120,7 @@
     }
 
     return Array.from(tabela.querySelectorAll("tbody tr, tr")).filter(function zostawPozycjęHarmonogramu(wiersz) {
-      const komórki = Array.from(wiersz.children || []).filter(function tylkoTd(element) {
-        return element.tagName === "TD";
-      });
+      const komórki = pobierzKomórkiWiersza(wiersz);
       const numerPozycji = komórki.length
         ? String(komórki[0].textContent || "").replace(/\s+/g, " ").trim()
         : "";
@@ -96,15 +130,29 @@
        * Pozycja harmonogramu ma numer w pierwszej kolumnie i komplet kolumn,
        * dlatego nie wolno traktować podsumowań jako istniejących pozycji.
        */
-      return komórki.length >= 7 && /^\d+$/.test(numerPozycji);
+      return komórki.length >= 7 && /^\d+$/.test(numerPozycji) && wiersz.closest("thead") === null;
     });
   }
 
   function odczytajWierszeHarmonogramu() {
+    const tabela = document.querySelector(selektory.tabelaHarmonogramu);
+    const indeksy = tabela ? znajdźIndeksyKolumnHarmonogramu(tabela) : {};
     return pobierzWierszeTabeliHarmonogramu().map(function odczytaj(wiersz, indeks) {
+      const komórki = pobierzKomórkiWiersza(wiersz);
+      function wartość(nazwa) {
+        const komórka = komórki[indeksy[nazwa]];
+        return String(komórka ? komórka.textContent || "" : "").replace(/\s+/g, " ").trim();
+      }
       return {
-        numer: indeks + 1,
-        tekst: String(wiersz.textContent || "").replace(/\s+/g, " ").trim()
+        numer: wartość("numer") || String(indeks + 1),
+        typAktywności: wartość("typAktywności"),
+        data: wartość("data"),
+        od: wartość("od"),
+        do: wartość("do"),
+        przedmiot: wartość("przedmiot"),
+        prowadzący: wartość("prowadzący"),
+        tekst: String(wiersz.textContent || "").replace(/\s+/g, " ").trim(),
+        element: wiersz
       };
     }).filter(function zostaw(wiersz) {
       return Boolean(wiersz.tekst);
@@ -536,7 +584,9 @@
         nazwaPliku: plik.name,
         typPliku: plik.type,
         rozmiarPliku: plik.size,
-        raport: raport
+        raport: raport,
+        ostrzeżenia: raport.ostrzeżenia || [],
+        różnice: raport.różnice || []
       });
     } catch (błąd) {
       dodajEtapDiagnostyki(diagnostyka, "WYJĄTEK_IMPORTU_CSV", {
@@ -749,10 +799,7 @@
 
   function sprawdzHarmonogramPoWypelnieniu(oczekiwanePozycje) {
     const oczekiwane = Array.isArray(oczekiwanePozycje) ? oczekiwanePozycje : [];
-    const wiersze = pobierzWierszeTabeliHarmonogramu();
-    const tekstTabeli = wiersze.map(function pobierzTekst(wiersz) {
-      return wiersz.textContent || "";
-    }).join("\n");
+    const wiersze = odczytajWierszeHarmonogramu();
     const błędy = [];
     const ostrzeżenia = [];
     const ostatniDzień = oczekiwane.length ? oczekiwane[oczekiwane.length - 1].dzien_swiadczenia : "";
@@ -761,36 +808,29 @@
       błędy.push("Tabela zawiera " + wiersze.length + " pozycji, oczekiwano co najmniej " + oczekiwane.length + ".");
     }
 
-    oczekiwane.forEach(function sprawdźPozycję(pozycja) {
-      [pozycja.dzien_swiadczenia, pozycja.czas_rozpoczecia, pozycja.czas_zakonczenia, pozycja.typ_aktywnosci].forEach(function sprawdźWartość(wartość) {
-        if (wartość && !tekstTabeli.includes(wartość)) {
-          ostrzeżenia.push("Nie potwierdzono w tabeli wartości: " + wartość + ".");
+    oczekiwane.forEach(function sprawdźPozycję(pozycja, indeks) {
+      const aktualna = wiersze[indeks] || {};
+      const pola = [
+        ["Typ aktywności", "typAktywności", pozycja.typ_aktywnosci],
+        ["Data", "data", pozycja.dzien_swiadczenia],
+        ["Od", "od", pozycja.czas_rozpoczecia],
+        ["Do", "do", pozycja.czas_zakonczenia],
+        ["Przedmiot/temat", "przedmiot", pozycja.przedmiot],
+        ["Prowadzący", "prowadzący", pozycja.prowadzacy]
+      ];
+      pola.forEach(function porównajPole(pole) {
+        if (normalizujTekstTabeli(pole[2]) !== normalizujTekstTabeli(aktualna[pole[1]])) {
+          ostrzeżenia.push({ pozycja: indeks + 1, pole: pole[0], oczekiwane: pole[2] || "", aktualne: aktualna[pole[1]] || "" });
         }
       });
 
-      if (pozycja.typ_aktywnosci === "Przerwa" && (pozycja.przedmiot || pozycja.prowadzacy)) {
-        błędy.push("Przerwa nie powinna mieć tematu ani prowadzącego.");
-      }
-
-      if (pozycja.typ_aktywnosci === "Zajęcia" && (!pozycja.przedmiot || !pozycja.prowadzacy)) {
-        błędy.push("Zajęcia powinny mieć temat i trenera.");
-      }
-
-      if (pozycja.typ_aktywnosci === "Walidacja" && pozycja.dzien_swiadczenia !== ostatniDzień) {
-        błędy.push("Walidacja występuje poza ostatnim dniem.");
-      }
-    });
-
-    ["Zajęcia", "Przerwa", "Walidacja"].forEach(function sprawdźTyp(typ) {
-      if (!oczekiwane.some(function czyJest(pozycja) { return pozycja.typ_aktywnosci === typ; })) {
-        błędy.push("Brak pozycji typu " + typ + " w oczekiwanym harmonogramie.");
-      }
     });
 
     return {
       ok: błędy.length === 0,
       błędy: błędy,
-      ostrzeżenia: ostrzeżenia
+      ostrzeżenia: ostrzeżenia,
+      różnice: ostrzeżenia
     };
   }
 
@@ -831,7 +871,8 @@
       ok: false,
       metoda: "CSV",
       błąd: wynikImportu.błąd || "BUR nie potwierdził importu harmonogramu CSV.",
-      fallbackDostępny: true,
+      częściowyImport: pobierzLiczbęPozycjiWTabeli() > 0,
+      fallbackDostępny: pobierzLiczbęPozycjiWTabeli() === 0,
       liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
       liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
       nazwaPliku: wynikImportu.nazwaPliku || "harmonogram-bur.csv",
@@ -839,6 +880,55 @@
       rozmiarPliku: wynikImportu.rozmiarPliku || 0,
       diagnostyka: wynikImportu.diagnostyka || null
     };
+  }
+
+  function znajdźJednoznacznyPrzyciskUsuwania(wiersz) {
+    const przyciski = Array.from(wiersz.querySelectorAll("button, input[type='button'], input[type='submit'], a"))
+      .filter(function widoczny(element) { return czyWidoczny(element) && !element.disabled; })
+      .filter(function usuń(element) {
+        const tekst = [pobierzWartośćElementu(element), element.getAttribute("aria-label"), element.getAttribute("title")]
+          .join(" ").replace(/\s+/g, " ").trim();
+        return /\busuń\b|\bdelete\b|\bremove\b/i.test(tekst);
+      });
+    return przyciski.length === 1 ? przyciski[0] : null;
+  }
+
+  async function usuńIstniejącyHarmonogram() {
+    if (!document.querySelector(selektory.tabelaHarmonogramu)) {
+      return { ok: false, usunięto: 0, pozostało: 0, błąd: "Nie znaleziono tabeli harmonogramu BUR." };
+    }
+    let usunięto = 0;
+    while (true) {
+      const wiersze = odczytajWierszeHarmonogramu();
+      if (!wiersze.length) {
+        return { ok: true, usunięto: usunięto, pozostało: 0, komunikat: "Usunięto wszystkie rzeczywiste pozycje harmonogramu." };
+      }
+      const wiersz = wiersze[wiersze.length - 1];
+      const przycisk = znajdźJednoznacznyPrzyciskUsuwania(wiersz.element);
+      if (!przycisk) {
+        return { ok: false, usunięto: usunięto, pozostało: wiersze.length, błąd: "Nie znaleziono jednoznacznego przycisku usuwania w pozycji " + wiersz.numer + ". Nowy CSV nie został zaimportowany." };
+      }
+      const liczbaPrzed = wiersze.length;
+      przycisk.click();
+      let zmniejszono = false;
+      for (let próba = 0; próba < 20; próba += 1) {
+        await opóźnij(100);
+        if (pobierzLiczbęPozycjiWTabeli() < liczbaPrzed) { zmniejszono = true; break; }
+      }
+      if (!zmniejszono) {
+        return { ok: false, usunięto: usunięto, pozostało: pobierzLiczbęPozycjiWTabeli(), błąd: "BUR nie usunął pozycji " + wiersz.numer + ". Nowy CSV nie został zaimportowany." };
+      }
+      usunięto += 1;
+    }
+  }
+
+  async function zastąpHarmonogram(pozycje) {
+    const wynikUsuwania = await usuńIstniejącyHarmonogram();
+    if (!wynikUsuwania.ok || pobierzLiczbęPozycjiWTabeli() !== 0) {
+      return Object.assign({}, wynikUsuwania, { ok: false, nowyCsvZaimportowany: false, komunikat: wynikUsuwania.błąd || "Tabela harmonogramu nie jest pusta." });
+    }
+    const wynikImportu = await importujCsvBezFallbacku(pozycje);
+    return Object.assign({}, wynikImportu, { usunięto: wynikUsuwania.usunięto, nowyCsvZaimportowany: Boolean(wynikImportu.ok) });
   }
 
   async function wprowadźHarmonogramDoBur(pozycje) {
@@ -1184,6 +1274,10 @@
 
   globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ = Date.now();
 
+  przestrzen.pobierzWierszeHarmonogramu = odczytajWierszeHarmonogramu;
+  przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;
+  przestrzen.usuńIstniejącyHarmonogram = usuńIstniejącyHarmonogram;
+
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
     if (!wiadomosc || !wiadomosc.typ) {
       return false;
@@ -1288,6 +1382,17 @@
         }
       });
 
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.ZASTĄP_HARMONOGRAM_BUR) {
+      zastąpHarmonogram(wiadomosc.pozycje || [])
+        .then(function zwróćWynik(wynik) {
+          odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: wynik });
+        })
+        .catch(function zwróćBłąd(błąd) {
+          odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: { ok: false, nowyCsvZaimportowany: false, błąd: błąd && błąd.message ? błąd.message : "Nie udało się zastąpić harmonogramu." } });
+        });
       return true;
     }
 

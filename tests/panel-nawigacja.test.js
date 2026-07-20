@@ -141,8 +141,8 @@
         "Pozostało zbyt szerokie wyszukiwanie dowolnego przycisku Dodaj."
       );
       sprawdzWarunek(
-        skrypt.includes("fallbackDostępny: true"),
-        "Błąd XLSX powinien pozostawić tryb ręczny jako osobną akcję."
+        skrypt.includes("fallbackDostępny: pobierzLiczbęPozycjiWTabeli() === 0"),
+        "Fallback powinien być dostępny wyłącznie przy pustej tabeli."
       );
       sprawdzWarunek(
         skrypt.includes("komórki.length >= 7 && /^\\d+$/"),

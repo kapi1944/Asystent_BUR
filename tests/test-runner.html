@@ -62,6 +62,10 @@
     <script src="../shared/wypełniacz-bur.js"></script>
     <script src="../background/klient-semper.js"></script>
     <script>
+      window.chrome = window.chrome || { runtime: { onMessage: { addListener: function dodajSłuchacza() {} } } };
+    </script>
+    <script src="../content/bur-content.js"></script>
+    <script>
       window.testyBurAsystent = [];
 
       function test(nazwa, funkcja) {
@@ -95,6 +99,7 @@
     <script src="przygotowanie-wypelnienia-bur.test.js"></script>
     <script src="definicje-pol-bur.test.js"></script>
     <script src="panel-nawigacja.test.js"></script>
+    <script src="harmonogram-csv.test.js"></script>
     <script>
       (async function uruchomTesty() {
         const kontener = document.getElementById("wyniki");

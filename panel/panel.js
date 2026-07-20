@@ -1078,7 +1078,10 @@
     const części = [];
 
     if (raport.istniejącePozycje) {
-      części.push("Nie wprowadzono harmonogramu, ponieważ w BUR istnieją już pozycje.");
+      części.push("W BUR istnieje już harmonogram. Stary harmonogram nie zostanie usunięty bez potwierdzenia.");
+      części.push("Aktualne pozycje: " + (raport.liczbaPozycjiWTabeli || 0) + ". Przygotowane pozycje: " + (raport.liczbaOczekiwanychPozycji || 0) + ".");
+    } else if (raport.częściowyImport) {
+      części.push("Import częściowy — awaryjne wypełnianie ręczne zostało zablokowane.");
     } else if (raport.ok && raport.metoda === "CSV") {
       części.push("Wprowadzono przez import CSV.");
     } else if (raport.ok && raport.metoda === "fallback ręczny") {
@@ -1103,6 +1106,18 @@
 
     if (raport.błąd) {
       części.push("Błąd: " + raport.błąd);
+    }
+
+    if (Array.isArray(raport.ostrzeżenia) && raport.ostrzeżenia.length) {
+      części.push("Wykryto " + raport.ostrzeżenia.length + " różnic do ręcznego sprawdzenia.");
+    }
+
+    if (raport.usunięto !== undefined && raport.nowyCsvZaimportowany) {
+      części.push("Usunięto " + raport.usunięto + " poprzednich pozycji i zaimportowano nowy harmonogram.");
+    }
+
+    if (raport.usunięto !== undefined && raport.nowyCsvZaimportowany === false) {
+      części.push("Usunięto " + raport.usunięto + " poprzednich pozycji, ale nowy CSV nie został zaimportowany.");
     }
 
     części.push("Sprawdź formularz BUR przed ręcznym zapisaniem.");
@@ -1145,12 +1160,12 @@
 
     przyciskUsuń.type = "button";
     przyciskUsuń.textContent = "Usuń obecny harmonogram i wprowadź przygotowany";
-    przyciskUsuń.addEventListener("click", function pokażBlokadęUsuwania() {
+    przyciskUsuń.addEventListener("click", function potwierdźZamianę() {
       if (!window.confirm("Czy potwierdzasz usunięcie obecnego harmonogramu przed wprowadzeniem przygotowanego?")) {
         return;
       }
 
-      ustawStatusProgramuHarmonogramu("Automatyczne usuwanie istniejącego harmonogramu zostanie wdrożone w następnym etapie. Usuń pozycje ręcznie i kliknij ponownie »Wprowadź harmonogram do BUR«.", "status-ostrzezenie");
+      wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.ZASTĄP_HARMONOGRAM_BUR);
     });
 
     siatka.className = "siatka-przycisków";
