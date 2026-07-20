@@ -52,7 +52,7 @@
   test("Domyślnie aktywna jest tylko sekcja SEMPER", function sprawdźStanDomyślny() {
     return pobierzPlik("../panel/panel.html").then(function sprawdźHtml(html) {
       const dokument = new DOMParser().parseFromString(html, "text/html");
-      const aktywne = Array.from(dokument.querySelectorAll('[aria-pressed="true"]'));
+      const aktywne = Array.from(dokument.querySelectorAll('.zakladki-panelu [aria-pressed="true"]'));
 
       sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, "semper", "Panel musi mieć domyślną zakładkę.");
       sprawdzRownosc(aktywne.length, 1, "Tylko jeden przycisk może być aktywny.");
@@ -69,7 +69,7 @@
         const przycisk = dokument.querySelector('[data-przelacz-zakladke="' + nazwa + '"]');
         przycisk.click();
         sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, nazwa, "Kliknięcie nie przełączyło zakładki " + nazwa + ".");
-        sprawdzRownosc(dokument.querySelectorAll('[aria-pressed="true"]').length, 1, "Aktywna może być tylko jedna zakładka.");
+        sprawdzRownosc(dokument.querySelectorAll('.zakladki-panelu [aria-pressed="true"]').length, 1, "Aktywna może być tylko jedna zakładka.");
         sprawdzRownosc(przycisk.getAttribute("aria-pressed"), "true", "Aktywny przycisk musi mieć aria-pressed=true.");
       });
 
@@ -99,7 +99,7 @@
       const komunikat = dokument.getElementById("status-strony").textContent;
 
       sprawdzWarunek(komunikat.includes("Nie udało się połączyć z formularzem BUR."), "Brakuje czytelnego komunikatu po błędzie połączenia.");
-      sprawdzRownosc(dokument.querySelectorAll('[aria-pressed="true"]').length, 1, "Błąd połączenia nie może ukrywać nawigacji.");
+      sprawdzRownosc(dokument.querySelectorAll('.zakladki-panelu [aria-pressed="true"]').length, 1, "Błąd połączenia nie może ukrywać nawigacji.");
       sprawdzWarunek(Boolean(dokument.querySelector('[data-zakladki="terminy"]')), "Błąd połączenia nie może usuwać treści panelu.");
       ramka.remove();
     });

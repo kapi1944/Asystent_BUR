@@ -70,9 +70,20 @@
 
       <section id="karta-terminy" class="karta" data-zakladki="terminy">
         <h2>Terminy</h2>
-        <div id="kontener-wyboru-terminu"></div>
-        <label class="etykieta" for="wybor-terminu-semper">Termin SEMPER do walidacji</label>
-        <select id="wybor-terminu-semper">
+        <section id="aktualny-termin-bur" class="aktualny-termin-bur ukryty" aria-live="polite">
+          <h3>Aktualnie edytowany termin BUR</h3>
+          <strong id="aktualny-zakres-bur">—</strong>
+          <span id="aktualne-szczegoly-bur"></span>
+        </section>
+        <div id="status-dopasowania-terminu" class="komunikat status-neutralny">Otwórz formularz BUR, aby zsynchronizować termin.</div>
+        <div class="filtr-terminow" role="group" aria-label="Filtr terminów SEMPER">
+          <button type="button" data-filtr-terminow="wszystkie" aria-pressed="true">Wszystkie</button>
+          <button type="button" data-filtr-terminow="stacjonarne" aria-pressed="false">Stacjonarne</button>
+          <button type="button" data-filtr-terminow="online" aria-pressed="false">Online</button>
+        </div>
+        <div id="lista-terminow-semper" class="lista-terminow-semper" aria-label="Terminy SEMPER"></div>
+        <label class="kontrolka-techniczna" for="wybor-terminu-semper">Techniczny wybór terminu SEMPER</label>
+        <select id="wybor-terminu-semper" class="kontrolka-techniczna" tabindex="-1" aria-hidden="true">
           <option value="">Brak zaimportowanych terminów</option>
         </select>
       </section>
@@ -167,6 +178,7 @@
     <script src="../shared/model.js"></script>
     <script src="../shared/normalizacja-tytulu.js"></script>
     <script src="../shared/daty.js"></script>
+    <script src="../shared/terminy-bur.js"></script>
     <script src="../shared/stan-operacji-bur.js"></script>
     <script src="../shared/bur-program-harmonogram.js"></script>
     <script src="../shared/wyszukiwarka-semper.js"></script>

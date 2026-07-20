@@ -1033,6 +1033,63 @@
     };
   }
 
+  function pobierzWartośćTerminuBur(dokumentBur, selektory) {
+    const element = przestrzen.znajdźPolePoSelektorach(dokumentBur, selektory);
+    if (!element) {
+      return "";
+    }
+    const kontrolka = element.matches("input, select, textarea, [id^='select2-'][id$='-container']")
+      ? element
+      : element.querySelector("input, select, textarea, [id^='select2-'][id$='-container']");
+    return przestrzen.pobierzWartośćPola(kontrolka || element);
+  }
+
+  function odczytajAktualnyTerminBur(dokumentBur) {
+    const bieżącyDokument = dokumentBur || document;
+    const dataRozpoczęcia = pobierzWartośćTerminuBur(bieżącyDokument, [
+      "#informacjepodstawowesekcja-datarozpoczeciauslugi"
+    ]);
+    const dataZakończenia = pobierzWartośćTerminuBur(bieżącyDokument, [
+      "#informacjepodstawowesekcja-datazakonczeniauslugi"
+    ]);
+    const trybTekst = pobierzWartośćTerminuBur(bieżącyDokument, [
+      "#select2-formularzwstepnysekcja-formaswiadczenia-container",
+      "#formularzwstepnysekcja-formaswiadczenia"
+    ]);
+    const lokalizacja = pobierzWartośćTerminuBur(bieżącyDokument, [
+      "#select2-lokalizacjauslugisekcja-miasto-container",
+      "#lokalizacjauslugisekcja-miasto",
+      "#lokalizacjauslugisekcja-adres"
+    ]);
+
+    return {
+      dataRozpoczęcia: przestrzen.normalizujDatęTerminu(dataRozpoczęcia),
+      dataZakończenia: przestrzen.normalizujDatęTerminu(dataZakończenia),
+      tryb: /online/i.test(trybTekst) ? "online" : (/stacjon/i.test(trybTekst) ? "stacjonarna" : ""),
+      lokalizacja: lokalizacja,
+      url: bieżącyDokument === document ? location.href : ""
+    };
+  }
+
+  function sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc) {
+    if (!wiadomosc || !wiadomosc.terminHarmonogramu) {
+      return { ok: false, błąd: "Brak dat terminu, dla którego przygotowano harmonogram." };
+    }
+    const terminBur = odczytajAktualnyTerminBur();
+    const zgodność = przestrzen.sprawdźZgodnośćPrzygotowanegoHarmonogramu(wiadomosc.terminHarmonogramu, terminBur);
+    if (zgodność.ok) {
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      błąd: "Harmonogram został przygotowany dla innego terminu. Przygotowany harmonogram: "
+        + przestrzen.formatujZakresDatPrezentacyjny(zgodność.datyHarmonogramu.dataRozpoczęcia, zgodność.datyHarmonogramu.dataZakończenia)
+        + ". Aktualnie edytowany termin BUR: "
+        + przestrzen.formatujZakresDatPrezentacyjny(zgodność.datyBur.dataRozpoczęcia, zgodność.datyBur.dataZakończenia)
+        + ". Przygotuj harmonogram ponownie dla aktualnego terminu."
+    };
+  }
+
   function odczytajStorageWalidacjiBur() {
     return new Promise(function utwórzPromise(resolve, reject) {
       chrome.storage.local.get(["ostatnieSzkolenieSemper", "wybranyTerminSemperIndex"], function poOdczycie(dane) {
@@ -1277,6 +1334,7 @@
   przestrzen.pobierzWierszeHarmonogramu = odczytajWierszeHarmonogramu;
   przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;
   przestrzen.usuńIstniejącyHarmonogram = usuńIstniejącyHarmonogram;
+  przestrzen.odczytajAktualnyTerminBur = odczytajAktualnyTerminBur;
 
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
     if (!wiadomosc || !wiadomosc.typ) {
@@ -1302,6 +1360,14 @@
         wynik: pobierzTytułZBur()
       });
 
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.POBIERZ_AKTUALNY_TERMIN_BUR) {
+      odpowiedz({
+        typ: komunikaty.ODPOWIEDŹ_AKTUALNY_TERMIN_BUR,
+        wynik: odczytajAktualnyTerminBur()
+      });
       return true;
     }
 
@@ -1386,6 +1452,11 @@
     }
 
     if (wiadomosc.typ === komunikaty.ZASTĄP_HARMONOGRAM_BUR) {
+      const kontrolaTerminu = sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc);
+      if (!kontrolaTerminu.ok) {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: kontrolaTerminu });
+        return true;
+      }
       zastąpHarmonogram(wiadomosc.pozycje || [])
         .then(function zwróćWynik(wynik) {
           odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: wynik });
@@ -1397,6 +1468,11 @@
     }
 
     if (wiadomosc.typ === komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR || wiadomosc.typ === komunikaty.IMPORTUJ_HARMONOGRAM_XLSX_BUR) {
+      const kontrolaTerminu = sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc);
+      if (!kontrolaTerminu.ok) {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: kontrolaTerminu });
+        return true;
+      }
       wprowadźHarmonogramDoBur(wiadomosc.pozycje || [])
         .then(function zwróćWynik(wynik) {
           odpowiedz({
@@ -1418,6 +1494,11 @@
     }
 
     if (wiadomosc.typ === komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR) {
+      const kontrolaTerminu = sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc);
+      if (!kontrolaTerminu.ok) {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: kontrolaTerminu });
+        return true;
+      }
       wypełnijPrzygotowanyHarmonogramRęcznie(wiadomosc.pozycje || [])
         .then(function zwróćWynik(wynik) {
           odpowiedz({

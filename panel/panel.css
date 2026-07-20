@@ -154,6 +154,132 @@ select:focus {
   font-size: 12px;
 }
 
+.kontrolka-techniczna {
+  display: none;
+}
+
+.aktualny-termin-bur {
+  margin-bottom: 10px;
+  padding: 9px 10px;
+  border: 1px solid var(--ramka);
+  border-radius: 6px;
+  background: var(--panel-drugi);
+}
+
+.aktualny-termin-bur h3 {
+  margin: 0 0 4px;
+  color: var(--tekst-slaby);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.aktualny-termin-bur strong,
+.aktualny-termin-bur span {
+  display: block;
+}
+
+.aktualny-termin-bur strong {
+  font-size: 15px;
+}
+
+.aktualny-termin-bur span {
+  margin-top: 2px;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+}
+
+.filtr-terminow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 10px;
+}
+
+.filtr-terminow button {
+  min-height: 30px;
+  padding: 4px 6px;
+  border-color: var(--ramka);
+  border-radius: 0;
+  background: var(--panel-drugi);
+  color: var(--tekst-slaby);
+  font-size: 11px;
+}
+
+.filtr-terminow button:first-child {
+  border-radius: 5px 0 0 5px;
+}
+
+.filtr-terminow button:last-child {
+  border-radius: 0 5px 5px 0;
+}
+
+.filtr-terminow button[aria-pressed="true"] {
+  border-color: var(--czerwony);
+  background: var(--czerwony-ciemny);
+  color: white;
+}
+
+.lista-terminow-semper {
+  max-height: 52vh;
+  margin-top: 10px;
+  overflow-y: auto;
+}
+
+.grupa-terminow + .grupa-terminow {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ramka);
+}
+
+.naglowek-grupy-terminow {
+  margin: 0 0 3px;
+  color: var(--tekst);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pozycja-terminu-semper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 0;
+  padding: 5px 7px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--tekst-slaby);
+  font-weight: 400;
+  text-align: left;
+}
+
+.pozycja-terminu-semper:hover,
+.pozycja-terminu-semper:focus-visible {
+  border-color: var(--ramka);
+  background: var(--panel-drugi);
+}
+
+.pozycja-terminu-semper.wybrany {
+  border-color: var(--czerwony);
+  background: rgba(229, 57, 53, 0.12);
+  color: var(--tekst);
+}
+
+.oznaczenie-bur {
+  flex: 0 0 auto;
+  color: var(--zielony);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pusta-lista-terminow {
+  margin: 0;
+  padding: 8px 0;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+}
+
 .przycisk-główny {
   margin-top: 8px;
   min-height: 46px;
@@ -603,4 +729,3 @@ body[data-aktywna-zakladka="diagnostyka"] .karta[data-zakladki~="diagnostyka"] {
   font-size: 11px;
   line-height: 1.4;
 }
-
