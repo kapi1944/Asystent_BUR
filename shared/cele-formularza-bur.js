@@ -33,9 +33,12 @@
     grupaDocelowa: definicjaCelu("grupaDocelowa", { selektory: ["#informacjepodstawowesekcja-grupadocelowauslugi-wysiwyg .ql-editor"], sekcja: "Informacje podstawowe", etykieta: "Grupa docelowa usługi", typKontrolki: "edytorTekstowy" }),
     celEdukacyjny: definicjaCelu("celEdukacyjny", { sekcja: "Główny cel usługi", etykieta: "Cel edukacyjny", typKontrolki: "input" }),
     kompetencje: definicjaCelu("kompetencje", { selektoryAwaryjne: ["#qualificationsZrk .field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji"], sekcja: "Główny cel usługi", etykieta: "Czy usługa prowadzi do nabycia kompetencji?", typKontrolki: "input" }),
-    efektyUczenia: definicjaCelu("efektyUczenia", { sekcja: "Główny cel usługi", etykieta: "Efekty uczenia się", typKontrolki: "tabela" }),
-    kryteriaWeryfikacji: definicjaCelu("kryteriaWeryfikacji", { sekcja: "Główny cel usługi", etykieta: "Kryteria weryfikacji", typKontrolki: "tabela" }),
-    metodaWalidacji: definicjaCelu("metodaWalidacji", { sekcja: "Główny cel usługi", etykieta: "Wybierz metodę walidacji", typKontrolki: "select2" })
+    kompetencjeDokument: definicjaCelu("kompetencjeDokument", { sekcja: "Główny cel usługi", etykieta: "Czy dokument potwierdzający uzyskanie kompetencji", typKontrolki: "input" }),
+    kompetencjeWalidacja: definicjaCelu("kompetencjeWalidacja", { sekcja: "Główny cel usługi", etykieta: "Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja", typKontrolki: "input" }),
+    kompetencjeRozwiazania: definicjaCelu("kompetencjeRozwiazania", { sekcja: "Główny cel usługi", etykieta: "Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań", typKontrolki: "input" }),
+    efektyUczenia: definicjaCelu("efektyUczenia", { sekcja: "Główny cel usługi", etykieta: "Efekty uczenia się", tabela: "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji", kolumna: "Efekty uczenia się", typKontrolki: "tabela" }),
+    kryteriaWeryfikacji: definicjaCelu("kryteriaWeryfikacji", { sekcja: "Główny cel usługi", etykieta: "Kryteria weryfikacji", tabela: "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji", kolumna: "Kryteria weryfikacji", typKontrolki: "tabela" }),
+    metodaWalidacji: definicjaCelu("metodaWalidacji", { sekcja: "Główny cel usługi", etykieta: "Wybierz metodę walidacji", tabela: "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji", kolumna: "Metody walidacji", typKontrolki: "select2" })
   };
 
   const celeWalidacji = {
@@ -57,6 +60,9 @@
     "Grupa docelowa usługi": "grupaDocelowa",
     "Cel edukacyjny": "celEdukacyjny",
     "Czy usługa prowadzi do nabycia kompetencji?": "kompetencje",
+    "Pytanie 1 w sekcji kompetencji": "kompetencjeDokument",
+    "Pytanie 2 w sekcji kompetencji": "kompetencjeWalidacja",
+    "Pytanie 3 w sekcji kompetencji": "kompetencjeRozwiazania",
     "Efekty uczenia się": "efektyUczenia",
     "Kryteria weryfikacji": "kryteriaWeryfikacji",
     "Wybierz metodę walidacji": "metodaWalidacji"
@@ -114,7 +120,13 @@
     if (!cel) {
       return { ok: false, błąd: "Nie znaleziono odpowiadającego pola w aktualnej wersji formularza BUR." };
     }
-    let element = znajdźPierwszyWidoczny(dokument, cel.selektory);
+    let element = null;
+    if (cel.tabela && cel.kolumna && typeof przestrzeń.znajdźPoleWTabeliBur === "function") {
+      element = przestrzeń.znajdźPoleWTabeliBur(dokument, cel.tabela, cel.kolumna);
+    }
+    if (!element) {
+      element = znajdźPierwszyWidoczny(dokument, cel.selektory);
+    }
     if (!element) {
       element = znajdźPierwszyWidoczny(dokument, cel.selektoryAwaryjne);
     }

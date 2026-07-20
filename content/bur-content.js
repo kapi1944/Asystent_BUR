@@ -991,6 +991,7 @@
         return {
           sekcja: pozycja.sekcja,
           pole: pozycja.pole,
+          celFormularza: pozycja.celFormularza,
           status: pozycja.status,
           komunikat: pozycja.komunikat,
           oczekiwanaWartość: pozycja.oczekiwanaWartość,

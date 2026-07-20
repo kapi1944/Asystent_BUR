@@ -110,6 +110,13 @@
   }
 
   function znajdźPoleWTabeli(dokument, tytułTabeli, nazwaKolumny) {
+    if (typeof przestrzeń.znajdźPoleWTabeliBur === "function") {
+      const wspólnePole = przestrzeń.znajdźPoleWTabeliBur(dokument, tytułTabeli, nazwaKolumny);
+      if (wspólnePole) {
+        return wspólnePole;
+      }
+    }
+
     const tabele = Array.from(dokument.querySelectorAll("table"));
     const kluczTabeli = bezZnakówDiakrytycznych(tytułTabeli);
     const kluczKolumny = bezZnakówDiakrytycznych(nazwaKolumny);
@@ -419,8 +426,7 @@
       {
         pole: "Wybierz metodę walidacji",
         kolumna: "Metody walidacji",
-        oczekiwanaWartość: "Uzupełniona metoda walidacji",
-        tylkoNiepuste: true
+        oczekiwanaWartość: "Wywiad swobodny"
       }
     ].forEach(function walidujPoleTabeli(ustawienie) {
       const pole = znajdźPoleWTabeli(dokument, tytułTabeli, ustawienie.kolumna);
