@@ -49,6 +49,21 @@
     });
   });
 
+  test("Nawigacja panelu jest kompaktowa i pozostaje sticky", function sprawdźSticky() {
+    return pobierzPlik("../panel/panel.css").then(function sprawdźCss(css) {
+      const regułaNawigacji = css.match(/\.zakladki-panelu\s*\{([\s\S]*?)\n\}/);
+      const regułaPrzycisków = css.match(/\.zakladki-panelu button\s*\{([\s\S]*?)\n\}/);
+
+      sprawdzWarunek(Boolean(regułaNawigacji), "Brakuje wspólnego wrappera nawigacji.");
+      sprawdzWarunek(/position:\s*sticky;/.test(regułaNawigacji[1]), "Wrapper nawigacji musi być sticky.");
+      sprawdzWarunek(/top:\s*0;/.test(regułaNawigacji[1]), "Sticky navigation musi mieć ustalony top.");
+      sprawdzWarunek(/z-index:\s*3;/.test(regułaNawigacji[1]), "Sticky navigation musi pozostać nad przewijaną treścią.");
+      sprawdzWarunek(/background:\s*var\(--panel-drugi\);/.test(regułaNawigacji[1]), "Sticky navigation musi mieć nieprzezroczyste tło.");
+      sprawdzWarunek(Boolean(regułaPrzycisków) && /min-height:\s*36px;/.test(regułaPrzycisków[1]), "Przyciski nawigacji powinny mieć kompaktową wysokość 36 px.");
+      sprawdzWarunek(/gap:\s*5px;/.test(regułaNawigacji[1]), "Odstęp między przyciskami nawigacji powinien być kompaktowy.");
+    });
+  });
+
   test("Domyślnie aktywna jest tylko sekcja SEMPER", function sprawdźStanDomyślny() {
     return pobierzPlik("../panel/panel.html").then(function sprawdźHtml(html) {
       const dokument = new DOMParser().parseFromString(html, "text/html");
