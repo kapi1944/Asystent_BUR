@@ -1336,6 +1336,39 @@
   przestrzen.usuńIstniejącyHarmonogram = usuńIstniejącyHarmonogram;
   przestrzen.odczytajAktualnyTerminBur = odczytajAktualnyTerminBur;
 
+  function kluczDziennegoLicznikaKolejkiBur() {
+    const data = new Date();
+    return "bur_daily_counter_" + data.getFullYear() + "-" + (data.getMonth() + 1) + "-" + data.getDate();
+  }
+
+  function pobierzStanKolejkiBur() {
+    return {
+      suroweTerminy: localStorage.getItem("bur_terms_raw") || "",
+      indeks: Number(localStorage.getItem("bur_term_index") || 0),
+      trybKolejności: localStorage.getItem("bur_terms_order_mode") || "standard",
+      dzisiajDodane: Number(localStorage.getItem(kluczDziennegoLicznikaKolejkiBur()) || 0),
+      łącznieDodane: Number(localStorage.getItem("bur_total_counter") || 0)
+    };
+  }
+
+  function zapiszKolejkęBur(suroweTerminy, trybKolejności) {
+    localStorage.setItem("bur_terms_raw", String(suroweTerminy || "").trim());
+    localStorage.setItem("bur_term_index", "0");
+    localStorage.setItem("bur_terms_order_mode", trybKolejności || "standard");
+    return pobierzStanKolejkiBur();
+  }
+
+  function skorygujDziennyLicznikBur(wartość) {
+    const nowaWartość = Number(wartość);
+    if (!Number.isFinite(nowaWartość) || nowaWartość < 0) {
+      throw new Error("Dzienny licznik musi być liczbą nieujemną.");
+    }
+    const stan = pobierzStanKolejkiBur();
+    localStorage.setItem(kluczDziennegoLicznikaKolejkiBur(), String(nowaWartość));
+    localStorage.setItem("bur_total_counter", String(Math.max(0, stan.łącznieDodane + nowaWartość - stan.dzisiajDodane)));
+    return pobierzStanKolejkiBur();
+  }
+
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
     if (!wiadomosc || !wiadomosc.typ) {
       return false;
@@ -1368,6 +1401,43 @@
         typ: komunikaty.ODPOWIEDŹ_AKTUALNY_TERMIN_BUR,
         wynik: odczytajAktualnyTerminBur()
       });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.POBIERZ_STAN_KOLEJKI_BUR) {
+      odpowiedz({ typ: komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR, wynik: pobierzStanKolejkiBur() });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.ZAPISZ_KOLEJKĘ_BUR) {
+      odpowiedz({ typ: komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR, wynik: zapiszKolejkęBur(wiadomosc.suroweTerminy, "standard") });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.USTAW_TRYB_NOWEGO_SZKOLENIA_BUR) {
+      odpowiedz({ typ: komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR, wynik: zapiszKolejkęBur(wiadomosc.suroweTerminy, wiadomosc.czyMaStacjonarne ? "new_training_stationary" : "standard") });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.RESETUJ_KOLEJKĘ_BUR) {
+      localStorage.setItem("bur_term_index", "0");
+      odpowiedz({ typ: komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR, wynik: pobierzStanKolejkiBur() });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.SKORYGUJ_DZIENNY_LICZNIK_BUR) {
+      try {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR, wynik: skorygujDziennyLicznikBur(wiadomosc.wartość) });
+      } catch (błąd) {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR, wynik: { błąd: błąd.message } });
+      }
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.RESETUJ_LICZNIKI_BUR) {
+      localStorage.setItem("bur_total_counter", "0");
+      localStorage.setItem(kluczDziennegoLicznikaKolejkiBur(), "0");
+      odpowiedz({ typ: komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR, wynik: pobierzStanKolejkiBur() });
       return true;
     }
 

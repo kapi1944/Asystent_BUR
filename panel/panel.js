@@ -44,6 +44,18 @@
     wybórTerminuSemper: document.getElementById("wybor-terminu-semper"),
     listaTerminówSemper: document.getElementById("lista-terminow-semper"),
     wybórNiejednoznacznegoTerminu: document.getElementById("wybor-niejednoznacznego-terminu"),
+    kolejkaTermowWejście: document.getElementById("kolejka-terminow-wejscie"),
+    kolejkaTermowPodsumowanie: document.getElementById("kolejka-terminow-podsumowanie"),
+    kolejkaTermowPodgląd: document.getElementById("kolejka-terminow-podglad"),
+    kolejkaTermowBłędy: document.getElementById("kolejka-terminow-bledy"),
+    kolejkaDzisiajDodane: document.getElementById("kolejka-dzisiaj-dodane"),
+    kolejkaŁącznieDodane: document.getElementById("kolejka-lacznie-dodane"),
+    statusKolejkiTerminów: document.getElementById("status-kolejki-terminow"),
+    przyciskZapiszKolejkę: document.getElementById("przycisk-zapisz-kolejke"),
+    przyciskNoweSzkolenie: document.getElementById("przycisk-nowe-szkolenie"),
+    przyciskResetujKolejkę: document.getElementById("przycisk-resetuj-kolejke"),
+    przyciskSkorygujDzienny: document.getElementById("przycisk-skoryguj-dzienny"),
+    przyciskResetujLiczniki: document.getElementById("przycisk-resetuj-liczniki"),
     aktualnyTerminBur: document.getElementById("aktualny-termin-bur"),
     aktualnyZakresBur: document.getElementById("aktualny-zakres-bur"),
     aktualneSzczegółyBur: document.getElementById("aktualne-szczegoly-bur"),
@@ -776,6 +788,122 @@
     });
   }
 
+  function wyślijKomunikatKolejkiDoBur(komunikat) {
+    return pobierzAktywnąKartę().then(function wyślij(karta) {
+      if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") {
+        throw new Error("Otwórz kartę BUR, aby zarządzać kolejką terminów.");
+      }
+      return zapewnijSkryptStrony(karta).then(function wyślijPoPołączeniu() {
+        return wyślijDoKarty(karta, komunikat);
+      });
+    }).then(function sprawdźOdpowiedź(odpowiedź) {
+      if (!odpowiedź || odpowiedź.typ !== komunikaty.ODPOWIEDŹ_STAN_KOLEJKI_BUR) {
+        throw new Error("Nie udało się odczytać kolejki terminów z karty BUR.");
+      }
+      if (odpowiedź.wynik && odpowiedź.wynik.błąd) {
+        throw new Error(odpowiedź.wynik.błąd);
+      }
+      return odpowiedź.wynik || {};
+    });
+  }
+
+  function renderujPodglądKolejkiTerminów() {
+    const wynik = przestrzeń.parsujKolejkęTerminówBur(elementy.kolejkaTermowWejście.value);
+    const liczby = przestrzeń.policzKolejkęTerminówBur(wynik);
+    elementy.kolejkaTermowPodsumowanie.textContent = "";
+    [
+      ["Stacjonarne", liczby.stacjonarne],
+      ["Online", liczby.online],
+      ["Łącznie", liczby.łącznie],
+      ["Kart do otwarcia", liczby.karty]
+    ].forEach(function dodajLicznik(dane) {
+      const pozycja = document.createElement("span");
+      pozycja.textContent = dane[0] + ": " + dane[1];
+      elementy.kolejkaTermowPodsumowanie.appendChild(pozycja);
+    });
+
+    elementy.kolejkaTermowPodgląd.textContent = "";
+    if (wynik.terminy.length) {
+      const lista = document.createElement("ol");
+      lista.className = "lista-podgladu-kolejki";
+      wynik.terminy.forEach(function dodajTermin(termin) {
+        const pozycja = document.createElement("li");
+        pozycja.textContent = przestrzeń.opiszTerminKolejkiBur(termin);
+        lista.appendChild(pozycja);
+      });
+      elementy.kolejkaTermowPodgląd.appendChild(lista);
+    } else {
+      elementy.kolejkaTermowPodgląd.textContent = "Brak poprawnie rozpoznanych terminów.";
+    }
+
+    elementy.kolejkaTermowBłędy.textContent = wynik.błędne.length
+      ? "Wymagają poprawy: " + wynik.błędne.join(" | ")
+      : "";
+    elementy.kolejkaTermowBłędy.classList.toggle("ukryty", !wynik.błędne.length);
+    return wynik;
+  }
+
+  function pokażStanKolejkiTerminów(stan, komunikat, klasa) {
+    const dane = stan || {};
+    elementy.kolejkaDzisiajDodane.textContent = String(dane.dzisiajDodane || 0);
+    elementy.kolejkaŁącznieDodane.textContent = String(dane.łącznieDodane || 0);
+    if (dane.suroweTerminy !== undefined) {
+      elementy.kolejkaTermowWejście.value = dane.suroweTerminy;
+    }
+    renderujPodglądKolejkiTerminów();
+    ustawStatus(elementy.statusKolejkiTerminów, komunikat || "Kolejka BUR jest gotowa.", klasa || "status-neutralny");
+  }
+
+  function odświeżKolejkęTerminówBur() {
+    return wyślijKomunikatKolejkiDoBur({ typ: komunikaty.POBIERZ_STAN_KOLEJKI_BUR })
+      .then(function pokaż(stan) { pokażStanKolejkiTerminów(stan); return stan; })
+      .catch(function pokażBłąd(błąd) {
+        ustawStatus(elementy.statusKolejkiTerminów, błąd.message, "status-ostrzezenie");
+      });
+  }
+
+  function zapiszKolejkęTerminówBur(czyNoweSzkolenie, czyMaStacjonarne) {
+    const wynik = renderujPodglądKolejkiTerminów();
+    if (!wynik.terminy.length || wynik.błędne.length) {
+      ustawStatus(elementy.statusKolejkiTerminów, "Popraw nierozpoznane pozycje przed zapisaniem kolejki.", "status-ostrzezenie");
+      return;
+    }
+    const maTerminyStacjonarne = czyMaStacjonarne === undefined
+      ? wynik.terminy.some(function stacjonarny(termin) { return !termin.online; })
+      : czyMaStacjonarne;
+    const typ = czyNoweSzkolenie ? komunikaty.USTAW_TRYB_NOWEGO_SZKOLENIA_BUR : komunikaty.ZAPISZ_KOLEJKĘ_BUR;
+    wyślijKomunikatKolejkiDoBur({ typ: typ, suroweTerminy: elementy.kolejkaTermowWejście.value, czyMaStacjonarne: maTerminyStacjonarne })
+      .then(function pokaż(stan) {
+        pokażStanKolejkiTerminów(stan, czyNoweSzkolenie ? "Ustawiono tryb Nowe szkolenie i zresetowano kolejkę." : "Zapisano i przygotowano kolejkę.", "status-odczytano");
+      })
+      .catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusKolejkiTerminów, błąd.message, "status-blad"); });
+  }
+
+  function resetujKolejkęTerminówBur() {
+    wyślijKomunikatKolejkiDoBur({ typ: komunikaty.RESETUJ_KOLEJKĘ_BUR })
+      .then(function pokaż(stan) { pokażStanKolejkiTerminów(stan, "Kolejka została zresetowana.", "status-odczytano"); })
+      .catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusKolejkiTerminów, błąd.message, "status-blad"); });
+  }
+
+  function skorygujDziennyLicznikBur() {
+    const wartość = window.prompt("Podaj nową wartość dziennego licznika:", elementy.kolejkaDzisiajDodane.textContent || "0");
+    if (wartość === null) {
+      return;
+    }
+    wyślijKomunikatKolejkiDoBur({ typ: komunikaty.SKORYGUJ_DZIENNY_LICZNIK_BUR, wartość: wartość })
+      .then(function pokaż(stan) { pokażStanKolejkiTerminów(stan, "Skorygowano dzienny licznik.", "status-odczytano"); })
+      .catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusKolejkiTerminów, błąd.message, "status-blad"); });
+  }
+
+  function resetujLicznikiKolejkiBur() {
+    if (!window.confirm("Czy zresetować dzienny i łączny licznik?")) {
+      return;
+    }
+    wyślijKomunikatKolejkiDoBur({ typ: komunikaty.RESETUJ_LICZNIKI_BUR })
+      .then(function pokaż(stan) { pokażStanKolejkiTerminów(stan, "Zresetowano liczniki.", "status-odczytano"); })
+      .catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusKolejkiTerminów, błąd.message, "status-blad"); });
+  }
+
   function wyślijDoServiceWorkera(komunikat) {
     return new Promise(function utwórzPromise(resolve, reject) {
       chrome.runtime.sendMessage(komunikat, function obsłużOdpowiedź(odpowiedź) {
@@ -958,6 +1086,9 @@
         aktywnaZakładka: aktywnaZakładkaPanelu,
         wybranaRęcznie: czyUżytkownikWybrałZakładkę
       } });
+    }
+    if (aktywnaZakładkaPanelu === "terminy") {
+      odświeżKolejkęTerminówBur();
     }
   }
 
@@ -2448,6 +2579,17 @@
   elementy.przyciskUzupełnijZLinku.addEventListener("click", importujSzkolenieZLinku);
   elementy.przyciskWypełnijFormularz.addEventListener("click", wypełnijFormularzBurZPanelu);
   elementy.przyciskZastosujZmianyBur.addEventListener("click", zastosujZatwierdzoneZmianyBur);
+  elementy.kolejkaTermowWejście.addEventListener("input", function odświeżPodglądKolejki() {
+    renderujPodglądKolejkiTerminów();
+    ustawStatus(elementy.statusKolejkiTerminów, "Podgląd zmieniony. Działająca kolejka nie została zmieniona.", "status-neutralny");
+  });
+  elementy.przyciskZapiszKolejkę.addEventListener("click", function zapiszKolejkę() { zapiszKolejkęTerminówBur(false); });
+  elementy.przyciskNoweSzkolenie.addEventListener("click", function noweSzkolenie() {
+    zapiszKolejkęTerminówBur(true, window.confirm("Czy szkolenie ma terminy stacjonarne?"));
+  });
+  elementy.przyciskResetujKolejkę.addEventListener("click", resetujKolejkęTerminówBur);
+  elementy.przyciskSkorygujDzienny.addEventListener("click", skorygujDziennyLicznikBur);
+  elementy.przyciskResetujLiczniki.addEventListener("click", resetujLicznikiKolejkiBur);
   elementy.wybórTerminuSemper.addEventListener("change", function wybierzTerminZKontrolki() {
     zapiszWybórTerminuSemper("ręczny");
   });

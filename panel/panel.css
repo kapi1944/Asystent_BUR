@@ -127,6 +127,23 @@ select:focus {
   outline: none;
 }
 
+textarea {
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 10px;
+  border: 1px solid var(--ramka);
+  border-radius: 6px;
+  resize: vertical;
+  background: var(--panel-drugi);
+  color: var(--tekst);
+  font: inherit;
+}
+
+textarea:focus {
+  border-color: var(--czerwony);
+  outline: none;
+}
+
 .etykieta {
   display: block;
   color: var(--tekst-slaby);
@@ -161,6 +178,74 @@ select:focus {
   border: 1px solid var(--ramka);
   border-radius: 6px;
   background: var(--panel-drugi);
+}
+
+.kolejka-terminow-bur {
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--ramka);
+}
+
+.kolejka-terminow-bur h3 {
+  margin: 0 0 7px;
+  color: var(--tekst);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.liczniki-kolejki-terminow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 8px;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+}
+
+.liczniki-kolejki-terminow strong {
+  color: var(--tekst);
+}
+
+.podsumowanie-kolejki-terminow {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 8px;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+}
+
+.podsumowanie-kolejki-terminow span {
+  padding: 5px 6px;
+  border: 1px solid var(--ramka);
+  border-radius: 4px;
+}
+
+.podglad-kolejki-terminow {
+  margin-top: 8px;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+}
+
+.podglad-kolejki-terminow summary {
+  cursor: pointer;
+}
+
+.lista-podgladu-kolejki {
+  max-height: 145px;
+  margin: 6px 0 0;
+  padding-left: 22px;
+  overflow-y: auto;
+}
+
+.lista-podgladu-kolejki li {
+  padding: 2px 0;
+}
+
+.kolejka-akcje button {
+  min-height: 34px;
+  padding: 6px 8px;
+  font-size: 12px;
 }
 
 .aktualny-termin-bur h3 {

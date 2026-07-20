@@ -70,6 +70,29 @@
 
       <section id="karta-terminy" class="karta" data-zakladki="terminy">
         <h2>Terminy</h2>
+        <section class="kolejka-terminow-bur" aria-labelledby="naglowek-kolejki-terminow">
+          <h3 id="naglowek-kolejki-terminow">Kolejka terminów BUR</h3>
+          <div class="liczniki-kolejki-terminow">
+            <span>Dzisiaj dodane: <strong id="kolejka-dzisiaj-dodane">—</strong></span>
+            <span>Łącznie dodane: <strong id="kolejka-lacznie-dodane">—</strong></span>
+          </div>
+          <label class="etykieta" for="kolejka-terminow-wejscie">Wklej terminy</label>
+          <textarea id="kolejka-terminow-wejscie" rows="7" placeholder="2027-07-01-2027-07-02 Wrocław&#10;2027-07-01-2027-07-02 Szkolenie online"></textarea>
+          <div id="kolejka-terminow-podsumowanie" class="podsumowanie-kolejki-terminow"></div>
+          <div id="kolejka-terminow-bledy" class="komunikat ukryty"></div>
+          <details class="podglad-kolejki-terminow" open>
+            <summary>Podgląd rozpoznanych terminów</summary>
+            <div id="kolejka-terminow-podglad"></div>
+          </details>
+          <div class="siatka-przycisków kolejka-akcje">
+            <button id="przycisk-zapisz-kolejke" type="button">Zapisz i przygotuj kolejkę</button>
+            <button id="przycisk-nowe-szkolenie" type="button">Nowe szkolenie</button>
+            <button id="przycisk-resetuj-kolejke" type="button">Reset kolejki</button>
+            <button id="przycisk-skoryguj-dzienny" type="button">Korekta dziennego</button>
+            <button id="przycisk-resetuj-liczniki" type="button">Reset liczników</button>
+          </div>
+          <div id="status-kolejki-terminow" class="komunikat status-neutralny">Otwórz kartę BUR, aby odczytać kolejkę.</div>
+        </section>
         <section id="aktualny-termin-bur" class="aktualny-termin-bur ukryty" aria-live="polite">
           <h3>Aktualnie edytowany termin BUR</h3>
           <strong id="aktualny-zakres-bur">—</strong>
@@ -180,6 +203,7 @@
     <script src="../shared/normalizacja-tytulu.js"></script>
     <script src="../shared/daty.js"></script>
     <script src="../shared/terminy-bur.js"></script>
+    <script src="../shared/kolejka-terminow-bur.js"></script>
     <script src="../shared/stan-operacji-bur.js"></script>
     <script src="../shared/bur-program-harmonogram.js"></script>
     <script src="../shared/wyszukiwarka-semper.js"></script>
