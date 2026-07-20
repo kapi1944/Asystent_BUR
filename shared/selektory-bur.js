@@ -137,6 +137,72 @@
     return null;
   }
 
+
+  function znajdźPoleWTabeliBur(dokument, tytułTabeli, nazwaKolumny) {
+    const tabele = Array.from(dokument.querySelectorAll("table"));
+    const kluczTabeli = normalizujKluczBur(tytułTabeli);
+    const kluczKolumny = normalizujKluczBur(nazwaKolumny);
+
+    for (let indeksTabeli = 0; indeksTabeli < tabele.length; indeksTabeli += 1) {
+      const tabela = tabele[indeksTabeli];
+      const tekstTabeli = normalizujKluczBur(tabela.textContent || "");
+
+      if (kluczTabeli && !tekstTabeli.includes(kluczTabeli)) {
+        continue;
+      }
+
+      const kandydaciNagłówków = Array.from(tabela.querySelectorAll("thead th, thead td"));
+      const nagłówki = kandydaciNagłówków.length
+        ? kandydaciNagłówków
+        : Array.from(tabela.querySelectorAll("tr:first-child th, tr:first-child td"));
+      const indeksKolumny = nagłówki.findIndex(function sprawdźNagłówek(nagłówek) {
+        return normalizujKluczBur(nagłówek.textContent || "").includes(kluczKolumny);
+      });
+
+      if (indeksKolumny < 0) {
+        continue;
+      }
+
+      const wiersze = Array.from(tabela.querySelectorAll("tbody tr, tr")).filter(function zostawWiersz(wiersz) {
+        const komórki = Array.from(wiersz.children || []).filter(function tylkoKomórki(element) {
+          return element.tagName === "TD";
+        });
+        return komórki.length > indeksKolumny;
+      });
+
+      for (let indeksWiersza = 0; indeksWiersza < wiersze.length; indeksWiersza += 1) {
+        const komórki = Array.from(wiersze[indeksWiersza].children || []).filter(function tylkoKomórki(element) {
+          return element.tagName === "TD";
+        });
+        const komórka = komórki[indeksKolumny];
+
+        if (!komórka) {
+          continue;
+        }
+
+        const kontrolka = komórka.querySelector(
+          "input:not([type='hidden']), textarea, select, .ql-editor, "
+          + "[id^='select2-'][id$='-container'], .select2-selection__rendered, "
+          + ".select2-selection, [contenteditable='true']"
+        );
+
+        if (kontrolka) {
+          return kontrolka;
+        }
+
+        if (komórka.querySelector("input[type='hidden']")) {
+          return komórka;
+        }
+
+        if (normalizujTekstDoWalidacji(komórka.textContent || "")) {
+          return komórka;
+        }
+      }
+    }
+
+    return null;
+  }
+
   function znajdźPoleBur(dokument, definicjaPola) {
     const wynik = znajdźPoleBurZSzczegółami(dokument, definicjaPola);
     return wynik.element;
@@ -145,6 +211,13 @@
   function znajdźPoleBurZSzczegółami(dokument, definicjaPola) {
     const definicja = definicjaPola || {};
     let pole = null;
+
+    if (definicja.tabela && definicja.kolumna) {
+      pole = znajdźPoleWTabeliBur(dokument, definicja.tabela, definicja.kolumna);
+      if (pole) {
+        return { element: pole, metodaZnalezienia: "tabela", selektor: "" };
+      }
+    }
 
     if (definicja.selektory) {
       for (let indeks = 0; indeks < definicja.selektory.length; indeks += 1) {
@@ -177,11 +250,32 @@
       return "";
     }
 
-    const element = elementLubKontener.matches && elementLubKontener.matches("[id^='select2-'][id$='-container'], .select2-selection__rendered, .select2-selection")
-      ? elementLubKontener
-      : elementLubKontener.querySelector("[id^='select2-'][id$='-container'], .select2-selection__rendered, .select2-selection");
+    if (elementLubKontener.tagName === "SELECT") {
+      const opcja = elementLubKontener.selectedOptions && elementLubKontener.selectedOptions[0];
+      return normalizujTekstDoWalidacji(opcja ? (opcja.textContent || opcja.label || "") : "");
+    }
 
-    return normalizujTekstDoWalidacji(element ? (element.getAttribute("title") || element.textContent || "") : "");
+    const element = elementLubKontener.matches && elementLubKontener.matches(
+      "[id^='select2-'][id$='-container'], .select2-selection__rendered, .select2-selection"
+    )
+      ? elementLubKontener
+      : elementLubKontener.querySelector && elementLubKontener.querySelector(
+        "[id^='select2-'][id$='-container'], .select2-selection__rendered, .select2-selection"
+      );
+
+    if (element) {
+      return normalizujTekstDoWalidacji(element.getAttribute("title") || element.textContent || "");
+    }
+
+    if (elementLubKontener.id) {
+      const dokument = elementLubKontener.ownerDocument || document;
+      const widoczny = dokument.getElementById("select2-" + elementLubKontener.id + "-container");
+      if (widoczny) {
+        return normalizujTekstDoWalidacji(widoczny.getAttribute("title") || widoczny.textContent || "");
+      }
+    }
+
+    return "";
   }
 
   function pobierzWartośćQuill(elementLubKontener) {
@@ -280,6 +374,7 @@
     return normalizujTekstDoWalidacji(element.textContent || "");
   }
 
+  przestrzeń.znajdźPoleWTabeliBur = znajdźPoleWTabeliBur;
   przestrzeń.znajdźPoleBur = znajdźPoleBur;
   przestrzeń.znajdźPoleBurZSzczegółami = znajdźPoleBurZSzczegółami;
   przestrzeń.znajdźPolePoSelektorach = znajdźPolePoSelektorach;

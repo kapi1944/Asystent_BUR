@@ -392,8 +392,9 @@
       return edytor ? edytor.innerHTML : "";
     }
     if (typ === "select2") {
-      const select = znajdźUkrytySelect2(element.ownerDocument || document, element);
-      return select && "value" in select ? String(select.value || "") : "";
+      return przestrzeń.pobierzWartośćPola
+        ? przestrzeń.pobierzWartośćPola(element)
+        : "";
     }
     return przestrzeń.pobierzWartośćPola ? przestrzeń.pobierzWartośćPola(element) : String(element.value || element.textContent || "");
   }
@@ -490,30 +491,9 @@
   }
 
   function znajdźPoleWTabeli(dokument, tytułTabeli, nazwaKolumny) {
-    const tabele = Array.from(dokument.querySelectorAll("table"));
-    const kluczTabeli = normalizujKluczBur(tytułTabeli);
-    const kluczKolumny = normalizujKluczBur(nazwaKolumny);
-
-    for (let indeksTabeli = 0; indeksTabeli < tabele.length; indeksTabeli += 1) {
-      const tabela = tabele[indeksTabeli];
-
-      if (!normalizujKluczBur(tabela.textContent || "").includes(kluczTabeli)) {
-        continue;
-      }
-
-      const nagłówki = Array.from(tabela.querySelectorAll("tr:first-child th, tr:first-child td"));
-      const indeksKolumny = nagłówki.findIndex(function sprawdźNagłówek(nagłówek) {
-        return normalizujKluczBur(nagłówek.textContent || "").includes(kluczKolumny);
-      });
-      const wiersze = Array.from(tabela.querySelectorAll("tr")).slice(1);
-
-      if (indeksKolumny < 0 || !wiersze.length || !wiersze[0].children[indeksKolumny]) {
-        continue;
-      }
-
-      return wiersze[0].children[indeksKolumny].querySelector("input, textarea, select, .ql-editor, [id^='select2-'][id$='-container'], .select2-selection") || wiersze[0].children[indeksKolumny];
+    if (typeof przestrzeń.znajdźPoleWTabeliBur === "function") {
+      return przestrzeń.znajdźPoleWTabeliBur(dokument, tytułTabeli, nazwaKolumny);
     }
-
     return null;
   }
 
