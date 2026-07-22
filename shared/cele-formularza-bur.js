@@ -29,7 +29,7 @@
     daneKontaktowe: definicjaCelu("daneKontaktowe", { selektoryAwaryjne: ["#daneKontaktowe", "#danekontaktowesekcja"], sekcja: "Dane kontaktowe", etykieta: "Dane kontaktowe", typKontrolki: "input" }),
     harmonogram: definicjaCelu("harmonogram", { selektory: ["#harmonogram-grid > div > table"], selektoryAwaryjne: ["#harmonogram-grid", "#import"], sekcja: "Program i harmonogram usługi", etykieta: "Harmonogram", typKontrolki: "tabela" }),
     publikacja: definicjaCelu("publikacja", { selektoryAwaryjne: ["button[type='submit']", "button[name*='publik']"], sekcja: "Publikacja", etykieta: "Opublikuj", typKontrolki: "przycisk" }),
-    tytul: definicjaCelu("tytul", { selektory: ["#informacjepodstawowesekcja-tytuluslugi"], sekcja: "Informacje podstawowe", etykieta: "Tytuł", typKontrolki: "input" }),
+    tytul: definicjaCelu("tytul", { selektory: ["#informacjepodstawowesekcja-tytuluslugi", "input[name*='tytuluslugi' i]", "textarea[name*='tytuluslugi' i]"], sekcja: "Informacje podstawowe", etykieta: "Tytuł", typKontrolki: "input" }),
     grupaDocelowa: definicjaCelu("grupaDocelowa", { selektory: ["#informacjepodstawowesekcja-grupadocelowauslugi-wysiwyg .ql-editor"], sekcja: "Informacje podstawowe", etykieta: "Grupa docelowa usługi", typKontrolki: "edytorTekstowy" }),
     celEdukacyjny: definicjaCelu("celEdukacyjny", { sekcja: "Główny cel usługi", etykieta: "Cel edukacyjny", typKontrolki: "input" }),
     kompetencje: definicjaCelu("kompetencje", { selektoryAwaryjne: ["#qualificationsZrk .field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji"], sekcja: "Główny cel usługi", etykieta: "Czy usługa prowadzi do nabycia kompetencji?", typKontrolki: "input" }),

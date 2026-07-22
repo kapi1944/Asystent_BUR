@@ -57,6 +57,7 @@
     przyciskSkorygujDzienny: document.getElementById("przycisk-skoryguj-dzienny"),
     przyciskResetujLiczniki: document.getElementById("przycisk-resetuj-liczniki"),
     aktualnyTerminBur: document.getElementById("aktualny-termin-bur"),
+    aktualnyTytułBur: document.getElementById("aktualny-tytul-bur"),
     aktualnyZakresBur: document.getElementById("aktualny-zakres-bur"),
     aktualneSzczegółyBur: document.getElementById("aktualne-szczegoly-bur"),
     statusDopasowaniaTerminu: document.getElementById("status-dopasowania-terminu"),
@@ -329,7 +330,10 @@
 
   function pokażAktualnyTerminBur(terminBur) {
     const daty = przestrzeń.pobierzDatyTerminuBur(terminBur);
+    const tytuł = String(terminBur && terminBur.tytuł || "").replace(/\s+/g, " ").trim();
     aktualnyTerminBur = terminBur && daty.dataRozpoczęcia && daty.dataZakończenia ? terminBur : null;
+    elementy.aktualnyTytułBur.textContent = tytuł || "Brak tytułu usługi";
+    elementy.aktualnyTytułBur.title = tytuł || "Brak tytułu usługi";
 
     if (!aktualnyTerminBur) {
       elementy.aktualnyZakresBur.textContent = "Nie wybrano terminu";

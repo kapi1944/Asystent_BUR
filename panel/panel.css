@@ -265,6 +265,17 @@ textarea:focus {
   font-size: 15px;
 }
 
+.aktualny-termin-bur .aktualny-tytul-bur {
+  margin: 0 0 3px;
+  overflow: hidden;
+  color: var(--tekst);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .aktualny-termin-bur span {
   margin-top: 2px;
   color: var(--tekst-slaby);

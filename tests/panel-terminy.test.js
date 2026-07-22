@@ -35,7 +35,7 @@
       const ramka = document.createElement("iframe");
       const konfiguracja = "<base href='../panel/'><script>(function(){"
         + "const dane=" + JSON.stringify(dane) + ";"
-        + "let terminBur={dataRozpoczęcia:'2027-06-21',dataZakończenia:'2027-06-22',tryb:'stacjonarna',lokalizacja:'Warszawa',url:'https://uslugirozwojowe.parp.gov.pl/edit/1'};"
+        + "let terminBur={tytuł:'Prawo ochrony środowiska w praktyce',dataRozpoczęcia:'2027-06-21',dataZakończenia:'2027-06-22',tryb:'stacjonarna',lokalizacja:'Warszawa',url:'https://uslugirozwojowe.parp.gov.pl/edit/1'};"
         + "const aktywowane=[],zaktualizowane=[],wiadomości=[];"
         + "window.__daneTestowe=dane;window.__ustawTerminBur=function(nowy){terminBur=nowy;wiadomości.forEach(function(fn){fn({typ:'ZMIENIONO_AKTUALNY_TERMIN_BUR',wynik:terminBur},{tab:{id:1}});});};"
         + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){if(b){b({});}},onMessage:{addListener:function(fn){wiadomości.push(fn);}}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.resolve();}},"
@@ -63,11 +63,51 @@
       sprawdzRownosc(dokument.querySelectorAll(".pozycja-terminu-semper").length, 5);
       sprawdzWarunek(dokument.querySelector('.pozycja-terminu-semper[data-indeks-terminu="1"]').classList.contains("wybrany"));
       sprawdzWarunek(dokument.querySelector("#aktualny-zakres-bur").textContent.includes("21–22.06.2027"));
+      sprawdzRownosc(dokument.querySelector("#aktualny-tytul-bur").textContent, "Prawo ochrony środowiska w praktyce");
+      sprawdzWarunek(!dokument.querySelector("#aktualny-tytul-bur").textContent.includes("Test"), "Tytuł SEMPER nie może zastąpić tytułu BUR.");
       sprawdzWarunek(dokument.querySelector("#aktualne-szczegoly-bur").textContent.includes("Warszawa"));
       sprawdzWarunek(!dokument.querySelector("#aktualne-szczegoly-bur").textContent.includes("Gdańsk"));
       sprawdzWarunek(!dokument.querySelector("#lista-terminow-semper").textContent.includes("Szkolenie online · online"));
       sprawdzWarunek(dokument.querySelector("#lista-terminow-semper").textContent.includes("Termin 3 · Online"));
       ramka.remove();
+    });
+  });
+
+  test("długi tytuł sticky jest jednowierszowy z ellipsis i pełnym tooltipem", function sprawdź() {
+    return utwórzPanelTerminów().then(function zweryfikuj(ramka) {
+      const dokument = ramka.contentWindow.document;
+      const długiTytuł = "Bardzo długi tytuł aktualnie edytowanej usługi BUR dotyczącej prawa ochrony środowiska w praktyce";
+      ramka.contentWindow.__ustawTerminBur({ tytuł: długiTytuł, dataRozpoczęcia: "2027-06-21", dataZakończenia: "2027-06-22", url: "https://uslugirozwojowe.parp.gov.pl/edit/1" });
+      return poczekajNa(function pokazanoTytuł() {
+        return dokument.querySelector("#aktualny-tytul-bur").textContent === długiTytuł;
+      }).then(function sprawdźPrezentację() {
+        const element = dokument.querySelector("#aktualny-tytul-bur");
+        const styl = ramka.contentWindow.getComputedStyle(element);
+        sprawdzRownosc(element.title, długiTytuł);
+        sprawdzRownosc(styl.overflow, "hidden");
+        sprawdzRownosc(styl.textOverflow, "ellipsis");
+        sprawdzRownosc(styl.whiteSpace, "nowrap");
+        ramka.remove();
+      });
+    });
+  });
+
+  test("zmiana usługi aktualizuje tytuł i usuwa tytuł poprzedniej", function sprawdź() {
+    return utwórzPanelTerminów().then(function zweryfikuj(ramka) {
+      const dokument = ramka.contentWindow.document;
+      ramka.contentWindow.__ustawTerminBur({ tytuł: "Druga usługa BUR", dataRozpoczęcia: "2027-10-15", dataZakończenia: "2027-10-16", url: "https://uslugirozwojowe.parp.gov.pl/edit/2" });
+      return poczekajNa(function pokazanoNowyTytuł() {
+        return dokument.querySelector("#aktualny-tytul-bur").textContent === "Druga usługa BUR";
+      }).then(function sprawdźZmianę() {
+        sprawdzWarunek(!dokument.querySelector("#aktualny-termin-bur").textContent.includes("Prawo ochrony środowiska"));
+        ramka.contentWindow.__ustawTerminBur({ tytuł: "", dataRozpoczęcia: "2027-10-15", dataZakończenia: "2027-10-16", url: "https://uslugirozwojowe.parp.gov.pl/edit/3" });
+        return poczekajNa(function pokazanoBrakTytułu() {
+          return dokument.querySelector("#aktualny-tytul-bur").textContent === "Brak tytułu usługi";
+        });
+      }).then(function zakończ() {
+        sprawdzRownosc(dokument.querySelector("#aktualny-tytul-bur").title, "Brak tytułu usługi");
+        ramka.remove();
+      });
     });
   });
 

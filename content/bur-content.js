@@ -1044,8 +1044,15 @@
     return przestrzen.pobierzWartośćPola(kontrolka || element);
   }
 
+  function pobierzTytułAktualnejUsługiBur(dokumentBur) {
+    const wynikPola = przestrzen.znajdźCelFormularzaBur(dokumentBur, "tytul");
+    const wartość = wynikPola.ok ? przestrzen.pobierzWartośćPola(wynikPola.element) : "";
+    return String(wartość || "").replace(/\s+/g, " ").trim();
+  }
+
   function odczytajAktualnyTerminBur(dokumentBur) {
     const bieżącyDokument = dokumentBur || document;
+    const tytuł = pobierzTytułAktualnejUsługiBur(bieżącyDokument);
     const dataRozpoczęcia = pobierzWartośćTerminuBur(bieżącyDokument, [
       "#informacjepodstawowesekcja-datarozpoczeciauslugi"
     ]);
@@ -1063,6 +1070,7 @@
     ]);
 
     return {
+      tytuł: tytuł,
       dataRozpoczęcia: przestrzen.normalizujDatęTerminu(dataRozpoczęcia),
       dataZakończenia: przestrzen.normalizujDatęTerminu(dataZakończenia),
       tryb: /online/i.test(trybTekst) ? "online" : (/stacjon/i.test(trybTekst) ? "stacjonarna" : ""),
@@ -1078,7 +1086,10 @@
       return false;
     }
 
-    return element.matches([
+    const czyPoleTerminu = element.matches([
+      "#informacjepodstawowesekcja-tytuluslugi",
+      "input[name*='tytuluslugi' i]",
+      "textarea[name*='tytuluslugi' i]",
       "#informacjepodstawowesekcja-datarozpoczeciauslugi",
       "#informacjepodstawowesekcja-datarozpoczeciauslugi input",
       "#informacjepodstawowesekcja-datazakonczeniauslugi",
@@ -1089,6 +1100,12 @@
       "#select2-lokalizacjauslugisekcja-miasto-container",
       "#lokalizacjauslugisekcja-adres"
     ].join(","));
+    if (czyPoleTerminu) {
+      return true;
+    }
+
+    const wynikPolaTytułu = przestrzen.znajdźCelFormularzaBur(element.ownerDocument || document, "tytul");
+    return wynikPolaTytułu.ok && wynikPolaTytułu.element === element;
   }
 
   function zaplanujPowiadomienieOTerminieBur(zdarzenie) {
