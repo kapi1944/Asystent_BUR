@@ -1071,6 +1071,48 @@
     };
   }
 
+  let zegarPowiadomieniaOTerminieBur = null;
+
+  function czyZmienionoPoleTerminuBur(element) {
+    if (!element || !element.matches) {
+      return false;
+    }
+
+    return element.matches([
+      "#informacjepodstawowesekcja-datarozpoczeciauslugi",
+      "#informacjepodstawowesekcja-datarozpoczeciauslugi input",
+      "#informacjepodstawowesekcja-datazakonczeniauslugi",
+      "#informacjepodstawowesekcja-datazakonczeniauslugi input",
+      "#formularzwstepnysekcja-formaswiadczenia",
+      "#select2-formularzwstepnysekcja-formaswiadczenia-container",
+      "#lokalizacjauslugisekcja-miasto",
+      "#select2-lokalizacjauslugisekcja-miasto-container",
+      "#lokalizacjauslugisekcja-adres"
+    ].join(","));
+  }
+
+  function zaplanujPowiadomienieOTerminieBur(zdarzenie) {
+    if (!czyZmienionoPoleTerminuBur(zdarzenie && zdarzenie.target)) {
+      return;
+    }
+
+    if (zegarPowiadomieniaOTerminieBur) {
+      globalny.clearTimeout(zegarPowiadomieniaOTerminieBur);
+    }
+
+    zegarPowiadomieniaOTerminieBur = globalny.setTimeout(function powiadomPanel() {
+      zegarPowiadomieniaOTerminieBur = null;
+      if (chrome.runtime && typeof chrome.runtime.sendMessage === "function") {
+        chrome.runtime.sendMessage({
+          typ: komunikaty.ZMIENIONO_AKTUALNY_TERMIN_BUR,
+          wynik: odczytajAktualnyTerminBur()
+        }, function zakończPowiadomienie() {
+          void chrome.runtime.lastError;
+        });
+      }
+    }, 40);
+  }
+
   function sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc) {
     if (!wiadomosc || !wiadomosc.terminHarmonogramu) {
       return { ok: false, błąd: "Brak dat terminu, dla którego przygotowano harmonogram." };
@@ -1261,6 +1303,10 @@
           return;
         }
 
+        if (typeof przestrzen.skorygujPodstawęWpisuBur === "function") {
+          przestrzen.skorygujPodstawęWpisuBur(document);
+        }
+
         const wynik = przestrzen.walidujFormularzBur(document, {
           szkolenieSemper: szkolenieSemper,
           wybranyTermin: wybórTerminu.termin
@@ -1335,6 +1381,9 @@
   przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;
   przestrzen.usuńIstniejącyHarmonogram = usuńIstniejącyHarmonogram;
   przestrzen.odczytajAktualnyTerminBur = odczytajAktualnyTerminBur;
+
+  document.addEventListener("input", zaplanujPowiadomienieOTerminieBur, true);
+  document.addEventListener("change", zaplanujPowiadomienieOTerminieBur, true);
 
   function kluczDziennegoLicznikaKolejkiBur() {
     const data = new Date();
@@ -1462,7 +1511,24 @@
     }
 
     if (wiadomosc.typ === komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR) {
-      odpowiedz({ typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR, wynik: { propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}) } });
+      const korektaPodstawyWpisu = typeof przestrzen.skorygujPodstawęWpisuBur === "function"
+        ? przestrzen.skorygujPodstawęWpisuBur(document)
+        : null;
+      odpowiedz({
+        typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR,
+        wynik: {
+          propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}),
+          korektaPodstawyWpisu: korektaPodstawyWpisu ? {
+            ok: korektaPodstawyWpisu.ok,
+            status: korektaPodstawyWpisu.status,
+            wartośćPrzed: korektaPodstawyWpisu.wartośćPrzed,
+            wartośćPo: korektaPodstawyWpisu.wartośćPo,
+            wartośćOczekiwana: korektaPodstawyWpisu.wartośćOczekiwana,
+            kodBłędu: korektaPodstawyWpisu.kodBłędu,
+            komunikat: korektaPodstawyWpisu.komunikat
+          } : null
+        }
+      });
       return true;
     }
 

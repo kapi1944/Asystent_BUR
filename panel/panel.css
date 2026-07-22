@@ -767,6 +767,19 @@ li + li {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.28);
 }
 
+.przyciski-zakladek {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.zakladki-panelu .aktualny-termin-bur {
+  margin: 2px 0 0;
+  padding: 7px 9px;
+  background: #1b1b1b;
+}
+
 .zakladki-panelu button {
   width: 100%;
   min-width: 0;

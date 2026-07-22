@@ -13,11 +13,18 @@
     </header>
 
     <nav class="zakladki-panelu" aria-label="Sekcje Asystenta BUR">
-      <button type="button" data-przelacz-zakladke="semper" aria-pressed="true">SEMPER</button>
-      <button type="button" data-przelacz-zakladke="terminy" aria-pressed="false">Terminy</button>
-      <button type="button" data-przelacz-zakladke="checklista" aria-pressed="false">Checklista</button>
-      <button type="button" data-przelacz-zakladke="harmonogram" aria-pressed="false">Harmonogram</button>
-      <button type="button" data-przelacz-zakladke="diagnostyka" aria-pressed="false">Diagnostyka</button>
+      <div class="przyciski-zakladek">
+        <button type="button" data-przelacz-zakladke="semper" aria-pressed="true">SEMPER</button>
+        <button type="button" data-przelacz-zakladke="terminy" aria-pressed="false">Terminy</button>
+        <button type="button" data-przelacz-zakladke="checklista" aria-pressed="false">Checklista</button>
+        <button type="button" data-przelacz-zakladke="harmonogram" aria-pressed="false">Harmonogram</button>
+        <button type="button" data-przelacz-zakladke="diagnostyka" aria-pressed="false">Diagnostyka</button>
+      </div>
+      <section id="aktualny-termin-bur" class="aktualny-termin-bur" aria-live="polite">
+        <h3>EDYTOWANY TERMIN BUR</h3>
+        <strong id="aktualny-zakres-bur">Nie wybrano terminu</strong>
+        <span id="aktualne-szczegoly-bur" class="ukryty"></span>
+      </section>
     </nav>
 
     <main class="panel">
@@ -92,11 +99,6 @@
             <button id="przycisk-resetuj-liczniki" type="button">Reset liczników</button>
           </div>
           <div id="status-kolejki-terminow" class="komunikat status-neutralny">Otwórz kartę BUR, aby odczytać kolejkę.</div>
-        </section>
-        <section id="aktualny-termin-bur" class="aktualny-termin-bur ukryty" aria-live="polite">
-          <h3>Aktualnie edytowany termin BUR</h3>
-          <strong id="aktualny-zakres-bur">—</strong>
-          <span id="aktualne-szczegoly-bur"></span>
         </section>
         <div id="status-dopasowania-terminu" class="komunikat status-neutralny">Otwórz formularz BUR, aby zsynchronizować termin.</div>
         <section id="wybor-niejednoznacznego-terminu" class="wybor-niejednoznacznego-terminu ukryty" aria-live="polite"></section>

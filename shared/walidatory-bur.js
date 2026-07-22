@@ -150,6 +150,52 @@
     return null;
   }
 
+  function walidujPodstawęWpisuBur(dokument, pozycje) {
+    const oczekiwanaWartość = przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR;
+    const nieaktualnaWartość = przestrzeń.NIEAKTUALNA_PODSTAWA_WPISU_BUR;
+    const definicja = przestrzeń.pobierzDefinicjęPodstawyWpisuBur();
+    const natywnePole = przestrzeń.znajdźNatywnePoleWyboruBur
+      ? przestrzeń.znajdźNatywnePoleWyboruBur(dokument, definicja)
+      : null;
+    const aktualnaWartość = natywnePole ? przestrzeń.pobierzTekstSelect2(natywnePole) : "";
+    const istniejeOczekiwanaOpcja = Boolean(natywnePole && Array.from(natywnePole.options || []).some(function sprawdźOpcję(opcja) {
+      return przestrzeń.normalizujTekstDoWalidacji(opcja.textContent || opcja.label || "") === oczekiwanaWartość;
+    }));
+    let status = "poprawne";
+    let komunikat = "Wybrano aktualną podstawę uzyskania wpisu do BUR.";
+
+    if (!natywnePole) {
+      status = "błąd";
+      komunikat = "Nie udało się odczytać natywnego pola select dla podstawy uzyskania wpisu do BUR.";
+    } else if (!istniejeOczekiwanaOpcja) {
+      status = "błąd";
+      komunikat = "Oczekiwana aktualna opcja nie istnieje na liście BUR.";
+    } else if (!aktualnaWartość) {
+      status = "błąd";
+      komunikat = "Pole podstawy uzyskania wpisu do BUR jest puste.";
+    } else if (aktualnaWartość === nieaktualnaWartość) {
+      status = "błąd";
+      komunikat = "Wybrano nieaktualną podstawę uzyskania wpisu do BUR.";
+    } else if (aktualnaWartość !== oczekiwanaWartość) {
+      status = "błąd";
+      komunikat = "Wybrana podstawa uzyskania wpisu do BUR jest inna niż oczekiwana.";
+    }
+
+    dodajPozycję(pozycje, {
+      sekcja: "Formularz wstępny",
+      pole: "Podstawa uzyskania wpisu do BUR",
+      status: status,
+      komunikat: komunikat,
+      oczekiwanaWartość: oczekiwanaWartość,
+      aktualnaWartość: aktualnaWartość || "Nie odczytano wartości",
+      opisPola: "Podstawa uzyskania wpisu do BUR",
+      selektorPomocniczy: "#formularzwstepnysekcja-podstawauzyskaniawpisuid",
+      element: przestrzeń.znajdźWidocznyElementSelect2 && natywnePole
+        ? przestrzeń.znajdźWidocznyElementSelect2(natywnePole) || natywnePole
+        : natywnePole
+    });
+  }
+
   function walidujFormularzWstępny(dokument, kontekst, pozycje) {
     const termin = kontekst.wybranyTermin || {};
     const oczekiwanaForma = termin.forma === "online" ? "online" : "stacjonarna";
@@ -180,18 +226,7 @@
       selektorPomocniczy: "#select2-formularzwstepnysekcja-wariantzajec-container"
     });
 
-    sprawdźWartość(pozycje, {
-      dokument: dokument,
-      sekcja: "Formularz wstępny",
-      pole: "Podstawa uzyskania wpisu do BUR",
-      oczekiwanaWartość: "Znak Jakości TGLS Quality Alliance",
-      definicja: {
-        sekcja: "Formularz wstępny",
-        etykieta: "Podstawa uzyskania wpisu do BUR",
-        selektory: ["#select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container"]
-      },
-      selektorPomocniczy: "#select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container"
-    });
+    walidujPodstawęWpisuBur(dokument, pozycje);
 
     sprawdźWartość(pozycje, {
       dokument: dokument,

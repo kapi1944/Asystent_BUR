@@ -27,13 +27,25 @@
       metoda: "Wywiad swobodny"
     }, zmiany || {});
     const dokument = document.implementation.createHTMLDocument("BUR walidacja");
+    const aktualnaPodstawa = "Znak Jakości TGLS Quality Alliance";
+    const nieaktualnaPodstawa = "(nieaktualna) Znak Jakości TGLS Quality Alliance";
+    const dodatkowaOpcja = wartości.podstawa && wartości.podstawa !== aktualnaPodstawa && wartości.podstawa !== nieaktualnaPodstawa
+      ? "<option value=\"inna\" selected>" + wartości.podstawa + "</option>"
+      : "";
+    const opcjePodstawy = [
+      "<option value=\"\"" + (!wartości.podstawa ? " selected" : "") + "></option>",
+      "<option value=\"stara\"" + (wartości.podstawa === nieaktualnaPodstawa ? " selected" : "") + ">" + nieaktualnaPodstawa + "</option>",
+      wartości.brakAktualnejOpcji ? "" : "<option value=\"aktualna\"" + (wartości.podstawa === aktualnaPodstawa ? " selected" : "") + ">" + aktualnaPodstawa + "</option>",
+      dodatkowaOpcja
+    ].join("");
+    const podstawaWidoczna = wartości.podstawaWidoczna === undefined ? wartości.podstawa : wartości.podstawaWidoczna;
 
     dokument.body.innerHTML = [
       "<section>",
       "<h2>Formularz wstępny</h2>",
       "<div class=\"form-group\"><label>Forma świadczenia usługi</label><span id=\"select2-formularzwstepnysekcja-formaswiadczenia-container\" title=\"" + wartości.forma + "\">" + wartości.forma + "</span></div>",
       "<div class=\"form-group\"><label>Wariant zajęć</label><span id=\"select2-formularzwstepnysekcja-wariantzajec-container\" title=\"" + wartości.wariant + "\">" + wartości.wariant + "</span></div>",
-      "<div class=\"form-group\"><label>Podstawa uzyskania wpisu do BUR</label><span id=\"select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container\" title=\"" + wartości.podstawa + "\">" + wartości.podstawa + "</span></div>",
+      "<div class=\"form-group\"><label for=\"formularzwstepnysekcja-podstawauzyskaniawpisuid\">Podstawa uzyskania wpisu do BUR</label><select id=\"formularzwstepnysekcja-podstawauzyskaniawpisuid\">" + opcjePodstawy + "</select><span id=\"select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container\" title=\"" + podstawaWidoczna + "\">" + podstawaWidoczna + "</span></div>",
       "<div class=\"form-group\"><span>Usługa zamknięta</span><label id=\"formularzwstepnysekcja-czyuslugadedykowanaLabel\"><span class=\"active\">" + wartości.usługaZamknięta + "</span></label></div>",
       "</section>",
       "<section>",
@@ -156,8 +168,34 @@
     sprawdźStatus("Wariant zajęć", { wariant: "Indywidualne" }, "online", "ostrzeżenie");
   });
 
-  test("podstawa wpisu inna niż wymagana daje ostrzeżenie", function sprawdź() {
-    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "Inna podstawa" }, "online", "ostrzeżenie");
+  test("podstawa wpisu inna niż wymagana daje błąd", function sprawdź() {
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "Inna podstawa" }, "online", "błąd");
+  });
+
+  test("checklista akceptuje aktualny znak jakości", function sprawdź() {
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", {}, "online", "poprawne");
+  });
+
+  test("checklista odrzuca nieaktualny znak jakości", function sprawdź() {
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "(nieaktualna) Znak Jakości TGLS Quality Alliance" }, "online", "błąd");
+  });
+
+  test("checklista odrzuca pustą podstawę wpisu", function sprawdź() {
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "" }, "online", "błąd");
+  });
+
+  test("checklista odrzuca brak aktualnej opcji", function sprawdź() {
+    const wynik = bur.walidujFormularzBur(utwórzDokumentWalidacji({ podstawa: "(nieaktualna) Znak Jakości TGLS Quality Alliance", brakAktualnejOpcji: true }), utwórzKontekst("online"));
+    const pozycja = znajdźPozycję(wynik, "Podstawa uzyskania wpisu do BUR");
+    sprawdzRownosc(pozycja.status, "błąd");
+    sprawdzWarunek(pozycja.komunikat.includes("nie istnieje"));
+  });
+
+  test("checklista ufa natywnemu selectowi, nie wizualnemu tekstowi Select2", function sprawdź() {
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", {
+      podstawa: "(nieaktualna) Znak Jakości TGLS Quality Alliance",
+      podstawaWidoczna: "Znak Jakości TGLS Quality Alliance"
+    }, "online", "błąd");
   });
 
   test("cel edukacyjny TAK jest poprawny", function sprawdź() {

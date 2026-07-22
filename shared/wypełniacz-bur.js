@@ -1,6 +1,8 @@
 (function zarejestrujWypełniaczBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
   let ostatnieOstrzeżenieSelect2 = "";
+  const AKTUALNA_PODSTAWA_WPISU_BUR = przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR;
+  const NIEAKTUALNA_PODSTAWA_WPISU_BUR = przestrzeń.NIEAKTUALNA_PODSTAWA_WPISU_BUR;
 
   function normalizujKluczBur(wartość) {
     const normalizuj = przestrzeń.normalizujTekstDoWalidacji || function bezNormalizacji(tekst) {
@@ -313,6 +315,133 @@
     }
 
     return false;
+  }
+
+  function pobierzTekstWybranejOpcji(natywnePole) {
+    const opcja = natywnePole && natywnePole.selectedOptions && natywnePole.selectedOptions[0];
+    return przestrzeń.normalizujTekstDoWalidacji
+      ? przestrzeń.normalizujTekstDoWalidacji(opcja ? opcja.textContent || opcja.label || "" : "")
+      : String(opcja ? opcja.textContent || opcja.label || "" : "").trim();
+  }
+
+  function ustawSelect2PoDokładnymTekście(dokument, definicjaPola, oczekiwanyTekst) {
+    const definicja = definicjaPola || {};
+    const natywnePole = przestrzeń.znajdźNatywnePoleWyboruBur
+      ? przestrzeń.znajdźNatywnePoleWyboruBur(dokument, definicja)
+      : null;
+    const wynik = {
+      ok: false,
+      status: "błąd",
+      natywnePole: natywnePole,
+      elementWidoczny: null,
+      wartośćPrzed: "",
+      wartośćPo: "",
+      wartośćOczekiwana: oczekiwanyTekst,
+      kodBłędu: "",
+      komunikat: ""
+    };
+
+    if (!natywnePole) {
+      wynik.kodBłędu = "BRAK_NATYWNEGO_SELECTA";
+      wynik.komunikat = "Nie znaleziono natywnego pola select będącego źródłem danych Select2.";
+      return wynik;
+    }
+
+    wynik.elementWidoczny = przestrzeń.znajdźWidocznyElementSelect2
+      ? przestrzeń.znajdźWidocznyElementSelect2(natywnePole)
+      : null;
+    wynik.wartośćPrzed = pobierzTekstWybranejOpcji(natywnePole);
+    const normalizuj = przestrzeń.normalizujTekstDoWalidacji || function bezNormalizacji(wartość) { return String(wartość || "").trim(); };
+    const tekstOczekiwany = normalizuj(oczekiwanyTekst);
+    const opcja = Array.from(natywnePole.options || []).find(function znajdźDokładnąOpcję(opcjaPola) {
+      return normalizuj(opcjaPola.textContent || opcjaPola.label || "") === tekstOczekiwany;
+    });
+
+    if (!opcja) {
+      wynik.kodBłędu = "BRAK_OCZEKIWANEJ_OPCJI";
+      wynik.komunikat = "Na liście BUR nie ma oczekiwanej aktualnej opcji: " + oczekiwanyTekst + ".";
+      return wynik;
+    }
+
+    if (wynik.wartośćPrzed === tekstOczekiwany && natywnePole.value === opcja.value) {
+      wynik.ok = true;
+      wynik.status = "już_zgodne";
+      wynik.wartośćPo = wynik.wartośćPrzed;
+      return wynik;
+    }
+
+    ustawNatywnąWartość(natywnePole, opcja.value);
+    wywołajZdarzeniaZmiany(natywnePole);
+    if (globalny.jQuery) {
+      globalny.jQuery(natywnePole).trigger("change");
+    }
+
+    wynik.wartośćPo = pobierzTekstWybranejOpcji(natywnePole);
+    if (natywnePole.value !== opcja.value || wynik.wartośćPo !== tekstOczekiwany) {
+      wynik.kodBłędu = "NIEPOTWIERDZONA_WARTOŚĆ_NATYWNA";
+      wynik.komunikat = "Natywne pole select nie zachowało oczekiwanej wartości po zmianie.";
+      return wynik;
+    }
+
+    if (wynik.elementWidoczny && przestrzeń.pobierzTekstSelect2(wynik.elementWidoczny) !== tekstOczekiwany) {
+      wynik.kodBłędu = "BRAK_SYNCHRONIZACJI_SELECT2";
+      wynik.komunikat = "Natywny select został zmieniony, ale Select2 nie potwierdził tej samej wartości.";
+      return wynik;
+    }
+
+    wynik.ok = true;
+    wynik.status = "potwierdzone";
+    return wynik;
+  }
+
+  function skorygujPodstawęWpisuBur(dokument) {
+    const definicja = przestrzeń.pobierzDefinicjęPodstawyWpisuBur();
+    const natywnePole = przestrzeń.znajdźNatywnePoleWyboruBur
+      ? przestrzeń.znajdźNatywnePoleWyboruBur(dokument, definicja)
+      : null;
+
+    if (!natywnePole) {
+      return ustawSelect2PoDokładnymTekście(dokument, definicja, AKTUALNA_PODSTAWA_WPISU_BUR);
+    }
+
+    const aktualnaWartość = pobierzTekstWybranejOpcji(natywnePole);
+    const maAktualnąOpcję = Array.from(natywnePole.options || []).some(function sprawdźOpcję(opcja) {
+      return (przestrzeń.normalizujTekstDoWalidacji(opcja.textContent || opcja.label || "")) === AKTUALNA_PODSTAWA_WPISU_BUR;
+    });
+
+    if (!maAktualnąOpcję) {
+      return ustawSelect2PoDokładnymTekście(dokument, definicja, AKTUALNA_PODSTAWA_WPISU_BUR);
+    }
+
+    if (aktualnaWartość === AKTUALNA_PODSTAWA_WPISU_BUR) {
+      return {
+        ok: true,
+        status: "już_zgodne",
+        natywnePole: natywnePole,
+        elementWidoczny: przestrzeń.znajdźWidocznyElementSelect2(natywnePole),
+        wartośćPrzed: aktualnaWartość,
+        wartośćPo: aktualnaWartość,
+        wartośćOczekiwana: AKTUALNA_PODSTAWA_WPISU_BUR,
+        kodBłędu: "",
+        komunikat: ""
+      };
+    }
+
+    if (aktualnaWartość !== NIEAKTUALNA_PODSTAWA_WPISU_BUR) {
+      return {
+        ok: true,
+        status: "nie_dotyczy",
+        natywnePole: natywnePole,
+        elementWidoczny: przestrzeń.znajdźWidocznyElementSelect2(natywnePole),
+        wartośćPrzed: aktualnaWartość,
+        wartośćPo: aktualnaWartość,
+        wartośćOczekiwana: AKTUALNA_PODSTAWA_WPISU_BUR,
+        kodBłędu: "",
+        komunikat: ""
+      };
+    }
+
+    return ustawSelect2PoDokładnymTekście(dokument, definicja, AKTUALNA_PODSTAWA_WPISU_BUR);
   }
 
   function znajdźElementPoTekście(dokument, tekst) {
@@ -765,8 +894,19 @@
     };
 
     try {
+      const korektaPodstawyWpisu = skorygujPodstawęWpisuBur(dokument);
+      if (korektaPodstawyWpisu.status === "potwierdzone") {
+        dodajUzupełnione(raport, "Formularz wstępny", "Podstawa uzyskania wpisu do BUR", AKTUALNA_PODSTAWA_WPISU_BUR);
+      } else if (!korektaPodstawyWpisu.ok) {
+        dodajPominięte(raport, "Formularz wstępny", "Podstawa uzyskania wpisu do BUR", korektaPodstawyWpisu.komunikat);
+        dodajOstrzeżenie(raport, "Formularz wstępny", "Podstawa uzyskania wpisu do BUR", korektaPodstawyWpisu.komunikat);
+      }
+
       const definicje = przestrzeń.pobierzDefinicjePólWypełnieniaBur(kontekst || {});
       definicje.forEach(function wypełnij(definicja) {
+        if (definicja.id === "podstawa-wpisu" && korektaPodstawyWpisu.status !== "nie_dotyczy") {
+          return;
+        }
         let pole = null;
         if (definicja.sposóbLokalizacji === "tabela") {
           pole = znajdźPoleWTabeli(dokument, definicja.definicjaPola.tabela, definicja.definicjaPola.kolumna);
@@ -790,6 +930,8 @@
   przestrzeń.ustawWartośćPola = ustawWartośćPola;
   przestrzeń.ustawWartośćQuill = ustawWartośćQuill;
   przestrzeń.ustawSelect2PoTekście = ustawSelect2PoTekście;
+  przestrzeń.ustawSelect2PoDokładnymTekście = ustawSelect2PoDokładnymTekście;
+  przestrzeń.skorygujPodstawęWpisuBur = skorygujPodstawęWpisuBur;
   przestrzeń.ustawPrzełącznikTakNie = ustawPrzełącznikTakNie;
   przestrzeń.ustawPoleJeśliIstnieje = ustawPoleJeśliIstnieje;
   przestrzeń.ustawPoleBurZWeryfikacją = ustawPoleBurZWeryfikacją;

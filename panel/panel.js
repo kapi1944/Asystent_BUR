@@ -332,7 +332,10 @@
     aktualnyTerminBur = terminBur && daty.dataRozpoczęcia && daty.dataZakończenia ? terminBur : null;
 
     if (!aktualnyTerminBur) {
-      elementy.aktualnyTerminBur.classList.add("ukryty");
+      elementy.aktualnyZakresBur.textContent = "Nie wybrano terminu";
+      elementy.aktualneSzczegółyBur.textContent = "";
+      elementy.aktualneSzczegółyBur.classList.add("ukryty");
+      elementy.aktualnyTerminBur.classList.remove("ukryty");
       return;
     }
 
@@ -1983,6 +1986,9 @@
 
   function ustawStatusStronyDlaKarty(karta) {
     const typ = rozpoznajTypStrony(karta ? karta.url : "");
+    if (typ !== "BUR") {
+      pokażAktualnyTerminBur(null);
+    }
     if (!czyUżytkownikWybrałZakładkę) {
       ustawAktywnąZakładkęPanelu(wybierzZakładkęDlaKarty(karta), false);
     }
@@ -2420,12 +2426,19 @@
       })
       .then(function pokażOdpowiedź(odpowiedź) {
         const propozycje = odpowiedź && odpowiedź.wynik && odpowiedź.wynik.propozycje;
+        const korektaPodstawyWpisu = odpowiedź && odpowiedź.wynik && odpowiedź.wynik.korektaPodstawyWpisu;
         if (!propozycje) { throw new Error("Nie udało się przygotować podglądu zmian BUR."); }
         podglądWypełnieniaBur = { propozycje: propozycje, kartaId: aktywnaOperacjaBur.identyfikatorKartyBur, indeksTerminu: aktywnaOperacjaBur.indeksTerminu, odciskSzkolenia: aktywnaOperacjaBur.odciskSzkolenia };
         aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "oczekuje_na_zatwierdzenie");
         zapiszStorage({ podglądWypełnieniaBur: podglądWypełnieniaBur, aktywnaOperacjaBur: aktywnaOperacjaBur });
         renderujPodglądWypełnieniaBur(); odświeżStatusOperacjiBur(); elementy.przyciskZastosujZmianyBur.disabled = false;
-        ustawStatus(elementy.statusSemper, "Podgląd zmian jest gotowy. Zaznacz zmiany i zatwierdź.", "status-odczytano");
+        ustawStatus(
+          elementy.statusSemper,
+          korektaPodstawyWpisu && !korektaPodstawyWpisu.ok
+            ? "Podgląd jest gotowy, ale nie skorygowano podstawy wpisu do BUR: " + korektaPodstawyWpisu.komunikat
+            : "Podgląd zmian jest gotowy. Zaznacz zmiany i zatwierdź.",
+          korektaPodstawyWpisu && !korektaPodstawyWpisu.ok ? "status-ostrzezenie" : "status-odczytano"
+        );
       })
       .catch(function pokażBłąd(błąd) {
         const komunikat = błąd && błąd.message
@@ -2629,6 +2642,21 @@
 
     ustawStatusStronyDlaKarty(karta).catch(function pomińBłąd() {});
   });
+  if (chrome.runtime.onMessage && chrome.runtime.onMessage.addListener) {
+    chrome.runtime.onMessage.addListener(function poZmianieTerminuBur(wiadomość, nadawca) {
+      if (!wiadomość || wiadomość.typ !== komunikaty.ZMIENIONO_AKTUALNY_TERMIN_BUR) {
+        return false;
+      }
+
+      pobierzAktywnąKartę().then(function odświeżJeśliAktywna(karta) {
+        if (!karta || nadawca && nadawca.tab && nadawca.tab.id !== karta.id) {
+          return;
+        }
+        return synchronizujAktualnyTerminBur(true);
+      }).catch(function pomińBłądSynchronizacji() {});
+      return false;
+    });
+  }
   window.addEventListener("scroll", function zapiszPozycjęWalidacji() {
     if (ostatniWynikWalidacjiBur) {
       zapiszStanSesjiWalidacji();

@@ -61,6 +61,30 @@
     };
   }
 
+  function utwórzDokumentPodstawyWpisu(wybranaWartość, czyBezAktualnejOpcji) {
+    const dokument = document.implementation.createHTMLDocument("Podstawa wpisu BUR");
+    const aktualna = "Znak Jakości TGLS Quality Alliance";
+    const nieaktualna = "(nieaktualna) Znak Jakości TGLS Quality Alliance";
+    dokument.body.innerHTML = [
+      "<div class=\"form-group\">",
+      "<label for=\"formularzwstepnysekcja-podstawauzyskaniawpisuid\">Podstawa uzyskania wpisu do BUR (w zakresie należytej jakości świadczenia usług)</label>",
+      "<select id=\"formularzwstepnysekcja-podstawauzyskaniawpisuid\" name=\"formularzwstepnysekcja[podstawauzyskaniawpisuid]\">",
+      "<option value=\"stara\"" + (wybranaWartość === nieaktualna ? " selected" : "") + ">" + nieaktualna + "</option>",
+      czyBezAktualnejOpcji ? "" : "<option value=\"aktualna\"" + (wybranaWartość === aktualna ? " selected" : "") + ">" + aktualna + "</option>",
+      "</select>",
+      "<span id=\"select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container\" title=\"" + wybranaWartość + "\">" + wybranaWartość + "</span>",
+      "</div>"
+    ].join("");
+    const natywnePole = dokument.querySelector("select");
+    const widoczny = dokument.querySelector("[id^='select2-']");
+    natywnePole.addEventListener("change", function zsynchronizujSelect2() {
+      const tekst = natywnePole.selectedOptions[0] ? natywnePole.selectedOptions[0].textContent : "";
+      widoczny.textContent = tekst;
+      widoczny.setAttribute("title", tekst);
+    });
+    return dokument;
+  }
+
   test("ustawWartośćPola ustawia input i wywołuje input/change", function sprawdź() {
     const dokument = document.implementation.createHTMLDocument("Pole");
     const input = dokument.createElement("input");
@@ -153,6 +177,48 @@
 
     sprawdzWarunek(ok, "Select2 z ukrytym select powinien zwrócić sukces.");
     sprawdzRownosc(dokument.querySelector("#forma").value, "online");
+  });
+
+  test("korekta TGLS zamienia starą opcję na aktualną", function sprawdź() {
+    const dokument = utwórzDokumentPodstawyWpisu("(nieaktualna) Znak Jakości TGLS Quality Alliance");
+    const wynik = bur.skorygujPodstawęWpisuBur(dokument);
+    sprawdzWarunek(wynik.ok && wynik.status === "potwierdzone");
+  });
+
+  test("korekta TGLS zapisuje rzeczywistą wartość natywnego selecta", function sprawdź() {
+    const dokument = utwórzDokumentPodstawyWpisu("(nieaktualna) Znak Jakości TGLS Quality Alliance");
+    bur.skorygujPodstawęWpisuBur(dokument);
+    sprawdzRownosc(dokument.querySelector("select").value, "aktualna");
+  });
+
+  test("korekta TGLS synchronizuje widoczny tekst Select2", function sprawdź() {
+    const dokument = utwórzDokumentPodstawyWpisu("(nieaktualna) Znak Jakości TGLS Quality Alliance");
+    bur.skorygujPodstawęWpisuBur(dokument);
+    sprawdzRownosc(dokument.querySelector("[id^='select2-']").textContent, "Znak Jakości TGLS Quality Alliance");
+  });
+
+  test("korekta TGLS emituje zdarzenie change", function sprawdź() {
+    const dokument = utwórzDokumentPodstawyWpisu("(nieaktualna) Znak Jakości TGLS Quality Alliance");
+    let liczbaZmian = 0;
+    dokument.querySelector("select").addEventListener("change", function policz() { liczbaZmian += 1; });
+    bur.skorygujPodstawęWpisuBur(dokument);
+    sprawdzWarunek(liczbaZmian > 0, "Nie wyemitowano zdarzenia change.");
+  });
+
+  test("aktualna opcja TGLS nie wywołuje niepotrzebnej zmiany", function sprawdź() {
+    const dokument = utwórzDokumentPodstawyWpisu("Znak Jakości TGLS Quality Alliance");
+    let liczbaZmian = 0;
+    dokument.querySelector("select").addEventListener("change", function policz() { liczbaZmian += 1; });
+    const wynik = bur.skorygujPodstawęWpisuBur(dokument);
+    sprawdzWarunek(wynik.ok && wynik.status === "już_zgodne");
+    sprawdzRownosc(liczbaZmian, 0);
+  });
+
+  test("brak aktualnej opcji TGLS daje bezpieczne ostrzeżenie", function sprawdź() {
+    const dokument = utwórzDokumentPodstawyWpisu("(nieaktualna) Znak Jakości TGLS Quality Alliance", true);
+    const wynik = bur.skorygujPodstawęWpisuBur(dokument);
+    sprawdzWarunek(!wynik.ok && wynik.kodBłędu === "BRAK_OCZEKIWANEJ_OPCJI");
+    sprawdzRownosc(dokument.querySelector("select").value, "stara");
   });
 
   test("Select2 bez ukrytego select daje ostrzeżenie, nie pełny sukces", function sprawdź() {

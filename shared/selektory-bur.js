@@ -1,5 +1,20 @@
 (function zarejestrujSelektoryBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
+  const AKTUALNA_PODSTAWA_WPISU_BUR = "Znak Jakości TGLS Quality Alliance";
+  const NIEAKTUALNA_PODSTAWA_WPISU_BUR = "(nieaktualna) Znak Jakości TGLS Quality Alliance";
+
+  function pobierzDefinicjęPodstawyWpisuBur() {
+    return {
+      sekcja: "Formularz wstępny",
+      etykieta: "Podstawa uzyskania wpisu do BUR",
+      selektoryNatywne: [
+        "#formularzwstepnysekcja-podstawauzyskaniawpisuid",
+        "select[name='formularzwstepnysekcja[podstawauzyskaniawpisuid]']",
+        "select[name*='podstawauzyskaniawpisu']"
+      ],
+      selektory: ["#select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container"]
+    };
+  }
 
   function normalizujTekstDoWalidacji(wartość) {
     const element = typeof document !== "undefined" ? document.createElement("div") : null;
@@ -278,6 +293,78 @@
     return "";
   }
 
+  function znajdźNatywnePoleWyboruWKontekście(element) {
+    if (!element) {
+      return null;
+    }
+
+    if (element.matches && element.matches("select")) {
+      return element;
+    }
+
+    const dokument = element.ownerDocument || document;
+    const dopasowanieId = String(element.id || "").match(/^select2-(.+)-container$/);
+
+    if (dopasowanieId) {
+      const polePoId = dokument.getElementById(dopasowanieId[1]);
+      if (polePoId && polePoId.matches("select")) {
+        return polePoId;
+      }
+    }
+
+    const kontener = element.closest && element.closest(".form-group, .question-field, .field, [class*='field-']");
+    const pola = kontener ? Array.from(kontener.querySelectorAll("select")) : [];
+
+    return pola.length === 1 ? pola[0] : null;
+  }
+
+  function znajdźNatywnePoleWyboruBur(dokument, definicjaPola) {
+    const definicja = definicjaPola || {};
+    const kluczEtykiety = normalizujKluczBur(definicja.etykieta || "");
+    const znalezionePoEtykiecie = [];
+
+    if (kluczEtykiety) {
+      Array.from(dokument.querySelectorAll("label")).forEach(function sprawdźEtykietę(etykieta) {
+        const tekst = normalizujKluczBur(etykieta.textContent || "");
+        if (!tekst || !tekst.includes(kluczEtykiety)) {
+          return;
+        }
+
+        const polePoId = etykieta.htmlFor ? dokument.getElementById(etykieta.htmlFor) : null;
+        const natywnePole = znajdźNatywnePoleWyboruWKontekście(polePoId || etykieta);
+        if (natywnePole) {
+          znalezionePoEtykiecie.push(natywnePole);
+        }
+      });
+    }
+
+    const unikalnePoEtykiecie = Array.from(new Set(znalezionePoEtykiecie));
+    if (unikalnePoEtykiecie.length === 1) {
+      return unikalnePoEtykiecie[0];
+    }
+
+    const selektoryNatywne = definicja.selektoryNatywne || [];
+    for (let indeks = 0; indeks < selektoryNatywne.length; indeks += 1) {
+      const pole = znajdźPolePoSelektorach(dokument, selektoryNatywne[indeks]);
+      if (pole && pole.matches("select")) {
+        return pole;
+      }
+    }
+
+    const prezentacja = znajdźPolePoSelektorach(dokument, definicja.selektory || []);
+    return znajdźNatywnePoleWyboruWKontekście(prezentacja);
+  }
+
+  function znajdźWidocznyElementSelect2(natywnePole) {
+    if (!natywnePole || !natywnePole.ownerDocument) {
+      return null;
+    }
+
+    return natywnePole.id
+      ? natywnePole.ownerDocument.getElementById("select2-" + natywnePole.id + "-container")
+      : null;
+  }
+
   function pobierzWartośćQuill(elementLubKontener) {
     if (!elementLubKontener) {
       return "";
@@ -383,6 +470,11 @@
   przestrzeń.znajdźKontenerPola = znajdźKontenerPola;
   przestrzeń.pobierzWartośćPola = pobierzWartośćPola;
   przestrzeń.pobierzTekstSelect2 = pobierzTekstSelect2;
+  przestrzeń.pobierzDefinicjęPodstawyWpisuBur = pobierzDefinicjęPodstawyWpisuBur;
+  przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR = AKTUALNA_PODSTAWA_WPISU_BUR;
+  przestrzeń.NIEAKTUALNA_PODSTAWA_WPISU_BUR = NIEAKTUALNA_PODSTAWA_WPISU_BUR;
+  przestrzeń.znajdźNatywnePoleWyboruBur = znajdźNatywnePoleWyboruBur;
+  przestrzeń.znajdźWidocznyElementSelect2 = znajdźWidocznyElementSelect2;
   przestrzeń.pobierzWartośćQuill = pobierzWartośćQuill;
   przestrzeń.pobierzStanPrzełącznika = pobierzStanPrzełącznika;
   przestrzeń.normalizujTekstDoWalidacji = normalizujTekstDoWalidacji;
