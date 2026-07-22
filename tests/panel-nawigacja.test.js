@@ -75,6 +75,19 @@
     });
   });
 
+  test("wybór niejednoznacznego terminu znajduje się przed akcjami harmonogramu", function sprawdźPołożenieWyboru() {
+    return pobierzPlik("../panel/panel.html").then(function sprawdźHtml(html) {
+      const dokument = new DOMParser().parseFromString(html, "text/html");
+      const wybór = dokument.getElementById("wybor-niejednoznacznego-terminu");
+      const statusTabeli = dokument.getElementById("status-tabeli-harmonogramu");
+      const przyciski = dokument.querySelector("#przycisk-uzupelnij-program").closest(".siatka-przycisków");
+
+      sprawdzWarunek(wybór.closest('[data-zakladki="harmonogram"]') !== null, "Wybór terminu powinien należeć do zakładki Harmonogram.");
+      sprawdzWarunek(Boolean(statusTabeli.compareDocumentPosition(wybór) & Node.DOCUMENT_POSITION_FOLLOWING), "Wybór terminu powinien być po statusie tabeli harmonogramu.");
+      sprawdzWarunek(Boolean(wybór.compareDocumentPosition(przyciski) & Node.DOCUMENT_POSITION_FOLLOWING), "Wybór terminu powinien być przed przyciskami harmonogramu.");
+    });
+  });
+
   test("Przyciski przełączają sekcję kliknięciem oraz klawiaturą", function sprawdźObsługęPrzełączania() {
     return utwórzPanelTestowy(true).then(function sprawdźPanel(ramka) {
       const dokument = ramka.contentWindow.document;
