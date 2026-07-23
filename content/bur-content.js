@@ -1045,6 +1045,19 @@
   }
 
   function pobierzTytułAktualnejUsługiBur(dokumentBur) {
+    const selektoryTytułu = [
+      "#informacjepodstawowesekcja-tytuluslugi",
+      "input[name*='tytuluslugi' i]",
+      "textarea[name*='tytuluslugi' i]"
+    ];
+    const poleTytułu = selektoryTytułu.map(function znajdź(selektor) {
+      return dokumentBur.querySelector(selektor);
+    }).find(Boolean);
+
+    if (poleTytułu) {
+      return String(przestrzen.pobierzWartośćPola(poleTytułu) || "").replace(/\s+/g, " ").trim();
+    }
+
     const wynikPola = przestrzen.znajdźCelFormularzaBur(dokumentBur, "tytul");
     const wartość = wynikPola.ok ? przestrzen.pobierzWartośćPola(wynikPola.element) : "";
     return String(wartość || "").replace(/\s+/g, " ").trim();
@@ -1104,8 +1117,7 @@
       return true;
     }
 
-    const wynikPolaTytułu = przestrzen.znajdźCelFormularzaBur(element.ownerDocument || document, "tytul");
-    return wynikPolaTytułu.ok && wynikPolaTytułu.element === element;
+    return false;
   }
 
   function zaplanujPowiadomienieOTerminieBur(zdarzenie) {
@@ -1386,13 +1398,11 @@
     }
   }
 
-  const poprzedniaRejestracjaListenera = Number(globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ || 0);
-
-  if (Date.now() - poprzedniaRejestracjaListenera < 1000) {
+  if (globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__) {
     return;
   }
 
-  globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ = Date.now();
+  globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ = true;
 
   przestrzen.pobierzWierszeHarmonogramu = odczytajWierszeHarmonogramu;
   przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;

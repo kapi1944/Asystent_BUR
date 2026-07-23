@@ -1651,17 +1651,22 @@
   }
 
   function przygotujHarmonogramWPanelu() {
+    const początekPrzygotowania = globalny.performance && typeof globalny.performance.now === "function"
+      ? globalny.performance.now()
+      : 0;
     wyczyśćDecyzjęHarmonogramuBur();
     ustawStatusProgramuHarmonogramu("Przygotowuję harmonogram...", "status-neutralny");
 
-    zweryfikujTerminPrzedPrzygotowaniem()
-      .then(zbudujDaneProgramuHarmonogramu)
+    zbudujDaneProgramuHarmonogramu()
       .then(function pokażWynik(dane) {
         pokażPodglądHarmonogramu(dane);
         return zapiszDaneHarmonogramu(dane).then(function pokaż() {
           elementy.przyciskImportujHarmonogramXlsx.disabled = false;
           elementy.przyciskPobierzHarmonogramCsv.disabled = false;
           ustawStatusProgramuHarmonogramu("Harmonogram przygotowany. Sprawdź podgląd przed wprowadzeniem do BUR.", dane.ostrzeżenia.length ? "status-ostrzezenie" : "status-odczytano");
+          if (globalny.__BUR_ASYSTENT_DIAGNOSTYKA_WYDAJNOŚCI__ && początekPrzygotowania) {
+            console.debug("BUR Asystent: przygotowanie harmonogramu", Math.round(globalny.performance.now() - początekPrzygotowania) + " ms");
+          }
         });
       })
       .catch(function pokażBłąd(błąd) {

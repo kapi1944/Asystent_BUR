@@ -87,4 +87,41 @@
       }, 90);
     });
   });
+
+  test("zwykły input nie uruchamia kosztownego resolvera tytułu", function sprawdź() {
+    const poprzedniResolver = window.BurAsystent.znajdźCelFormularzaBur;
+    const pole = document.createElement("input");
+    let uruchomionoResolver = false;
+
+    window.BurAsystent.znajdźCelFormularzaBur = function oznaczResolver() {
+      uruchomionoResolver = true;
+      return { ok: false };
+    };
+    document.body.appendChild(pole);
+    pole.dispatchEvent(new Event("input", { bubbles: true }));
+    pole.remove();
+    window.BurAsystent.znajdźCelFormularzaBur = poprzedniResolver;
+
+    sprawdzWarunek(!uruchomionoResolver, "Zwykły input nie może uruchamiać resolvera pola tytułu.");
+  });
+
+  test("ponowne wykonanie content scriptu nie dodaje listenerów terminu", function sprawdź() {
+    return fetch("../content/bur-content.js").then(function odczytaj(odpowiedź) {
+      return odpowiedź.text();
+    }).then(function wykonajPonownie(kod) {
+      const poprzednieDodawanie = document.addEventListener;
+      let liczbaNowychListenerów = 0;
+
+      document.addEventListener = function policzListenery(typ) {
+        if (typ === "input" || typ === "change") {
+          liczbaNowychListenerów += 1;
+        }
+        return poprzednieDodawanie.apply(this, arguments);
+      };
+      window.eval(kod);
+      document.addEventListener = poprzednieDodawanie;
+
+      sprawdzRownosc(liczbaNowychListenerów, 0, "Reiniekcja nie może rejestrować drugiego kompletu listenerów.");
+    });
+  });
 })();

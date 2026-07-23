@@ -13,6 +13,17 @@
     return Array.from(dokument.querySelectorAll("[data-przelacz-zakladke]"));
   }
 
+  test("przygotowanie harmonogramu nie zależy od aktywnej karty BUR ani synchronizacji terminu", function sprawdźPrzygotowanieLokalne() {
+    return pobierzPlik("../panel/panel.js").then(function sprawdźKod(kod) {
+      const funkcja = kod.match(/function przygotujHarmonogramWPanelu\(\) \{([\s\S]*?)\n  \}\n\n  function uzupełnijProgramWPanelu/);
+
+      sprawdzWarunek(Boolean(funkcja), "Nie znaleziono funkcji przygotowania harmonogramu.");
+      sprawdzWarunek(!funkcja[1].includes("zweryfikujTerminPrzedPrzygotowaniem"), "Przygotowanie harmonogramu nie może synchronizować terminu BUR.");
+      sprawdzWarunek(!funkcja[1].includes("pobierzAktualnyTerminBurZKarty"), "Przygotowanie harmonogramu nie może odczytywać aktywnej karty BUR.");
+      sprawdzWarunek(funkcja[1].includes("zbudujDaneProgramuHarmonogramu()"), "Przygotowanie ma lokalnie budować dane harmonogramu.");
+    });
+  });
+
   function utwórzPanelTestowy(czySkryptStronyDostępny) {
     return pobierzPlik("../panel/panel.html").then(function utwórzRamkę(html) {
       const ramka = document.createElement("iframe");
