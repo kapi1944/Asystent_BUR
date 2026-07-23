@@ -24,6 +24,26 @@
     });
   });
 
+  test("Harmonogram ma niezależny wybór terminu z SEMPER i kolejki BUR", function sprawdźNiezależnyWybór() {
+    return Promise.all([
+      pobierzPlik("../panel/panel.html"),
+      pobierzPlik("../panel/panel.js"),
+      pobierzPlik("../content/bur-content.js")
+    ]).then(function sprawdźPliki(wyniki) {
+      const html = wyniki[0];
+      const panel = wyniki[1];
+      const content = wyniki[2];
+      const dokument = new DOMParser().parseFromString(html, "text/html");
+
+      sprawdzWarunek(Boolean(dokument.getElementById("lista-terminow-harmonogramu-semper")), "Brakuje listy terminów SEMPER dla harmonogramu.");
+      sprawdzWarunek(Boolean(dokument.getElementById("lista-terminow-harmonogramu-kolejka")), "Brakuje listy terminów kolejki BUR dla harmonogramu.");
+      sprawdzWarunek(panel.includes("wybranyTerminHarmonogramuBur"), "Panel nie ma niezależnego stanu terminu harmonogramu.");
+      sprawdzWarunek(panel.includes("utwórzTerminHarmonogramuZKolejki"), "Kolejka BUR nie jest źródłem terminu harmonogramu.");
+      sprawdzWarunek(panel.includes("Użyj do harmonogramu"), "Podgląd kolejki nie oferuje szybkiego wyboru do harmonogramu.");
+      sprawdzWarunek(content.includes("NIE WPROWADZONO HARMONOGRAMU"), "Content script nie ma końcowej blokady niezgodnego terminu.");
+    });
+  });
+
   function utwórzPanelTestowy(czySkryptStronyDostępny) {
     return pobierzPlik("../panel/panel.html").then(function utwórzRamkę(html) {
       const ramka = document.createElement("iframe");

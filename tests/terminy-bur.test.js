@@ -139,4 +139,76 @@
     sprawdzWarunek(!widoczne.some(function online(pozycja) { return pozycja.indeks === 2; }));
     sprawdzRownosc(dopasowanie.indeks, 2);
   });
+
+  test("termin harmonogramu SEMPER ma stabilne ID niezależne od pozycji listy", function sprawdź() {
+    const pierwszy = bur.utwórzTerminHarmonogramuZeSemper(terminy[0], 0);
+    const poPrzestawieniu = bur.utwórzTerminHarmonogramuZeSemper(terminy[0], 9);
+    sprawdzRownosc(pierwszy.stabilnyId, poPrzestawieniu.stabilnyId);
+    sprawdzWarunek(bur.czyTenSamTerminHarmonogramu(pierwszy, poPrzestawieniu));
+  });
+
+  test("neutralny termin harmonogramu z kolejki zachowuje daty tryb i lokalizację", function sprawdź() {
+    const termin = bur.utwórzTerminHarmonogramuZKolejki({
+      dataOd: "2027-07-06",
+      dataDo: "2027-07-09",
+      miasto: "Gdańsk",
+      online: false
+    });
+    sprawdzRownosc(termin.źródło, "kolejka");
+    sprawdzRownosc(termin.dataRozpoczęcia, "2027-07-06");
+    sprawdzRownosc(termin.dataZakończenia, "2027-07-09");
+    sprawdzRownosc(termin.tryb, "stacjonarny");
+    sprawdzRownosc(termin.lokalizacja, "Gdańsk");
+  });
+
+  test("zgodność terminu harmonogramu blokuje inny tryb lub lokalizację gdy dane są dostępne", function sprawdź() {
+    const termin = bur.utwórzTerminHarmonogramuZKolejki({
+      dataOd: "2027-07-07",
+      dataDo: "2027-07-09",
+      online: true
+    });
+    const zgodny = bur.sprawdźZgodnośćTerminuHarmonogramuZBur(termin, {
+      dataRozpoczęcia: "2027-07-07",
+      dataZakończenia: "2027-07-09",
+      tryb: "online"
+    });
+    const złyTryb = bur.sprawdźZgodnośćTerminuHarmonogramuZBur(termin, {
+      dataRozpoczęcia: "2027-07-07",
+      dataZakończenia: "2027-07-09",
+      tryb: "stacjonarna",
+      lokalizacja: "Gdańsk"
+    });
+    sprawdzRownosc(zgodny.ok, true);
+    sprawdzRownosc(złyTryb.ok, false);
+    sprawdzRownosc(złyTryb.zgodneDaty, true);
+    sprawdzRownosc(złyTryb.zgodnyTryb, false);
+  });
+
+  test("nazwa pobieranego pliku harmonogramu zawiera datę utworzenia termin i lokalizację", function sprawdź() {
+    const nazwa = bur.zbudujNazwęPlikuHarmonogramu({
+      dataRozpoczęcia: "2027-04-12",
+      dataZakończenia: "2027-04-13",
+      tryb: "stacjonarny",
+      lokalizacja: "Poznań"
+    }, new Date(2026, 6, 23), "csv");
+
+    sprawdzRownosc(
+      nazwa,
+      "[2026-07-23]_BUR_Harmonogram_2027-04-12--2027-04-13_Poznań.csv"
+    );
+  });
+
+  test("nazwa pobieranego pliku harmonogramu używa Online i ignoruje lokalizację dla trybu online", function sprawdź() {
+    const nazwa = bur.zbudujNazwęPlikuHarmonogramu({
+      dataRozpoczęcia: "2027-05-10",
+      dataZakończenia: "2027-05-11",
+      tryb: "online",
+      lokalizacja: "Dowolna/lokalizacja"
+    }, "2026-07-23", "csv");
+
+    sprawdzRownosc(
+      nazwa,
+      "[2026-07-23]_BUR_Harmonogram_2027-05-10--2027-05-11_Online.csv"
+    );
+  });
 })();

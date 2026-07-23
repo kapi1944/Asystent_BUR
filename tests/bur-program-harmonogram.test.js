@@ -286,16 +286,27 @@
     sprawdzWarunek(gotowość.komunikat.includes("Przygotuj harmonogram"), "Komunikat powinien kierować do przygotowania harmonogramu.");
   });
 
-  test("zmiana terminu po przygotowaniu blokuje użycie starego harmonogramu", function sprawdź() {
+  test("zmiana globalnego terminu SEMPER nie unieważnia przygotowanego harmonogramu", function sprawdź() {
     const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
       harmonogramBurPrzygotowany: true,
+      harmonogramBurNieaktualny: false,
       ostatniePozycjeHarmonogramuBur: [{ typ_aktywnosci: "Zajęcia" }],
       ostatniWybranyTerminHarmonogramuBur: 0,
       wybranyTerminSemperIndex: 1
     });
 
-    sprawdzRownosc(gotowość.ok, false, "Stary harmonogram nie powinien być gotowy po zmianie terminu.");
-    sprawdzRownosc(gotowość.nieaktualny, true, "Blokada powinna oznaczać nieaktualny harmonogram.");
+    sprawdzRownosc(gotowość.ok, true, "Wybór terminu do walidacji/wypełniania nie może unieważniać harmonogramu.");
+  });
+
+  test("jawnie nieaktualny harmonogram jest blokowany po zmianie terminu harmonogramu", function sprawdź() {
+    const gotowość = asystent.sprawdźGotowośćHarmonogramuBur({
+      harmonogramBurPrzygotowany: true,
+      harmonogramBurNieaktualny: true,
+      ostatniePozycjeHarmonogramuBur: [{ typ_aktywnosci: "Zajęcia" }]
+    });
+
+    sprawdzRownosc(gotowość.ok, false, "Zmiana rzeczywistego terminu harmonogramu powinna unieważnić podgląd.");
+    sprawdzRownosc(gotowość.nieaktualny, true);
   });
 
   test("przygotowane pozycje są źródłem prawdy dla wprowadzenia", function sprawdź() {

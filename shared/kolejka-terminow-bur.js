@@ -2,10 +2,40 @@
   const przestrzeń = globalny.BurAsystent || {};
   const MIASTA_BUR = ["Warszawa", "Wrocław", "Kraków", "Poznań", "Zakopane", "Kołobrzeg", "Gdańsk", "Katowice", "Szczecin"];
 
+  function oczyśćLokalizacjęKolejki(tekst) {
+    return String(tekst || "")
+      .replace(/\b(?:od|do)\s*:\s*\d{4}-\d{2}-\d{2}\b/gi, " ")
+      .replace(/\b(?:cena|koszt)\s*:?\s*\d[\d\s.,]*(?:pln|zł|zl|eur)?\b.*$/i, " ")
+      .replace(/\b\d[\d\s.,]*\s*(?:pln|zł|zl|eur)\b.*$/i, " ")
+      .replace(/\b(?:miejsce|lokalizacja|miasto)\s*:\s*/gi, " ")
+      .replace(/\b(?:szkolenie\s+)?stacjonarn\w*\b/gi, " ")
+      .replace(/[|;,]+$/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
   function pobierzMiastoBur(tekst) {
-    return MIASTA_BUR.find(function znajdź(miasto) {
-      return String(tekst || "").toLocaleLowerCase("pl-PL").includes(miasto.toLocaleLowerCase("pl-PL"));
-    }) || "";
+    const wartość = String(tekst || "");
+    const znane = MIASTA_BUR.find(function znajdź(miasto) {
+      return wartość.toLocaleLowerCase("pl-PL").includes(miasto.toLocaleLowerCase("pl-PL"));
+    });
+    if (znane) {
+      return znane;
+    }
+
+    const liniaLokalizacji = wartość
+      .replace(/\r/g, "")
+      .split("\n")
+      .map(function oczyść(linia) { return linia.trim(); })
+      .find(function znajdźLinię(linia) {
+        return /^(?:miejsce|lokalizacja|miasto)\s*:/i.test(linia);
+      });
+    const kandydat = oczyśćLokalizacjęKolejki(liniaLokalizacji || wartość);
+
+    if (!kandydat || !/[a-ząćęłńóśźż]/i.test(kandydat)) {
+      return "";
+    }
+    return kandydat;
   }
 
   function czyTerminOnlineKolejki(tekst) {
@@ -45,7 +75,7 @@
     while (koniec < linie.length && !/^od:\s*/i.test(linie[koniec]) && !/^\d{4}-\d{2}-\d{2}-\d{4}-\d{2}-\d{2}\s+/.test(linie[koniec])) {
       koniec += 1;
     }
-    const opis = linie.slice(indeks, koniec).join(" ");
+    const opis = linie.slice(indeks, koniec).join("\n");
     const online = czyTerminOnlineKolejki(opis);
     const miasto = online ? "" : pobierzMiastoBur(opis);
     if (!online && !miasto) {

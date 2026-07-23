@@ -248,12 +248,36 @@ textarea:focus {
   font-size: 12px;
 }
 
+.aktualny-termin-bur-naglowek {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
 .aktualny-termin-bur h3 {
-  margin: 0 0 4px;
+  margin: 0;
   color: var(--tekst-slaby);
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.aktualny-termin-bur .zgodnosc-aktualnego-terminu-bur {
+  display: inline-flex;
+  flex: 0 0 auto;
+  margin: 0;
+  color: var(--zielony);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.aktualny-termin-bur .zgodnosc-aktualnego-terminu-bur.ukryty {
+  display: none;
 }
 
 .aktualny-termin-bur strong,
@@ -415,6 +439,100 @@ textarea:focus {
   padding: 8px 0;
   color: var(--tekst-slaby);
   font-size: 12px;
+}
+
+.wybor-terminu-harmonogramu {
+  margin: 10px 0 12px;
+  padding: 10px;
+  border: 1px solid var(--ramka);
+  border-radius: 6px;
+  background: #1b1b1b;
+}
+
+.wybor-terminu-harmonogramu > h3 {
+  margin: 0 0 7px;
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+.wybor-terminu-harmonogramu > h4 {
+  margin: 10px 0 4px;
+  color: var(--tekst-slaby);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wybrany-termin-harmonogramu {
+  padding: 7px 8px;
+  border: 1px solid var(--ramka);
+  border-radius: 5px;
+  background: var(--panel-drugi);
+  color: var(--tekst);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.lista-terminow-harmonogramu {
+  display: grid;
+  gap: 4px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.lista-terminow-harmonogramu .grupa-terminow {
+  min-width: 0;
+}
+
+.pozycja-terminu-harmonogramu {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 7px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--tekst-slaby);
+  font-size: 12px;
+  font-weight: 400;
+  text-align: left;
+}
+
+.pozycja-terminu-harmonogramu:hover,
+.pozycja-terminu-harmonogramu:focus-visible {
+  border-color: var(--ramka);
+  background: var(--panel-drugi);
+}
+
+.pozycja-terminu-harmonogramu.wybrany {
+  border-color: var(--czerwony);
+  background: rgba(229, 57, 53, 0.12);
+  color: var(--tekst);
+}
+
+.lista-podgladu-kolejki li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+
+.lista-podgladu-kolejki .uzyj-do-harmonogramu {
+  width: auto;
+  min-height: 28px;
+  padding: 4px 7px;
+  border-color: var(--ramka);
+  background: var(--panel-drugi);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.filtr-terminow-harmonogramu {
+  margin-bottom: 8px;
 }
 
 .przycisk-główny {

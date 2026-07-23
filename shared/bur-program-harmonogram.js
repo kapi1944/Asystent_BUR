@@ -596,13 +596,6 @@
     return wynik;
   }
 
-  function czyTenSamIndeksTerminu(indeksPrzygotowany, indeksAktualny) {
-    const przygotowany = indeksPrzygotowany === null || indeksPrzygotowany === undefined || indeksPrzygotowany === "" ? null : Number(indeksPrzygotowany);
-    const aktualny = indeksAktualny === null || indeksAktualny === undefined || indeksAktualny === "" ? null : Number(indeksAktualny);
-
-    return przygotowany === aktualny;
-  }
-
   function sprawdźGotowośćHarmonogramuBur(dane) {
     const źródło = dane || {};
     const pozycje = Array.isArray(źródło.ostatniePozycjeHarmonogramuBur) ? źródło.ostatniePozycjeHarmonogramuBur : [];
@@ -613,18 +606,19 @@
       };
     }
 
-    if (!czyTenSamIndeksTerminu(źródło.ostatniWybranyTerminHarmonogramuBur, źródło.wybranyTerminSemperIndex)) {
+    if (źródło.harmonogramBurNieaktualny) {
       return {
         ok: false,
         nieaktualny: true,
-        komunikat: "Wybrany termin SEMPER zmienił się po przygotowaniu harmonogramu. Kliknij ponownie »Przygotuj harmonogram«."
+        komunikat: "Zmieniono dane użyte do przygotowania harmonogramu. Kliknij ponownie »Przygotuj harmonogram«."
       };
     }
 
     return {
       ok: true,
       pozycje: pozycje,
-      indeksTerminu: źródło.ostatniWybranyTerminHarmonogramuBur
+      indeksTerminu: źródło.ostatniWybranyTerminHarmonogramuBur,
+      kontekstTerminu: źródło.kontekstPrzygotowanegoHarmonogramuBur || null
     };
   }
 

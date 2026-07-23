@@ -33,4 +33,22 @@
     const termin = bur.parsujKolejkęTerminówBur("2027-07-01-2027-07-02 Szkolenie online").terminy[0];
     sprawdzRownosc(bur.opiszTerminKolejkiBur(termin), "2027-07-01 – 2027-07-02 · Online");
   });
+
+  test("kolejka akceptuje miasto spoza starej listy i odcina cenę", function sprawdź() {
+    const wynik = bur.parsujKolejkęTerminówBur("2027-08-01-2027-08-02 Rzeszów 2390.00 PLN");
+    sprawdzRownosc(wynik.terminy.length, 1, "Nie rozpoznano poprawnego terminu z nowym miastem.");
+    sprawdzRownosc(wynik.terminy[0].miasto, "Rzeszów", "Cena nie może wejść do nazwy lokalizacji.");
+    sprawdzRownosc(wynik.terminy[0].online, false);
+  });
+
+  test("kolejka rozpoznaje dowolne miasto z bloku Miejsce", function sprawdź() {
+    const wynik = bur.parsujKolejkęTerminówBur([
+      "od: 2027-08-10",
+      "do: 2027-08-11",
+      "Miejsce: Bydgoszcz",
+      "Cena: 2490 PLN"
+    ].join("\n"));
+    sprawdzRownosc(wynik.terminy.length, 1);
+    sprawdzRownosc(wynik.terminy[0].miasto, "Bydgoszcz");
+  });
 })();

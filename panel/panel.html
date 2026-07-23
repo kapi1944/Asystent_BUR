@@ -21,7 +21,10 @@
         <button type="button" data-przelacz-zakladke="diagnostyka" aria-pressed="false">Diagnostyka</button>
       </div>
       <section id="aktualny-termin-bur" class="aktualny-termin-bur" aria-live="polite">
-        <h3>EDYTOWANY TERMIN BUR</h3>
+        <div class="aktualny-termin-bur-naglowek">
+          <h3>EDYTOWANY TERMIN BUR</h3>
+          <span id="zgodnosc-aktualnego-terminu-bur" class="zgodnosc-aktualnego-terminu-bur ukryty">✓ ZGODNE</span>
+        </div>
         <span id="aktualny-tytul-bur" class="aktualny-tytul-bur" title="Brak tytułu usługi">Brak tytułu usługi</span>
         <strong id="aktualny-zakres-bur">Nie wybrano terminu</strong>
         <span id="aktualne-szczegoly-bur" class="ukryty"></span>
@@ -138,6 +141,20 @@
           <dt>Tabela harmonogramu</dt>
           <dd id="status-tabeli-harmonogramu">-</dd>
         </dl>
+        <section class="wybor-terminu-harmonogramu" aria-labelledby="naglowek-terminu-harmonogramu">
+          <h3 id="naglowek-terminu-harmonogramu">Termin harmonogramu</h3>
+          <div id="wybrany-termin-harmonogramu" class="wybrany-termin-harmonogramu">Nie wybrano terminu harmonogramu.</div>
+          <div id="zgodnosc-terminu-harmonogramu" class="komunikat status-neutralny">Wybierz termin, dla którego przygotować harmonogram.</div>
+          <div class="filtr-terminow filtr-terminow-harmonogramu" role="group" aria-label="Filtr terminów harmonogramu">
+            <button type="button" data-filtr-harmonogramu="wszystkie" aria-pressed="true">Wszystkie</button>
+            <button type="button" data-filtr-harmonogramu="stacjonarne" aria-pressed="false">Stacjonarne</button>
+            <button type="button" data-filtr-harmonogramu="online" aria-pressed="false">Online</button>
+          </div>
+          <h4>Kolejka BUR</h4>
+          <div id="lista-terminow-harmonogramu-kolejka" class="lista-terminow-harmonogramu"></div>
+          <h4>Terminy SEMPER</h4>
+          <div id="lista-terminow-harmonogramu-semper" class="lista-terminow-harmonogramu"></div>
+        </section>
         <section id="wybor-niejednoznacznego-terminu" class="wybor-niejednoznacznego-terminu ukryty" aria-live="polite"></section>
         <div class="siatka-przycisków">
           <button id="przycisk-uzupelnij-program" type="button">Uzupełnij program</button>

@@ -236,27 +236,122 @@
     return [termin && termin.miejsce, "stacjonarna"].filter(Boolean).join(" · ") || "Stacjonarna";
   }
 
-  function utwórzKontekstTerminuSemper(termin, indeks) {
+  function utwórzStabilnyIdTerminuHarmonogramu(dane) {
+    const wartości = dane || {};
+    return [
+      wartości.źródło || "termin",
+      normalizujDatęTerminu(wartości.dataRozpoczęcia),
+      normalizujDatęTerminu(wartości.dataZakończenia),
+      normalizujTrybTerminu(wartości.tryb),
+      normalizujLokalizację(wartości.lokalizacja),
+      String(wartości.wariant || "")
+    ].join("|");
+  }
+
+  function utwórzTerminHarmonogramuZeSemper(termin, indeks) {
     const dane = termin || {};
     const daty = pobierzDatyTerminuSemper(dane);
-    const tryb = pobierzTrybTerminu(dane);
-    const lokalizacja = tryb === "online" ? "" : normalizujLokalizację(dane.miejsce);
-    const stabilnyId = dane.id || dane.identyfikator || [
-      daty.dataRozpoczęcia,
-      daty.dataZakończenia,
-      tryb,
-      lokalizacja,
-      dane.cena || "",
-      dane.czasTrwania || "",
-      Number.isInteger(indeks) ? indeks : ""
-    ].join("|");
-
-    return {
+    const tryb = pobierzTrybTerminu(dane) || (czyTerminOnline(dane) ? "online" : "stacjonarny");
+    const lokalizacja = tryb === "online" ? "" : String(dane.miejsce || "").trim();
+    const wynik = {
+      źródło: "semper",
       dataRozpoczęcia: daty.dataRozpoczęcia,
       dataZakończenia: daty.dataZakończenia,
       tryb: tryb,
       lokalizacja: lokalizacja,
-      stabilnyId: stabilnyId
+      indeksSemper: Number.isInteger(indeks) ? indeks : null,
+      wariant: ""
+    };
+    wynik.stabilnyId = dane.id || dane.identyfikator || utwórzStabilnyIdTerminuHarmonogramu(wynik);
+    return wynik;
+  }
+
+  function utwórzTerminHarmonogramuZKolejki(termin) {
+    const dane = termin || {};
+    const wynik = {
+      źródło: "kolejka",
+      dataRozpoczęcia: normalizujDatęTerminu(dane.dataOd || dane.dataRozpoczęcia),
+      dataZakończenia: normalizujDatęTerminu(dane.dataDo || dane.dataZakończenia || dane.dataOd),
+      tryb: dane.online ? "online" : "stacjonarny",
+      lokalizacja: dane.online ? "" : String(dane.miasto || dane.lokalizacja || "").trim(),
+      wariant: ""
+    };
+    wynik.stabilnyId = dane.stabilnyId || utwórzStabilnyIdTerminuHarmonogramu(wynik);
+    return wynik;
+  }
+
+  function pobierzDatyTerminuHarmonogramu(termin) {
+    const dane = termin || {};
+    return {
+      dataRozpoczęcia: normalizujDatęTerminu(dane.dataRozpoczęcia || dane.dataOd || dane.dataStartBur),
+      dataZakończenia: normalizujDatęTerminu(dane.dataZakończenia || dane.dataDo || dane.dataKoniecBur || dane.dataRozpoczęcia || dane.dataOd)
+    };
+  }
+
+  function czyTenSamTerminHarmonogramu(pierwszy, drugi) {
+    const a = pierwszy || {};
+    const b = drugi || {};
+    return Boolean(a.stabilnyId && b.stabilnyId)
+      && a.stabilnyId === b.stabilnyId
+      && String(a.źródło || "") === String(b.źródło || "");
+  }
+
+  function sprawdźZgodnośćTerminuHarmonogramuZBur(terminHarmonogramu, terminBur) {
+    const harmonogram = pobierzDatyTerminuHarmonogramu(terminHarmonogramu);
+    const bur = pobierzDatyTerminuBur(terminBur);
+    const trybHarmonogramu = normalizujTrybTerminu(terminHarmonogramu && terminHarmonogramu.tryb);
+    const trybBur = normalizujTrybTerminu(terminBur && terminBur.tryb);
+    const lokalizacjaHarmonogramu = normalizujLokalizację(terminHarmonogramu && terminHarmonogramu.lokalizacja);
+    const lokalizacjaBur = normalizujLokalizację(terminBur && terminBur.lokalizacja);
+    const zgodneDaty = Boolean(
+      harmonogram.dataRozpoczęcia
+      && harmonogram.dataZakończenia
+      && bur.dataRozpoczęcia
+      && bur.dataZakończenia
+      && harmonogram.dataRozpoczęcia === bur.dataRozpoczęcia
+      && harmonogram.dataZakończenia === bur.dataZakończenia
+    );
+    const zgodnyTryb = !trybHarmonogramu || !trybBur || trybHarmonogramu === trybBur;
+    const zgodnaLokalizacja = trybHarmonogramu === "online"
+      || !lokalizacjaHarmonogramu
+      || !lokalizacjaBur
+      || lokalizacjaHarmonogramu === lokalizacjaBur
+      || lokalizacjaHarmonogramu.includes(lokalizacjaBur)
+      || lokalizacjaBur.includes(lokalizacjaHarmonogramu);
+
+    return {
+      ok: zgodneDaty && zgodnyTryb && zgodnaLokalizacja,
+      zgodneDaty: zgodneDaty,
+      zgodnyTryb: zgodnyTryb,
+      zgodnaLokalizacja: zgodnaLokalizacja,
+      datyHarmonogramu: harmonogram,
+      datyBur: bur,
+      trybHarmonogramu: trybHarmonogramu,
+      trybBur: trybBur,
+      lokalizacjaHarmonogramu: lokalizacjaHarmonogramu,
+      lokalizacjaBur: lokalizacjaBur
+    };
+  }
+
+  function opiszTerminHarmonogramu(termin) {
+    const dane = termin || {};
+    const daty = pobierzDatyTerminuHarmonogramu(dane);
+    const zakres = formatujZakresDatPrezentacyjny(daty.dataRozpoczęcia, daty.dataZakończenia) || "Brak dat";
+    const szczegóły = dane.tryb === "online"
+      ? ["Online"]
+      : [dane.lokalizacja, "stacjonarna"].filter(Boolean);
+    const źródło = dane.źródło === "kolejka" ? "Kolejka BUR" : (dane.źródło === "semper" ? "SEMPER" : "");
+    return [zakres].concat(szczegóły).concat(źródło ? ["Źródło: " + źródło] : []).join(" · ");
+  }
+
+  function utwórzKontekstTerminuSemper(termin, indeks) {
+    const kontekst = utwórzTerminHarmonogramuZeSemper(termin, indeks);
+    return {
+      dataRozpoczęcia: kontekst.dataRozpoczęcia,
+      dataZakończenia: kontekst.dataZakończenia,
+      tryb: kontekst.tryb,
+      lokalizacja: normalizujLokalizację(kontekst.lokalizacja),
+      stabilnyId: kontekst.stabilnyId
     };
   }
 
@@ -301,9 +396,59 @@
   przestrzeń.grupujTerminySemper = grupujTerminySemper;
   przestrzeń.opiszTerminSemper = opiszTerminSemper;
   przestrzeń.opiszWariantTerminuSemper = opiszWariantTerminuSemper;
+  function formatujDatęNazwyPlikuHarmonogramu(wartość) {
+    if (typeof wartość === "string") {
+      const zTekstu = normalizujDatęTerminu(wartość.slice(0, 10));
+      if (zTekstu) {
+        return zTekstu;
+      }
+    }
+
+    const data = wartość instanceof Date ? wartość : new Date();
+    if (Number.isNaN(data.getTime())) {
+      return "";
+    }
+
+    return [
+      String(data.getFullYear()),
+      String(data.getMonth() + 1).padStart(2, "0"),
+      String(data.getDate()).padStart(2, "0")
+    ].join("-");
+  }
+
+  function oczyśćFragmentNazwyPlikuHarmonogramu(wartość) {
+    return String(wartość || "")
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-")
+      .replace(/\s+/g, " ")
+      .replace(/[. ]+$/g, "")
+      .trim();
+  }
+
+  function zbudujNazwęPlikuHarmonogramu(termin, dataUtworzenia, rozszerzenie) {
+    const dane = termin || {};
+    const daty = pobierzDatyTerminuHarmonogramu(dane);
+    const dataPliku = formatujDatęNazwyPlikuHarmonogramu(dataUtworzenia)
+      || formatujDatęNazwyPlikuHarmonogramu(new Date());
+    const tryb = normalizujTrybTerminu(dane.tryb);
+    const lokalizacja = tryb === "online" ? "Online" : (dane.lokalizacja || "Stacjonarne");
+    const bezpiecznaLokalizacja = oczyśćFragmentNazwyPlikuHarmonogramu(lokalizacja) || "Stacjonarne";
+    const dataOd = daty.dataRozpoczęcia || "brak-daty";
+    const dataDo = daty.dataZakończenia || dataOd;
+    const typPliku = String(rozszerzenie || "csv").replace(/[^a-z0-9]+/gi, "").toLowerCase() || "csv";
+
+    return "[" + dataPliku + "]_BUR_Harmonogram_" + dataOd + "--" + dataDo + "_" + bezpiecznaLokalizacja + "." + typPliku;
+  }
+
   przestrzeń.utwórzOdciskTerminuBur = utwórzOdciskTerminuBur;
   przestrzeń.utwórzKontekstTerminuSemper = utwórzKontekstTerminuSemper;
   przestrzeń.czyKontekstTerminuSemperZgodny = czyKontekstTerminuSemperZgodny;
+  przestrzeń.utwórzTerminHarmonogramuZeSemper = utwórzTerminHarmonogramuZeSemper;
+  przestrzeń.utwórzTerminHarmonogramuZKolejki = utwórzTerminHarmonogramuZKolejki;
+  przestrzeń.pobierzDatyTerminuHarmonogramu = pobierzDatyTerminuHarmonogramu;
+  przestrzeń.czyTenSamTerminHarmonogramu = czyTenSamTerminHarmonogramu;
+  przestrzeń.sprawdźZgodnośćTerminuHarmonogramuZBur = sprawdźZgodnośćTerminuHarmonogramuZBur;
+  przestrzeń.opiszTerminHarmonogramu = opiszTerminHarmonogramu;
+  przestrzeń.zbudujNazwęPlikuHarmonogramu = zbudujNazwęPlikuHarmonogramu;
   przestrzeń.sprawdźZgodnośćPrzygotowanegoHarmonogramu = sprawdźZgodnośćPrzygotowanegoHarmonogramu;
 
   globalny.BurAsystent = przestrzeń;

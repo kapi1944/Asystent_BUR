@@ -1143,21 +1143,48 @@
   }
 
   function sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc) {
-    if (!wiadomosc || !wiadomosc.terminHarmonogramu) {
-      return { ok: false, błąd: "Brak dat terminu, dla którego przygotowano harmonogram." };
+    const kontekstTerminu = wiadomosc && (wiadomosc.kontekstTerminu || wiadomosc.terminHarmonogramu);
+    if (!kontekstTerminu) {
+      return { ok: false, błąd: "Brak danych terminu, dla którego przygotowano harmonogram." };
     }
+
     const terminBur = odczytajAktualnyTerminBur();
-    const zgodność = przestrzen.sprawdźZgodnośćPrzygotowanegoHarmonogramu(wiadomosc.terminHarmonogramu, terminBur);
+    const zgodność = typeof przestrzen.sprawdźZgodnośćTerminuHarmonogramuZBur === "function"
+      ? przestrzen.sprawdźZgodnośćTerminuHarmonogramuZBur(kontekstTerminu, terminBur)
+      : przestrzen.sprawdźZgodnośćPrzygotowanegoHarmonogramu(kontekstTerminu, terminBur);
+
     if (zgodność.ok) {
       return { ok: true };
     }
+
+    const zakresHarmonogramu = przestrzen.formatujZakresDatPrezentacyjny(
+      zgodność.datyHarmonogramu && zgodność.datyHarmonogramu.dataRozpoczęcia,
+      zgodność.datyHarmonogramu && zgodność.datyHarmonogramu.dataZakończenia
+    ) || "brak danych";
+    const zakresBur = przestrzen.formatujZakresDatPrezentacyjny(
+      zgodność.datyBur && zgodność.datyBur.dataRozpoczęcia,
+      zgodność.datyBur && zgodność.datyBur.dataZakończenia
+    ) || "brak danych";
+    const przygotowanySzczegóły = [
+      zakresHarmonogramu,
+      kontekstTerminu.tryb === "online" ? "Online" : kontekstTerminu.lokalizacja,
+      kontekstTerminu.tryb && kontekstTerminu.tryb !== "online" ? "stacjonarna" : ""
+    ].filter(Boolean).join(" · ");
+    const edytowanySzczegóły = [
+      zakresBur,
+      terminBur && terminBur.lokalizacja,
+      terminBur && terminBur.tryb
+    ].filter(Boolean).join(" · ");
+
     return {
       ok: false,
-      błąd: "Harmonogram został przygotowany dla innego terminu. Przygotowany harmonogram: "
-        + przestrzen.formatujZakresDatPrezentacyjny(zgodność.datyHarmonogramu.dataRozpoczęcia, zgodność.datyHarmonogramu.dataZakończenia)
-        + ". Aktualnie edytowany termin BUR: "
-        + przestrzen.formatujZakresDatPrezentacyjny(zgodność.datyBur.dataRozpoczęcia, zgodność.datyBur.dataZakończenia)
-        + ". Przygotuj harmonogram ponownie dla aktualnego terminu."
+      niezgodnyTermin: true,
+      zgodność: zgodność,
+      błąd: "NIE WPROWADZONO HARMONOGRAMU\n\nPrzygotowany:\n"
+        + przygotowanySzczegóły
+        + "\n\nEdytowany BUR:\n"
+        + edytowanySzczegóły
+        + "\n\nOtwórz właściwy termin BUR albo wybierz inny harmonogram."
     };
   }
 
