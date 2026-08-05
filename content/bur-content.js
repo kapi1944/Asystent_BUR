@@ -35,6 +35,14 @@
       const tekst = pobierzWidocznyTekst(kandydaci[indeks]);
       if (przestrzen.wykryjProfilPoNazwieKontaBur(tekst)) { return tekst; }
     }
+    const tekstStrony = String(document.body && (document.body.innerText || document.body.textContent) || "");
+    const znormalizowanyTekstStrony = przestrzen.normalizujNazweKontaBur(tekstStrony);
+    const profilPoPełnejNazwie = ["iist", "semper"].map(function pobierzProfil(id) {
+      return przestrzen.pobierzProfilDostawcy(id);
+    }).find(function znajdźProfil(profil) {
+      return profil && znormalizowanyTekstStrony.includes(przestrzen.normalizujNazweKontaBur(profil.pełnaNazwa));
+    });
+    if (profilPoPełnejNazwie) { return profilPoPełnejNazwie.pełnaNazwa; }
     const górnaCzęść = Array.from(document.body.querySelectorAll("body *")).slice(0, 300);
     for (let indeks = 0; indeks < górnaCzęść.length; indeks += 1) {
       const tekst = pobierzWidocznyTekst(górnaCzęść[indeks]);
@@ -58,9 +66,8 @@
 
   function zaplanujWykrycieKontaBur() { clearTimeout(timerWykrywaniaKontaBur); timerWykrywaniaKontaBur = setTimeout(wykryjKontoBur, 250); }
 
-  function obserwujNagłówekKontaBur() {
-    const nagłówek = document.querySelector("header, [role='banner'], .header, .page-header") || document.body;
-    new MutationObserver(zaplanujWykrycieKontaBur).observe(nagłówek, { childList: true, subtree: true, characterData: true });
+  function obserwujZmianyKontaBur() {
+    new MutationObserver(zaplanujWykrycieKontaBur).observe(document.body, { childList: true, subtree: true, characterData: true });
   }
 
   function pobierzWartośćElementu(element) {
@@ -1420,7 +1427,7 @@
           szkolenieSemper: szkolenieSemper,
           wybranyTermin: wybórTerminu.termin,
           profilId: szkolenieSemper.profilId || "semper",
-          wykryteKontoBur: wykryjKontoDostawcyBur(document)
+          wykryteKontoBur: wykryjKontoBur()
         });
 
         zastosujWynikWalidacjiNaStronie(document, wynik);
@@ -1500,7 +1507,7 @@
   document.addEventListener("input", zaplanujPowiadomienieOTerminieBur, true);
   document.addEventListener("change", zaplanujPowiadomienieOTerminieBur, true);
   wykryjKontoBur();
-  obserwujNagłówekKontaBur();
+  obserwujZmianyKontaBur();
 
   function kluczDziennegoLicznikaKolejkiBur() {
     const data = new Date();
@@ -1727,7 +1734,7 @@
         typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR,
         wynik: {
           propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}, { profilId: wiadomosc.profilId }),
-          kontoBur: wykryjKontoDostawcyBur(document)
+          kontoBur: wykryjKontoBur()
         }
       });
       return true;
@@ -1735,7 +1742,7 @@
 
     if (wiadomosc.typ === komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR) {
       const kontekst = wiadomosc.kontekstOperacji || {};
-      const konto = wykryjKontoDostawcyBur(document);
+      const konto = wykryjKontoBur();
       if (!kontekst.profilId || !przestrzen.czyProfilZgodnyZKontemBur(kontekst.profilId, konto)) {
         odpowiedz({ typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR, wynik: { ok: false, wyniki: [{ ok: false, status: "konflikt_konta", sekcja: "Kontekst operacji", pole: "Konto BUR", kodBłędu: "KONFLIKT_KONTA_BUR", komunikat: "Konto BUR zmieniło się albo nie odpowiada profilowi podglądu." }] } });
         return true;

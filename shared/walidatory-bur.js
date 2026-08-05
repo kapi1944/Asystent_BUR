@@ -92,7 +92,7 @@
       status = "błąd";
       komunikat = "Wymagane pole jest puste.";
     } else if (ustawienia.czyOstrzeżenie ? ustawienia.czyOstrzeżenie(aktualnaWartość) : !czyZgodne(aktualnaWartość, ustawienia.oczekiwanaWartość)) {
-      status = "ostrzeżenie";
+      status = ustawienia.statusNiezgodności || "ostrzeżenie";
       komunikat = ustawienia.komunikatOstrzeżenia || "Wartość różni się od oczekiwanej instrukcji.";
     }
 
@@ -105,8 +105,27 @@
       aktualnaWartość: aktualnaWartość,
       opisPola: ustawienia.opisPola || ustawienia.pole,
       selektorPomocniczy: ustawienia.selektorPomocniczy || "",
-      element: pole || elementDoOdczytu
+      element: elementDoOdczytu || pole
     });
+  }
+
+  function znajdźPrzełącznikPytaniaKompetencji(dokument, numerPytania) {
+    const szukanyTekst = "pytanie " + numerPytania;
+    const kandydaci = Array.from(dokument.querySelectorAll("label, span, div, p"))
+      .filter(function pasuje(element) {
+        const tekst = bezZnakówDiakrytycznych(element.textContent || "");
+        return tekst.includes(szukanyTekst) && tekst.length <= 600;
+      })
+      .sort(function odNajkrótszego(pierwszy, drugi) {
+        return String(pierwszy.textContent || "").length - String(drugi.textContent || "").length;
+      });
+
+    for (let indeks = 0; indeks < kandydaci.length; indeks += 1) {
+      const kontener = kandydaci[indeks].closest(".question-field, .form-group, [class*='field-'], li, tr") || kandydaci[indeks].parentElement;
+      const przełącznik = kontener && kontener.querySelector(".toggle-switch, .toggler, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button");
+      if (przełącznik) { return przełącznik; }
+    }
+    return null;
   }
 
   function znajdźPoleWTabeli(dokument, tytułTabeli, nazwaKolumny) {
@@ -150,44 +169,23 @@
     return null;
   }
 
-  function walidujPodstawęWpisuBur(dokument, pozycje, kontekst) {
-    const profil = przestrzeń.pobierzProfilDostawcy(kontekst && (kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId) || "semper");
-    const oczekiwanaWartość = profil && profil.podstawaWpisuBur || przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR;
-    const nieaktualnaWartość = przestrzeń.NIEAKTUALNA_PODSTAWA_WPISU_BUR;
+  function walidujPodstawęWpisuBur(dokument, pozycje) {
     const definicja = przestrzeń.pobierzDefinicjęPodstawyWpisuBur();
     const natywnePole = przestrzeń.znajdźNatywnePoleWyboruBur
       ? przestrzeń.znajdźNatywnePoleWyboruBur(dokument, definicja)
       : null;
     const aktualnaWartość = natywnePole ? przestrzeń.pobierzTekstSelect2(natywnePole) : "";
-    const istniejeOczekiwanaOpcja = Boolean(natywnePole && Array.from(natywnePole.options || []).some(function sprawdźOpcję(opcja) {
-      return przestrzeń.normalizujTekstDoWalidacji(opcja.textContent || opcja.label || "") === oczekiwanaWartość;
-    }));
-    let status = "poprawne";
-    let komunikat = "Wybrano aktualną podstawę uzyskania wpisu do BUR.";
-
-    if (!natywnePole) {
-      status = "błąd";
-      komunikat = "Nie udało się odczytać natywnego pola select dla podstawy uzyskania wpisu do BUR.";
-    } else if (!istniejeOczekiwanaOpcja) {
-      status = "błąd";
-      komunikat = "Oczekiwana aktualna opcja nie istnieje na liście BUR.";
-    } else if (!aktualnaWartość) {
-      status = "błąd";
-      komunikat = "Pole podstawy uzyskania wpisu do BUR jest puste.";
-    } else if (aktualnaWartość === nieaktualnaWartość) {
-      status = "błąd";
-      komunikat = "Wybrano nieaktualną podstawę uzyskania wpisu do BUR.";
-    } else if (aktualnaWartość !== oczekiwanaWartość) {
-      status = "błąd";
-      komunikat = "Wybrana podstawa uzyskania wpisu do BUR jest inna niż oczekiwana.";
-    }
+    const status = aktualnaWartość ? "poprawne" : "błąd";
+    const komunikat = aktualnaWartość
+      ? "Wybrano podstawę uzyskania wpisu do BUR."
+      : "Pole podstawy uzyskania wpisu do BUR jest puste.";
 
     dodajPozycję(pozycje, {
       sekcja: "Formularz wstępny",
       pole: "Podstawa uzyskania wpisu do BUR",
       status: status,
       komunikat: komunikat,
-      oczekiwanaWartość: oczekiwanaWartość,
+      oczekiwanaWartość: "Dowolna wybrana podstawa",
       aktualnaWartość: aktualnaWartość || "Nie odczytano wartości",
       opisPola: "Podstawa uzyskania wpisu do BUR",
       selektorPomocniczy: "#formularzwstepnysekcja-podstawauzyskaniawpisuid",
@@ -199,7 +197,8 @@
 
   function walidujFormularzWstępny(dokument, kontekst, pozycje) {
     const termin = kontekst.wybranyTermin || {};
-    const oczekiwanaForma = termin.forma === "online" ? "online" : "stacjonarna";
+    const czyTerminOnline = termin.forma === "online";
+    const oczekiwanaForma = czyTerminOnline ? "zdalna w czasie rzeczywistym" : "stacjonarna";
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -210,6 +209,12 @@
         sekcja: "Formularz wstępny",
         etykieta: "Forma świadczenia usługi",
         selektory: ["#select2-formularzwstepnysekcja-formaswiadczenia-container"]
+      },
+      czyOstrzeżenie: function sprawdźFormę(aktualnaWartość) {
+        const forma = normalizujDoPorównaniaBur(aktualnaWartość);
+        return czyTerminOnline
+          ? !forma.includes("online") && !(forma.includes("zdalna") && forma.includes("czasie rzeczywistym"))
+          : !forma.includes("stacjonarna");
       },
       selektorPomocniczy: "#select2-formularzwstepnysekcja-formaswiadczenia-container"
     });
@@ -227,7 +232,7 @@
       selektorPomocniczy: "#select2-formularzwstepnysekcja-wariantzajec-container"
     });
 
-    walidujPodstawęWpisuBur(dokument, pozycje, kontekst);
+    walidujPodstawęWpisuBur(dokument, pozycje);
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -420,16 +425,19 @@
       {
         pole: "Pytanie 1 w sekcji kompetencji",
         etykieta: "Czy dokument potwierdzający uzyskanie kompetencji",
+        numerPytania: 1,
         oczekiwanaWartość: "TAK"
       },
       {
         pole: "Pytanie 2 w sekcji kompetencji",
         etykieta: "Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja",
+        numerPytania: 2,
         oczekiwanaWartość: "TAK"
       },
       {
         pole: "Pytanie 3 w sekcji kompetencji",
         etykieta: "Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań",
+        numerPytania: 3,
         oczekiwanaWartość: "TAK"
       }
     ].forEach(function walidujPrzełącznik(ustawienie) {
@@ -443,7 +451,9 @@
           etykieta: ustawienie.etykieta,
           selektory: ustawienie.selektory || []
         },
+        element: ustawienie.numerPytania ? znajdźPrzełącznikPytaniaKompetencji(dokument, ustawienie.numerPytania) : null,
         pobierzWartość: przestrzeń.pobierzStanPrzełącznika,
+        statusNiezgodności: ustawienie.numerPytania ? "błąd" : "ostrzeżenie",
         selektorPomocniczy: ustawienie.selektory ? ustawienie.selektory[0] : ""
       });
     });
@@ -474,7 +484,7 @@
         status = "błąd";
         komunikat = "Wymagane pole jest puste.";
       } else if (!ustawienie.tylkoNiepuste && !czyZgodne(aktualnaWartość, ustawienie.oczekiwanaWartość)) {
-        status = "ostrzeżenie";
+        status = "błąd";
         komunikat = "Wartość różni się od oczekiwanej instrukcji.";
       }
 
@@ -512,10 +522,78 @@
     dodajPozycję(pozycje, { sekcja: sekcja, pole: pole, status: poprawne ? "poprawne" : (statusBraku || "błąd"), komunikat: poprawne ? "Wartość jest zgodna z profilem dostawcy." : komunikatBłędu, oczekiwanaWartość: oczekiwana, aktualnaWartość: aktualna || "Nie odczytano wartości", element: element });
   }
 
+  function normalizujPoleOsoby(wartość, czyEmail) {
+    const tekst = normalizujDoPorównaniaBur(wartość);
+    return czyEmail ? tekst.replace(/\s+/g, "") : tekst;
+  }
+
+  function pobierzKomórkiOsoby(wiersz) {
+    return Array.from(wiersz && wiersz.children || []).filter(function tylkoKomórki(element) {
+      return element.tagName === "TD";
+    }).slice(0, 4);
+  }
+
+  function walidujOsobyProwadzące(dokument, profil, pozycje) {
+    const tabela = odczytajCel(dokument, "osobyProwadzace");
+    const wiersze = przestrzeń.pobierzWierszeOsóbProwadzących && tabela.element
+      ? przestrzeń.pobierzWierszeOsóbProwadzących(tabela.element)
+      : [];
+    const oczekiwaneOsoby = [profil.osobaProwadzącaUsługę, profil.osobaProwadzącaWalidację].filter(function maDane(osoba) {
+      return osoba && osoba.imięINazwisko && osoba.email && osoba.rola && osoba.opisDoświadczenia;
+    });
+    const pola = [
+      { klucz: "imięINazwisko", nazwa: "Imię i nazwisko", czyEmail: false },
+      { klucz: "email", nazwa: "Adres email", czyEmail: true },
+      { klucz: "rola", nazwa: "Osoba prowadząca usługę/walidację", czyEmail: false },
+      { klucz: "opisDoświadczenia", nazwa: "Opis doświadczenia", czyEmail: false }
+    ];
+
+    if (!tabela.element || !oczekiwaneOsoby.length) {
+      dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: "Rekordy osób prowadzących", status: "błąd", komunikat: "Nie znaleziono tabeli albo konfiguracji osób prowadzących.", oczekiwanaWartość: "Dwa kompletne rekordy profilu " + profil.nazwa, aktualnaWartość: tabela.wartość, element: tabela.element, celFormularza: "osobyProwadzace" });
+      return;
+    }
+
+    const niedopasowaneOsoby = oczekiwaneOsoby.slice();
+    wiersze.forEach(function sprawdźWiersz(wiersz, indeksWiersza) {
+      const komórki = pobierzKomórkiOsoby(wiersz);
+      const wartości = pola.map(function odczytaj(pole, indeksPola) {
+        return przestrzeń.pobierzWartośćPola(komórki[indeksPola]);
+      });
+      let osoba = null;
+      let najwyższyWynik = -1;
+      niedopasowaneOsoby.forEach(function oceń(kandydat) {
+        const wynik = pola.reduce(function policz(suma, pole, indeksPola) {
+          return suma + (normalizujPoleOsoby(wartości[indeksPola], pole.czyEmail) === normalizujPoleOsoby(kandydat[pole.klucz], pole.czyEmail) ? 1 : 0);
+        }, 0);
+        if (wynik > najwyższyWynik) { osoba = kandydat; najwyższyWynik = wynik; }
+      });
+      if (!osoba && niedopasowaneOsoby.length) { osoba = niedopasowaneOsoby[Math.min(indeksWiersza, niedopasowaneOsoby.length - 1)]; }
+      if (osoba) { niedopasowaneOsoby.splice(niedopasowaneOsoby.indexOf(osoba), 1); }
+
+      const zgodnośćPól = pola.map(function sprawdźPole(pole, indeksPola) {
+        return Boolean(osoba) && normalizujPoleOsoby(wartości[indeksPola], pole.czyEmail) === normalizujPoleOsoby(osoba[pole.klucz], pole.czyEmail);
+      });
+      const rekordPoprawny = zgodnośćPól.every(Boolean);
+      const nazwaRekordu = osoba ? osoba.imięINazwisko : "dodatkowy rekord " + (indeksWiersza + 1);
+      dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: "Rekord: " + nazwaRekordu, status: rekordPoprawny ? "poprawne" : "ostrzeżenie", komunikat: rekordPoprawny ? "Cały rekord osoby prowadzącej jest poprawny." : "Rekord zawiera dane wymagające sprawdzenia.", oczekiwanaWartość: osoba ? "Kompletny rekord " + osoba.imięINazwisko : "Brak dodatkowego rekordu", aktualnaWartość: wartości.join(" | "), element: wiersz, celFormularza: "osobyProwadzace" });
+
+      pola.forEach(function dodajWynikPola(pole, indeksPola) {
+        if (!rekordPoprawny && zgodnośćPól[indeksPola]) { return; }
+        dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: nazwaRekordu + " — " + pole.nazwa, status: zgodnośćPól[indeksPola] ? "poprawne" : "błąd", komunikat: zgodnośćPól[indeksPola] ? "Pole rekordu jest poprawne." : "Pole rekordu zawiera niezgodne dane lub literówkę.", oczekiwanaWartość: osoba ? osoba[pole.klucz] : "Brak dodatkowego rekordu", aktualnaWartość: wartości[indeksPola], element: komórki[indeksPola] || null, celFormularza: "osobyProwadzace" });
+      });
+    });
+
+    niedopasowaneOsoby.forEach(function zgłośBrak(osoba) {
+      dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: "Brak rekordu: " + osoba.imięINazwisko, status: "błąd", komunikat: "Brakuje wymaganej osoby prowadzącej.", oczekiwanaWartość: [osoba.imięINazwisko, osoba.email, osoba.rola, osoba.opisDoświadczenia].join(" | "), aktualnaWartość: "Brak rekordu", element: tabela.element, celFormularza: "osobyProwadzace" });
+    });
+  }
+
   function walidujProfilDostawcy(dokument, kontekst, pozycje) {
     const profilId = kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId || "semper";
     const profil = przestrzeń.pobierzProfilDostawcy(profilId);
-    if (!profil || !profil.daneKontaktowe || !profil.daneKontaktowe.email) { return; }
+    if (!profil) { return; }
+    walidujOsobyProwadzące(dokument, profil, pozycje);
+    if (!profil.daneKontaktowe || !profil.daneKontaktowe.email) { return; }
     const szkolenie = kontekst.szkolenieSemper || {};
     const termin = kontekst.wybranyTermin || {};
     const konto = kontekst.wykryteKontoBur || (typeof przestrzeń.wykryjKontoDostawcyBur === "function" ? przestrzeń.wykryjKontoDostawcyBur(dokument) : null);
@@ -524,10 +602,6 @@
       const pole = odczytajCel(dokument, dane[0]);
       dodajSprawdzenieProfilu(pozycje, "Dane kontaktowe", dane[1], normalizujDoPorównaniaBur(pole.wartość) === normalizujDoPorównaniaBur(dane[2]), dane[2], pole.wartość, pole.element, "Dane kontaktowe nie odpowiadają profilowi " + profil.nazwa + ".");
     });
-    const tabelaOsób = odczytajCel(dokument, "osobyProwadzace");
-    const tekstOsób = normalizujDoPorównaniaBur(tabelaOsób.wartość);
-    const osobyPoprawne = [profil.osobaProwadzącaUsługę, profil.osobaProwadzącaWalidację].every(function maOsobę(osoba) { return tekstOsób.includes(normalizujDoPorównaniaBur(osoba.imięINazwisko)) && tekstOsób.includes(normalizujDoPorównaniaBur(osoba.email)); });
-    dodajSprawdzenieProfilu(pozycje, "Osoby prowadzące", "Właściwe osoby prowadzące", osobyPoprawne && !/semper|szkolenia-semper\.pl/i.test(tabelaOsób.wartość), "Dokładnie dwie osoby " + profil.nazwa + ", bez SEMPER", tabelaOsób.wartość, tabelaOsób.element, "Tabela osób prowadzących jest niezgodna z profilem " + profil.nazwa + ".");
     const cel = odczytajCel(dokument, "opisCeluEdukacyjnego");
     const opis = szkolenie.sekcje && (szkolenie.sekcje.celEdukacyjnyOpis || szkolenie.sekcje.celSzkolenia) || "";
     dodajSprawdzenieProfilu(pozycje, "Główny cel usługi", "Cel edukacyjny - opis", Boolean(opis) && normalizujDoPorównaniaBur(cel.wartość).includes(normalizujDoPorównaniaBur(opis)), opis, cel.wartość, cel.element, "Brakuje pierwszej części celu edukacyjnego " + profil.nazwa + ".", opis ? "błąd" : "ostrzeżenie");

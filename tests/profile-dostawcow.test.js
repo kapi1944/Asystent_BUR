@@ -13,6 +13,12 @@
   test("Profil SEMPER rozpoznaje oznaczenie konta", function () {
     sprawdzRownosc(przestrzeń.wykryjProfilPoNazwieKontaBur("Konto dostawcy: SEMPER").id, "semper");
   });
+  test("Profil SEMPER rozpoznaje pełny nagłówek Dostawcy usług", function () {
+    sprawdzRownosc(przestrzeń.wykryjProfilPoNazwieKontaBur("Profil Dostawcy usług – Centrum Organizacji Szkoleń i Konferencji SEMPER Magdalena Wolniewicz-Kesaria").id, "semper");
+  });
+  test("Profil IIST rozpoznaje pełny nagłówek Dostawcy usług", function () {
+    sprawdzRownosc(przestrzeń.wykryjProfilPoNazwieKontaBur("Profil Dostawcy usług – Międzynarodowy Instytut Szkoleń Specjalistycznych IIST Parag Kesaria").id, "iist");
+  });
   test("Nierozpoznane konto zwraca null", function () {
     sprawdzRownosc(przestrzeń.wykryjProfilPoNazwieKontaBur("Inna organizacja"), null);
   });
@@ -33,6 +39,11 @@
   test("Panel zawiera przełącznik profilu", function () {
     return fetch("../panel/panel.html").then(function sprawdźSzablon(odpowiedź) { return odpowiedź.text(); }).then(function sprawdźPrzełącznik(html) {
       sprawdzWarunek(html.includes('data-profil-dostawcy="semper"') && html.includes('data-profil-dostawcy="iist"'));
+    });
+  });
+  test("Walidacja BUR korzysta z istniejącego detektora konta", function () {
+    return fetch("../content/bur-content.js").then(function odczytaj(odpowiedź) { return odpowiedź.text(); }).then(function sprawdźKod(kod) {
+      sprawdzWarunek(!kod.includes("wykryjKontoDostawcyBur(document)"));
     });
   });
 })(globalThis);

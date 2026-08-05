@@ -162,10 +162,6 @@
       const tabela = tabele[indeksTabeli];
       const tekstTabeli = normalizujKluczBur(tabela.textContent || "");
 
-      if (kluczTabeli && !tekstTabeli.includes(kluczTabeli)) {
-        continue;
-      }
-
       const kandydaciNagłówków = Array.from(tabela.querySelectorAll("thead th, thead td"));
       const nagłówki = kandydaciNagłówków.length
         ? kandydaciNagłówków
@@ -173,6 +169,16 @@
       const indeksKolumny = nagłówki.findIndex(function sprawdźNagłówek(nagłówek) {
         return normalizujKluczBur(nagłówek.textContent || "").includes(kluczKolumny);
       });
+      const nagłówkiTabeliEfektów = ["efekty uczenia sie", "kryteria weryfikacji", "metody walidacji"];
+      const czyTabelaEfektów = nagłówkiTabeliEfektów.every(function zawieraNagłówek(nagłówek) {
+        return nagłówki.some(function pasuje(element) {
+          return normalizujKluczBur(element.textContent || "").includes(nagłówek);
+        });
+      });
+
+      if (kluczTabeli && !tekstTabeli.includes(kluczTabeli) && !czyTabelaEfektów) {
+        continue;
+      }
 
       if (indeksKolumny < 0) {
         continue;

@@ -65,10 +65,10 @@
       "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjezrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji włączonej do ZSK?</span><button class=\"active\">" + wartości.zsk + "</button></div>",
       "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjeinnenizzrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji niewłączonych do ZSK?</span><button class=\"active\">" + wartości.kwalifikacjeInne + "</button></div>",
       "<div class=\"field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji form-group\"><span>Czy usługa prowadzi do nabycia kompetencji?</span><button class=\"active\">" + wartości.kompetencje + "</button></div>",
-      "<div class=\"form-group\"><span>Czy dokument potwierdzający uzyskanie kompetencji</span><button class=\"active\">" + wartości.pytanie1 + "</button></div>",
-      "<div class=\"form-group\"><span>Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja</span><button class=\"active\">" + wartości.pytanie2 + "</button></div>",
-      "<div class=\"form-group\"><span>Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań</span><button class=\"active\">" + wartości.pytanie3 + "</button></div>",
-      "<table><caption>Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji</caption>",
+      "<div class=\"form-group\"><span>Pytanie 1. Czy dokument potwierdzający uzyskanie kompetencji lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem zawierają opis efektów uczenia się?</span><button class=\"active\">" + wartości.pytanie1 + "</button></div>",
+      "<div class=\"form-group\"><span>Pytanie 2. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja została przeprowadzona w oparciu o zdefiniowane w efektach uczenia się kryteria ich weryfikacji i zgodnie z zaplanowanymi metodami walidacji?</span><button class=\"active\">" + wartości.pytanie2 + "</button></div>",
+      "<div class=\"form-group\"><span>Pytanie 3. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań zapewniających rozdzielenie procesów kształcenia i szkolenia od walidacji?</span><button class=\"active\">" + wartości.pytanie3 + "</button></div>",
+      "<h3>Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji</h3><table>",
       "<tr><th>Efekty uczenia się</th><th>Kryteria weryfikacji</th><th>Metody walidacji</th></tr>",
       "<tr><td><input value=\"" + wartości.efekty + "\"></td><td><input value=\"" + wartości.kryteria + "\"></td><td><span id=\"select2-metoda-container\" title=\"" + wartości.metoda + "\">" + wartości.metoda + "</span></td></tr>",
       "</table>",
@@ -109,6 +109,30 @@
     const wynik = bur.walidujFormularzBur(utwórzDokumentWalidacji(zmiany), utwórzKontekst(forma));
 
     sprawdzRownosc(znajdźPozycję(wynik, pole).status, oczekiwanyStatus, pole);
+  }
+
+  function dodajTabelęOsób(dokument, osoby) {
+    const tabela = dokument.createElement("table");
+    tabela.id = "osobyprowadzace-grid";
+    const ciało = tabela.createTBody();
+    osoby.forEach(function dodajOsobę(osoba) {
+      const wiersz = ciało.insertRow();
+      [osoba.imięINazwisko, osoba.email, osoba.rola, osoba.opisDoświadczenia].forEach(function dodajPole(wartość) {
+        wiersz.insertCell().textContent = wartość;
+      });
+      wiersz.insertCell().textContent = "Akcje";
+    });
+    dokument.body.appendChild(tabela);
+    return tabela;
+  }
+
+  function walidujOsobyProfilu(profilId, osoby) {
+    const dokument = utwórzDokumentWalidacji();
+    dodajTabelęOsób(dokument, osoby);
+    const kontekst = utwórzKontekst("online");
+    kontekst.profilId = profilId;
+    kontekst.szkolenieSemper.profilId = profilId;
+    return bur.walidujFormularzBur(dokument, kontekst);
   }
 
   test("pusty tytuł daje błąd", function sprawdź() {
@@ -160,6 +184,10 @@
     sprawdźStatus("Forma świadczenia usługi", { forma: "online" }, "online", "poprawne");
   });
 
+  test("zdalna w czasie rzeczywistym jest poprawną formą terminu online", function sprawdź() {
+    sprawdźStatus("Forma świadczenia usługi", { forma: "zdalna w czasie rzeczywistym" }, "online", "poprawne");
+  });
+
   test("forma świadczenia niezgodna z terminem daje ostrzeżenie", function sprawdź() {
     sprawdźStatus("Forma świadczenia usługi", { forma: "stacjonarna" }, "online", "ostrzeżenie");
   });
@@ -168,32 +196,32 @@
     sprawdźStatus("Wariant zajęć", { wariant: "Indywidualne" }, "online", "ostrzeżenie");
   });
 
-  test("podstawa wpisu inna niż wymagana daje błąd", function sprawdź() {
-    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "Inna podstawa" }, "online", "błąd");
+  test("dowolna niepusta podstawa wpisu jest poprawna", function sprawdź() {
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "Inna podstawa" }, "online", "poprawne");
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "Certyfikat systemu zarządzania jakością wg. ISO 9001:2015" }, "online", "poprawne");
   });
 
   test("checklista akceptuje aktualny znak jakości", function sprawdź() {
     sprawdźStatus("Podstawa uzyskania wpisu do BUR", {}, "online", "poprawne");
   });
 
-  test("checklista odrzuca nieaktualny znak jakości", function sprawdź() {
-    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "(nieaktualna) Znak Jakości TGLS Quality Alliance" }, "online", "błąd");
+  test("checklista akceptuje każdą wybraną pozycję z listy", function sprawdź() {
+    sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "(nieaktualna) Znak Jakości TGLS Quality Alliance" }, "online", "poprawne");
   });
 
   test("checklista odrzuca pustą podstawę wpisu", function sprawdź() {
     sprawdźStatus("Podstawa uzyskania wpisu do BUR", { podstawa: "" }, "online", "błąd");
   });
 
-  test("checklista odrzuca brak aktualnej opcji", function sprawdź() {
+  test("brak konkretnej opcji oczekiwanej nie unieważnia wybranej podstawy", function sprawdź() {
     const wynik = bur.walidujFormularzBur(utwórzDokumentWalidacji({ podstawa: "(nieaktualna) Znak Jakości TGLS Quality Alliance", brakAktualnejOpcji: true }), utwórzKontekst("online"));
     const pozycja = znajdźPozycję(wynik, "Podstawa uzyskania wpisu do BUR");
-    sprawdzRownosc(pozycja.status, "błąd");
-    sprawdzWarunek(pozycja.komunikat.includes("nie istnieje"));
+    sprawdzRownosc(pozycja.status, "poprawne");
   });
 
-  test("checklista ufa natywnemu selectowi, nie wizualnemu tekstowi Select2", function sprawdź() {
+  test("checklista ufa pustej wartości natywnego selecta, nie wizualnemu tekstowi Select2", function sprawdź() {
     sprawdźStatus("Podstawa uzyskania wpisu do BUR", {
-      podstawa: "(nieaktualna) Znak Jakości TGLS Quality Alliance",
+      podstawa: "",
       podstawaWidoczna: "Znak Jakości TGLS Quality Alliance"
     }, "online", "błąd");
   });
@@ -210,11 +238,70 @@
     sprawdźStatus("Czy usługa prowadzi do nabycia kompetencji?", { kompetencje: "NIE" }, "online", "ostrzeżenie");
   });
 
-  test("efekty uczenia się inne niż myślnik dają ostrzeżenie", function sprawdź() {
-    sprawdźStatus("Efekty uczenia się", { efekty: "Opis efektu" }, "online", "ostrzeżenie");
+  test("trzy pytania warunków uznania kompetencji wymagają odpowiedzi TAK", function sprawdź() {
+    sprawdźStatus("Pytanie 1 w sekcji kompetencji", { pytanie1: "NIE" }, "online", "błąd");
+    sprawdźStatus("Pytanie 2 w sekcji kompetencji", { pytanie2: "NIE" }, "online", "błąd");
+    sprawdźStatus("Pytanie 3 w sekcji kompetencji", { pytanie3: "NIE" }, "online", "błąd");
+  });
+
+  test("efekty uczenia się i kryteria weryfikacji wymagają myślnika", function sprawdź() {
+    sprawdźStatus("Efekty uczenia się", { efekty: "Opis efektu" }, "online", "błąd");
+    sprawdźStatus("Kryteria weryfikacji", { kryteria: "Opis kryterium" }, "online", "błąd");
   });
 
   test("metoda walidacji pusta daje błąd", function sprawdź() {
     sprawdźStatus("Wybierz metodę walidacji", { metoda: "" }, "online", "błąd");
+  });
+
+  test("metoda walidacji wymaga wartości Wywiad swobodny", function sprawdź() {
+    sprawdźStatus("Wybierz metodę walidacji", { metoda: "Test teoretyczny" }, "online", "błąd");
+  });
+
+  test("wymagane pola kompetencji są walidowane dla profili SEMPER i IIST", function sprawdź() {
+    ["semper", "iist"].forEach(function sprawdźProfil(profilId) {
+      const kontekst = utwórzKontekst("online");
+      kontekst.profilId = profilId;
+      kontekst.szkolenieSemper.profilId = profilId;
+      const wynik = bur.walidujFormularzBur(utwórzDokumentWalidacji(), kontekst);
+      ["Pytanie 1 w sekcji kompetencji", "Pytanie 2 w sekcji kompetencji", "Pytanie 3 w sekcji kompetencji", "Efekty uczenia się", "Kryteria weryfikacji", "Wybierz metodę walidacji"].forEach(function sprawdźPole(pole) {
+        const pozycja = znajdźPozycję(wynik, pole);
+        sprawdzRownosc(pozycja.status, "poprawne", profilId + ": " + pole);
+        sprawdzWarunek(Boolean(pozycja.element), "Brak elementu do podświetlenia: " + profilId + ": " + pole);
+      });
+    });
+  });
+
+  test("poprawne rekordy osób SEMPER i IIST mają zielony status wiersza i pól", function sprawdź() {
+    ["semper", "iist"].forEach(function sprawdźProfil(profilId) {
+      const profil = bur.pobierzProfilDostawcy(profilId);
+      const osoby = [profil.osobaProwadzącaUsługę, profil.osobaProwadzącaWalidację];
+      const wynik = walidujOsobyProfilu(profilId, osoby);
+      osoby.forEach(function sprawdźOsobę(osoba) {
+        const rekord = znajdźPozycję(wynik, "Rekord: " + osoba.imięINazwisko);
+        sprawdzRownosc(rekord.status, "poprawne");
+        sprawdzRownosc(rekord.element.tagName, "TR");
+        ["Imię i nazwisko", "Adres email", "Osoba prowadząca usługę/walidację", "Opis doświadczenia"].forEach(function sprawdźPoleOsoby(nazwaPola) {
+          const pole = znajdźPozycję(wynik, osoba.imięINazwisko + " — " + nazwaPola);
+          sprawdzRownosc(pole.status, "poprawne");
+          sprawdzRownosc(pole.element.tagName, "TD");
+        });
+      });
+    });
+  });
+
+  test("literówki oznaczają komórki błędem, a rekord ostrzeżeniem", function sprawdź() {
+    const profil = bur.pobierzProfilDostawcy("semper");
+    const błędnyKoordynator = Object.assign({}, profil.osobaProwadzącaWalidację, { imięINazwisko: "Koordnator SEMPER", rola: "Osoba prowadząca usługę" });
+    const wynik = walidujOsobyProfilu("semper", [profil.osobaProwadzącaUsługę, błędnyKoordynator]);
+    sprawdzRownosc(znajdźPozycję(wynik, "Rekord: " + profil.osobaProwadzącaWalidację.imięINazwisko).status, "ostrzeżenie");
+    sprawdzRownosc(znajdźPozycję(wynik, profil.osobaProwadzącaWalidację.imięINazwisko + " — Imię i nazwisko").status, "błąd");
+    sprawdzRownosc(znajdźPozycję(wynik, profil.osobaProwadzącaWalidację.imięINazwisko + " — Osoba prowadząca usługę/walidację").status, "błąd");
+    sprawdzWarunek(!wynik.pozycje.some(function maZielonePole(pozycja) { return pozycja.pole === profil.osobaProwadzącaWalidację.imięINazwisko + " — Adres email"; }));
+  });
+
+  test("brak wymaganej osoby prowadzącej jest błędem", function sprawdź() {
+    const profil = bur.pobierzProfilDostawcy("iist");
+    const wynik = walidujOsobyProfilu("iist", [profil.osobaProwadzącaUsługę]);
+    sprawdzRownosc(znajdźPozycję(wynik, "Brak rekordu: " + profil.osobaProwadzącaWalidację.imięINazwisko).status, "błąd");
   });
 })();
