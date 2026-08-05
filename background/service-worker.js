@@ -1,9 +1,12 @@
 importScripts(
   "../shared/profile-dostawcow.js",
   "../shared/komunikaty.js",
+  "../shared/szablony-harmonogramow.js",
+  "../shared/seria-ogloszen-bur.js",
   "../shared/wyszukiwarka-semper.js",
   "klient-semper.js",
-  "klient-iist.js"
+  "klient-iist.js",
+  "koordynator-serii-bur.js"
 );
 
 chrome.runtime.onInstalled.addListener(function ustawPanelBoczny() {

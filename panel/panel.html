@@ -25,6 +25,7 @@
       <div class="przyciski-zakladek">
         <button type="button" data-przelacz-zakladke="semper" aria-pressed="true" data-nazwa-zrodla>SEMPER</button>
         <button type="button" data-przelacz-zakladke="terminy" aria-pressed="false">Terminy</button>
+        <button type="button" data-przelacz-zakladke="seria" aria-pressed="false">Seria ogłoszeń</button>
         <button type="button" data-przelacz-zakladke="checklista" aria-pressed="false">Checklista</button>
         <button type="button" data-przelacz-zakladke="harmonogram" aria-pressed="false">Harmonogram</button>
         <button type="button" data-przelacz-zakladke="diagnostyka" aria-pressed="false">Diagnostyka</button>
@@ -191,6 +192,36 @@
         </section>
       </section>
 
+      <section id="karta-seria-ogloszen" class="karta" data-zakladki="seria">
+        <h2>Seria ogłoszeń</h2>
+        <p class="opis-akcji">Ten etap wyłącznie przypisuje terminy do osobnych kart i sprawdza ich gotowość. Nie zmienia formularzy BUR.</p>
+        <div class="liczniki-serii" aria-live="polite">
+          <span>Wszystkie: <strong id="seria-liczba-wszystkich">0</strong></span>
+          <span>Zaznaczone: <strong id="seria-liczba-zaznaczonych">0</strong></span>
+          <span>Obsługiwane: <strong id="seria-liczba-obslugiwanych">0</strong></span>
+        </div>
+        <div id="lista-terminow-serii" class="lista-terminow-serii"></div>
+        <label class="etykieta" for="sposob-tworzenia-kart-serii">Sposób tworzenia kart</label>
+        <select id="sposob-tworzenia-kart-serii">
+          <option value="nowe_formularze">Niezależne nowe formularze</option>
+          <option value="kopiowanie_z_wzorca">Kopiowanie z jednego wzorca (tylko rozpoznanie)</option>
+        </select>
+        <div class="siatka-przycisków">
+          <button id="przycisk-sprawdz-gotowosc-serii" type="button">Sprawdź gotowość</button>
+          <button id="przycisk-przygotuj-serie" type="button">Przygotuj serię kart</button>
+          <button id="przycisk-anuluj-serie" type="button">Anuluj serię</button>
+          <button id="przycisk-otworz-bledne-serii" type="button">Otwórz wszystkie błędne</button>
+          <button id="przycisk-odswiez-serie" type="button">Odśwież stan kart</button>
+        </div>
+        <div id="status-serii" class="komunikat status-neutralny">Wybierz terminy IIST i sprawdź gotowość.</div>
+        <div class="tabela-serii-kontener">
+          <table class="tabela-serii">
+            <thead><tr><th>Termin</th><th>Forma</th><th>Karta</th><th>Etap</th><th>Status</th><th>Błędy</th><th>Ostrzeżenia</th><th>Akcje</th></tr></thead>
+            <tbody id="zadania-serii"><tr><td colspan="8">Brak aktywnej serii.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="karta" data-zakladki="semper">
         <h2>Dane szkolenia</h2>
         <dl class="dane">
@@ -243,6 +274,7 @@
     <script src="../shared/kolejka-terminow-bur.js"></script>
     <script src="../shared/stan-operacji-bur.js"></script>
     <script src="../shared/szablony-harmonogramow.js"></script>
+    <script src="../shared/seria-ogloszen-bur.js"></script>
     <script src="../shared/bur-program-harmonogram.js"></script>
     <script src="../shared/wyszukiwarka-semper.js"></script>
     <script src="../shared/parser-semper.js"></script>

@@ -83,6 +83,7 @@
         "shared/terminy-bur.js",
         "shared/stan-operacji-bur.js",
         "shared/szablony-harmonogramow.js",
+        "shared/seria-ogloszen-bur.js",
         "shared/bur-program-harmonogram.js",
         "shared/wyszukiwarka-semper.js",
         "shared/selektory-bur.js",

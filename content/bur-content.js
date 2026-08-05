@@ -1560,6 +1560,63 @@
     });
   }
 
+  function rozpoznajTypFormularzaSeriiBur(dokument) {
+    const tekstNagłówków = Array.from(dokument.querySelectorAll("h1, h2, h3, [class*='title']"))
+      .slice(0, 30).map(function tekst(element) { return element.textContent || ""; }).join(" ");
+    const url = String(dokument.location && dokument.location.href || location.href || "");
+    const maPolaFormularza = Boolean(dokument.querySelector("#formularzwstepnysekcja-podstawauzyskaniawpisuid, #informacjepodstawowesekcja-tytuluslugi"));
+    if (maPolaFormularza && (/dodani[ea].*usług/i.test(tekstNagłówków) || /(?:dodaj|create|new)/i.test(url))) { return "dodawanie_uslugi"; }
+    if (maPolaFormularza && (/edycj|formularz.*usług/i.test(tekstNagłówków) || /(?:edytuj|edit|uslug[ai]\/\d+)/i.test(url))) { return "edycja_uslugi"; }
+    if (maPolaFormularza) { return "formularz_uslugi_nierozpoznany"; }
+    return "nierozpoznany";
+  }
+
+  function czyPustyFormularzSeriiBur(dokument) {
+    const selektoryPól = [
+      "#informacjepodstawowesekcja-tytuluslugi", "[id*='dat rozpoczec' i]", "[id*='datarozpoczec' i]",
+      "[id*='datazakonczen' i]", "[id*='grupadocel' i]", "[id*='programuslugi' i] textarea",
+      "#programiharmonogramuslugisekcja-programuslugi-wysiwyg .ql-editor"
+    ];
+    const wartości = selektoryPól.reduce(function zbierz(lista, selektor) {
+      return lista.concat(Array.from(dokument.querySelectorAll(selektor)));
+    }, []).map(function pobierz(element) { return String("value" in element ? element.value : element.textContent || "").replace(/<br\s*\/?>/gi, "").trim(); });
+    const maOsoby = Array.from(dokument.querySelectorAll("#osobyprowadzace-grid tbody tr, #prowadzacy-grid tbody tr"))
+      .some(function maDane(wiersz) { return !/brak danych|nie znaleziono/i.test(wiersz.textContent || "") && String(wiersz.textContent || "").trim(); });
+    const maHarmonogram = Array.from(dokument.querySelectorAll("#harmonogram-grid tbody tr"))
+      .some(function maDane(wiersz) { return !/brak danych|nie znaleziono|00:00/i.test(wiersz.textContent || "") && String(wiersz.textContent || "").trim(); });
+    return !wartości.some(Boolean) && !maOsoby && !maHarmonogram;
+  }
+
+  function pobierzOdciskInstancjiFormularza(dokument) {
+    const kandydaci = Array.from(dokument.querySelectorAll("[data-form-instance], [data-draft-id], input[type='hidden']"));
+    for (let indeks = 0; indeks < kandydaci.length; indeks += 1) {
+      const element = kandydaci[indeks];
+      const nazwa = [element.id, element.name, element.getAttribute("data-form-instance"), element.getAttribute("data-draft-id")].filter(Boolean).join("|");
+      const wartość = String(element.getAttribute("data-form-instance") || element.getAttribute("data-draft-id") || element.value || "").trim();
+      if (/(?:draft|robocz|instanc|formularz.*id|uslug[ai].*id|service.*id)/i.test(nazwa) && !/(?:csrf|token)/i.test(nazwa) && wartość) {
+        return nazwa + ":" + wartość;
+      }
+    }
+    const formularz = dokument.querySelector("form[action]");
+    const akcja = formularz && String(formularz.action || "");
+    return /[?&/](?:draft|robocz|formularz|usluga|service)(?:Id|id)?[=/]\w+/i.test(akcja) ? "action:" + akcja : "";
+  }
+
+  function sprawdźKartęSeriiBur(dokument) {
+    return {
+      url: String(dokument.location && dokument.location.href || location.href || ""),
+      kontoBur: wykryjKontoBur(),
+      typFormularza: rozpoznajTypFormularzaSeriiBur(dokument),
+      czyPustyFormularz: czyPustyFormularzSeriiBur(dokument),
+      odciskInstancjiFormularza: pobierzOdciskInstancjiFormularza(dokument),
+      wzorzecKopiowania: przestrzen.rozpoznajWzorzecKopiowaniaBur(dokument)
+    };
+  }
+
+  przestrzen.rozpoznajTypFormularzaSeriiBur = rozpoznajTypFormularzaSeriiBur;
+  przestrzen.czyPustyFormularzSeriiBur = czyPustyFormularzSeriiBur;
+  przestrzen.pobierzOdciskInstancjiFormularza = pobierzOdciskInstancjiFormularza;
+
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
     if (!wiadomosc || !wiadomosc.typ) {
       return false;
@@ -1592,6 +1649,11 @@
         typ: komunikaty.ODPOWIEDŹ_AKTUALNY_TERMIN_BUR,
         wynik: odczytajAktualnyTerminBur()
       });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.SPRAWDZ_KARTE_SERII_BUR) {
+      odpowiedz({ typ: komunikaty.ODPOWIEDZ_SERIA_OGLOSZEN_BUR, wynik: sprawdźKartęSeriiBur(document) });
       return true;
     }
 

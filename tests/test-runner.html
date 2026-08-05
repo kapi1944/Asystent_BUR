@@ -56,6 +56,7 @@
     <script src="../shared/kolejka-terminow-bur.js"></script>
     <script src="../shared/stan-operacji-bur.js"></script>
     <script src="../shared/szablony-harmonogramow.js"></script>
+    <script src="../shared/seria-ogloszen-bur.js"></script>
     <script src="../shared/bur-program-harmonogram.js"></script>
     <script src="../shared/wyszukiwarka-semper.js"></script>
     <script src="../shared/parser-semper.js"></script>
@@ -67,6 +68,7 @@
     <script src="../shared/wypełniacz-bur.js"></script>
     <script src="../background/klient-semper.js"></script>
     <script src="../background/klient-iist.js"></script>
+    <script src="../background/koordynator-serii-bur.js"></script>
     <script>
       window.chrome = window.chrome || { runtime: { onMessage: { addListener: function dodajSłuchacza() {} } } };
     </script>
@@ -118,6 +120,7 @@
     <script src="profile-dostawcow.test.js"></script>
     <script src="iist-bur.test.js"></script>
     <script src="stabilizacja-iist-e2e.test.js"></script>
+    <script src="seria-ogloszen-bur.test.js"></script>
     <script>
       (async function uruchomTesty() {
         const kontener = document.getElementById("wyniki");

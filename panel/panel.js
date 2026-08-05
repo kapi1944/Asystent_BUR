@@ -12,6 +12,7 @@
     "shared/terminy-bur.js",
     "shared/stan-operacji-bur.js",
     "shared/szablony-harmonogramow.js",
+    "shared/seria-ogloszen-bur.js",
     "shared/bur-program-harmonogram.js",
     "shared/wyszukiwarka-semper.js",
     "shared/selektory-bur.js",
@@ -100,6 +101,18 @@
     ,etykietaWykrytegoKontaBur: document.getElementById("etykieta-wykrytego-konta-bur")
     ,nazwaWykrytegoKontaBur: document.getElementById("nazwa-wykrytego-konta-bur")
     ,przyciskPrzełączNaWykrytyProfil: document.getElementById("przycisk-przelacz-na-wykryty-profil")
+    ,listaTerminówSerii: document.getElementById("lista-terminow-serii")
+    ,seriaLiczbaWszystkich: document.getElementById("seria-liczba-wszystkich")
+    ,seriaLiczbaZaznaczonych: document.getElementById("seria-liczba-zaznaczonych")
+    ,seriaLiczbaObsługiwanych: document.getElementById("seria-liczba-obslugiwanych")
+    ,sposóbTworzeniaKartSerii: document.getElementById("sposob-tworzenia-kart-serii")
+    ,przyciskSprawdźGotowośćSerii: document.getElementById("przycisk-sprawdz-gotowosc-serii")
+    ,przyciskPrzygotujSerię: document.getElementById("przycisk-przygotuj-serie")
+    ,przyciskAnulujSerię: document.getElementById("przycisk-anuluj-serie")
+    ,przyciskOtwórzBłędneSerii: document.getElementById("przycisk-otworz-bledne-serii")
+    ,przyciskOdświeżSerię: document.getElementById("przycisk-odswiez-serie")
+    ,statusSerii: document.getElementById("status-serii")
+    ,zadaniaSerii: document.getElementById("zadania-serii")
   };
   let ostatnieTerminySemper = [];
   let ostatnieSzkolenieSemperZPanelu = null;
@@ -120,6 +133,9 @@
   let wykryteKontoBur = null;
   let czyUżytkownikWybrałZakładkę = false;
   let czyImportHarmonogramuWToku = false;
+  let wybraneIndeksySerii = new Set();
+  let odciskTerminówSerii = "";
+  let stanSeriiOgłoszeńBur = null;
   const diagnostykaSemper = {
     fraza: "",
     źródłoFrazy: "",
@@ -201,7 +217,7 @@
     aktywnyProfilDostawcy = profilId;
     return (zmieniono && czyUnieważnić ? unieważnijOperacjeProfilu() : Promise.resolve())
       .then(function zapiszProfil() { return zapiszStorage({ aktywnyProfilDostawcy: profilId }); })
-      .then(function odśwież() { odświeżWidokProfilu(); return przywróćDaneAktywnegoProfilu(); });
+      .then(function odśwież() { odświeżWidokProfilu(); renderujListęTerminówSerii(); return przywróćDaneAktywnegoProfilu(); });
   }
 
   function zastosujWykryteKontoBur(wynik) {
@@ -220,6 +236,135 @@
 
   function ustawStatusProgramuHarmonogramu(tekst, klasa) {
     ustawStatus(elementy.statusProgramuHarmonogramu, tekst, klasa || "status-neutralny");
+  }
+
+  function zaktualizujLicznikiSerii(oceny) {
+    elementy.seriaLiczbaWszystkich.textContent = String(oceny.length);
+    elementy.seriaLiczbaZaznaczonych.textContent = String(wybraneIndeksySerii.size);
+    elementy.seriaLiczbaObsługiwanych.textContent = String(oceny.filter(function obsługiwany(ocena) { return ocena.możnaPrzygotowaćAutomatycznie; }).length);
+  }
+
+  function renderujListęTerminówSerii() {
+    if (!elementy.listaTerminówSerii) { return; }
+    const terminy = aktywnyProfilDostawcy === "iist" && ostatnieSzkolenieSemperZPanelu && Array.isArray(ostatnieSzkolenieSemperZPanelu.terminy)
+      ? ostatnieSzkolenieSemperZPanelu.terminy : [];
+    const nowyOdcisk = JSON.stringify(terminy.map(function odcisk(termin) { return [termin.dataStartBur, termin.dataKoniecBur, termin.forma, termin.miejsce]; }));
+    const oceny = terminy.map(function oceń(termin, indeks) { return przestrzeń.oceńTerminSeriiBur(termin, indeks); });
+    if (nowyOdcisk !== odciskTerminówSerii) {
+      odciskTerminówSerii = nowyOdcisk;
+      wybraneIndeksySerii = new Set(oceny.filter(function poprawny(ocena) { return ocena.możnaPrzygotowaćAutomatycznie; }).map(function indeks(ocena) { return ocena.indeksTerminu; }));
+    }
+    elementy.listaTerminówSerii.textContent = "";
+    if (!terminy.length) {
+      const brak = document.createElement("p");
+      brak.textContent = aktywnyProfilDostawcy === "iist" ? "Brak rozpoznanych terminów IIST." : "Przełącz aktywny profil na IIST.";
+      elementy.listaTerminówSerii.appendChild(brak);
+      zaktualizujLicznikiSerii(oceny);
+      return;
+    }
+    terminy.forEach(function dodajTermin(termin, indeks) {
+      const ocena = oceny[indeks];
+      const etykieta = document.createElement("label");
+      etykieta.className = "termin-serii" + (ocena.możnaPrzygotowaćAutomatycznie ? "" : " termin-serii-niedostepny");
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox"; checkbox.dataset.indeksTerminuSerii = String(indeks);
+      checkbox.disabled = !ocena.możnaPrzygotowaćAutomatycznie;
+      checkbox.checked = ocena.możnaPrzygotowaćAutomatycznie && wybraneIndeksySerii.has(indeks);
+      const opis = document.createElement("span");
+      opis.textContent = [termin.dataStartBur + " – " + termin.dataKoniecBur, termin.forma || "forma nieznana", termin.miejsce || "brak lokalizacji", termin.cena || "brak ceny"].join(" · ");
+      const szczegóły = document.createElement("small");
+      szczegóły.textContent = ocena.możnaPrzygotowaćAutomatycznie
+        ? ocena.liczbaDni + " dni · " + ocena.szablonHarmonogramu.nazwa + " · można przygotować automatycznie"
+        : [ocena.liczbaDni ? ocena.liczbaDni + " dni" : "brak liczby dni"].concat(ocena.powodyBlokady).join(" · ");
+      etykieta.appendChild(checkbox); etykieta.appendChild(opis); etykieta.appendChild(szczegóły);
+      elementy.listaTerminówSerii.appendChild(etykieta);
+    });
+    zaktualizujLicznikiSerii(oceny);
+  }
+
+  function dodajKomórkęSerii(wiersz, tekst) {
+    const komórka = document.createElement("td");
+    komórka.textContent = tekst || "—";
+    wiersz.appendChild(komórka);
+    return komórka;
+  }
+
+  function renderujStanSerii(seria) {
+    stanSeriiOgłoszeńBur = seria || null;
+    elementy.zadaniaSerii.textContent = "";
+    if (!seria || !Array.isArray(seria.zadania) || !seria.zadania.length) {
+      const wiersz = document.createElement("tr");
+      const komórka = dodajKomórkęSerii(wiersz, "Brak aktywnej serii.");
+      komórka.colSpan = 8; elementy.zadaniaSerii.appendChild(wiersz); return;
+    }
+    seria.zadania.forEach(function dodajZadanie(zadanie) {
+      const wiersz = document.createElement("tr");
+      dodajKomórkęSerii(wiersz, zadanie.dataStartBur + " – " + zadanie.dataKoniecBur);
+      dodajKomórkęSerii(wiersz, zadanie.forma);
+      dodajKomórkęSerii(wiersz, zadanie.tabId ? "#" + zadanie.tabId : "—");
+      dodajKomórkęSerii(wiersz, zadanie.etap);
+      dodajKomórkęSerii(wiersz, zadanie.status);
+      dodajKomórkęSerii(wiersz, (zadanie.bledy || []).join(" "));
+      dodajKomórkęSerii(wiersz, (zadanie.ostrzezenia || []).join(" "));
+      const akcje = dodajKomórkęSerii(wiersz, "");
+      const otwórz = document.createElement("button"); otwórz.type = "button"; otwórz.dataset.otworzJobSerii = zadanie.jobId; otwórz.textContent = "Otwórz kartę"; otwórz.disabled = !zadanie.tabId;
+      const ponów = document.createElement("button"); ponów.type = "button"; ponów.dataset.ponowJobSerii = zadanie.jobId; ponów.textContent = "Ponów przygotowanie karty";
+      akcje.appendChild(otwórz); akcje.appendChild(ponów);
+      elementy.zadaniaSerii.appendChild(wiersz);
+    });
+  }
+
+  function wyślijPolecenieSerii(wiadomość) {
+    return wyślijDoServiceWorkera(wiadomość).then(function sprawdź(odpowiedź) {
+      if (!odpowiedź || odpowiedź.typ !== komunikaty.ODPOWIEDZ_SERIA_OGLOSZEN_BUR) { throw new Error("Brak odpowiedzi koordynatora serii BUR."); }
+      if (!odpowiedź.ok) { throw new Error(odpowiedź.błąd || "Koordynator serii zwrócił błąd."); }
+      return odpowiedź.wynik;
+    });
+  }
+
+  function sprawdźGotowośćSerii() {
+    ustawStatus(elementy.statusSerii, "Sprawdzanie gotowości aktywnej karty BUR...", "status-neutralny");
+    return wyślijPolecenieSerii({ typ: komunikaty.SPRAWDZ_GOTOWOSC_SERII_BUR, sposobTworzeniaKart: elementy.sposóbTworzeniaKartSerii.value })
+      .then(function pokaż(wynik) {
+        const wzorzec = wynik.raport && wynik.raport.wzorzecKopiowania;
+        const opisWzorca = wynik.sposóbTworzeniaKart === "kopiowanie_z_wzorca" && wzorzec
+          ? " Wzorzec: " + (wzorzec.numerUslugi || "brak numeru") + "; bezpośrednie kopie: " + (wzorzec.kopieBezposrednioZTegoSamegoWzorca ? "tak" : "nie") + "."
+          : "";
+        ustawStatus(elementy.statusSerii, (wynik.ok ? "Preflight zakończony poprawnie." : wynik.błędy.join(" ")) + opisWzorca, wynik.ok ? "status-odczytano" : "status-blad");
+        return wynik;
+      }).catch(function błąd(wyjątek) { ustawStatus(elementy.statusSerii, wyjątek.message, "status-blad"); });
+  }
+
+  function przygotujSerięKart() {
+    const szkolenie = ostatnieSzkolenieSemperZPanelu || {};
+    const wybrane = Array.from(wybraneIndeksySerii).sort(function kolejność(a, b) { return a - b; });
+    const terminy = wybrane.map(function pobierz(indeks) { return szkolenie.terminy && szkolenie.terminy[indeks]; }).filter(Boolean);
+    if (aktywnyProfilDostawcy !== "iist" || !terminy.length) { ustawStatus(elementy.statusSerii, "Wybierz co najmniej jeden obsługiwany termin aktywnego profilu IIST.", "status-blad"); return; }
+    ustawStatus(elementy.statusSerii, "Tworzenie trwałej serii i otwieranie kart...", "status-neutralny");
+    wyślijPolecenieSerii({
+      typ: komunikaty.UTWORZ_SERIE_OGLOSZEN_BUR,
+      dane: {
+        profilId: "iist", szkolenieId: szkolenie.id || szkolenie.urlŹródła || szkolenie.urlZrodla || "",
+        tytul: szkolenie.tytułPoNormalizacjiBur || szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "",
+        urlZrodla: szkolenie.urlŹródła || szkolenie.urlZrodla || "",
+        odciskSzkolenia: JSON.stringify([szkolenie.tytułPoNormalizacjiBur || szkolenie.tytułOryginalny || "", szkolenie.urlŹródła || "", terminy.length]),
+        sposobTworzeniaKart: elementy.sposóbTworzeniaKartSerii.value,
+        terminy: terminy, indeksyTerminów: wybrane
+      }
+    }).then(function pokaż(wynik) {
+      if (!wynik || !wynik.ok) {
+        const błąd = wynik && (wynik.błąd || wynik.preflight && wynik.preflight.błędy && wynik.preflight.błędy.join(" "));
+        throw new Error(błąd || "Nie udało się przygotować serii.");
+      }
+      renderujStanSerii(wynik.seria);
+      ustawStatus(elementy.statusSerii, "Utworzono serię " + wynik.seria.batchId + ". Karty są sprawdzane bez modyfikowania formularzy.", "status-odczytano");
+    }).catch(function błąd(wyjątek) { ustawStatus(elementy.statusSerii, wyjątek.message, "status-blad"); });
+  }
+
+  function odświeżSerię(czySprawdzaćKarty) {
+    return wyślijPolecenieSerii({ typ: komunikaty.POBIERZ_STAN_SERII_BUR, odśwież: Boolean(czySprawdzaćKarty) })
+      .then(function pokaż(seria) { renderujStanSerii(seria); if (seria && seria.zatrzymanaPrzyczyna) { ustawStatus(elementy.statusSerii, seria.zatrzymanaPrzyczyna, "status-blad"); } return seria; })
+      .catch(function błąd(wyjątek) { ustawStatus(elementy.statusSerii, wyjątek.message, "status-blad"); });
   }
 
   function odświeżStatusOperacjiBur() {
@@ -1015,6 +1160,7 @@
 
     pokażOstrzeżenia([]);
     pokażWybórTerminuSemper([], null);
+    renderujListęTerminówSerii();
   }
 
   function pokażSzkolenie(wynik) {
@@ -1035,6 +1181,7 @@
     wpisz("program", formatujSekcjęSzkolenia(sekcje.program || sekcje.programHtml));
     wpisz("inwestycja", formatujInwestycjęSzkolenia(szkolenie, sekcje));
     pokażWybórTerminuSemper(terminy, wynik.wybranyTerminSemperIndex);
+    renderujListęTerminówSerii();
     pokażOstrzeżenia(uzupełnijOstrzeżeniaSekcji(wynik.ostrzeżenia || wynik.ostrzezenia || [], sekcje));
   }
 
@@ -1477,7 +1624,7 @@
   }
 
   function ustawAktywnąZakładkęPanelu(zakładka, zapiszStan, wybórRęczny) {
-    const dozwolone = ["semper", "terminy", "checklista", "harmonogram", "diagnostyka"];
+    const dozwolone = ["semper", "terminy", "seria", "checklista", "harmonogram", "diagnostyka"];
     aktywnaZakładkaPanelu = dozwolone.includes(zakładka) ? zakładka : "semper";
     if (wybórRęczny === true) {
       czyUżytkownikWybrałZakładkę = true;
@@ -3200,6 +3347,7 @@
   pokażDiagnostykęSemper();
   odświeżDostępnośćWypełniania();
   renderujListęTerminówHarmonogramu();
+  renderujListęTerminówSerii();
   odświeżDostępnośćHarmonogramu();
   elementy.przyciskImportujHarmonogramXlsx.disabled = true;
   elementy.przyciskPobierzHarmonogramCsv.disabled = true;
@@ -3211,6 +3359,36 @@
   elementy.przyciskUzupełnijZLinku.addEventListener("click", importujSzkolenieZLinku);
   elementy.przyciskWypełnijFormularz.addEventListener("click", wypełnijFormularzBurZPanelu);
   elementy.przyciskZastosujZmianyBur.addEventListener("click", zastosujZatwierdzoneZmianyBur);
+  elementy.listaTerminówSerii.addEventListener("change", function zmieńWybórSerii(zdarzenie) {
+    const checkbox = zdarzenie.target && zdarzenie.target.closest("[data-indeks-terminu-serii]");
+    if (!checkbox) { return; }
+    const indeks = Number(checkbox.dataset.indeksTerminuSerii);
+    if (checkbox.checked) { wybraneIndeksySerii.add(indeks); } else { wybraneIndeksySerii.delete(indeks); }
+    renderujListęTerminówSerii();
+  });
+  elementy.przyciskSprawdźGotowośćSerii.addEventListener("click", sprawdźGotowośćSerii);
+  elementy.przyciskPrzygotujSerię.addEventListener("click", przygotujSerięKart);
+  elementy.przyciskAnulujSerię.addEventListener("click", function anulujSerię() {
+    wyślijPolecenieSerii({ typ: komunikaty.ANULUJ_SERIE_BUR }).then(function pokaż(seria) {
+      renderujStanSerii(seria); ustawStatus(elementy.statusSerii, "Seria została anulowana. Otwarte karty pozostawiono bez zmian.", "status-neutralny");
+    }).catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusSerii, błąd.message, "status-blad"); });
+  });
+  elementy.przyciskOdświeżSerię.addEventListener("click", function odśwież() { odświeżSerię(true); });
+  elementy.przyciskOtwórzBłędneSerii.addEventListener("click", function otwórzBłędne() {
+    const zadania = stanSeriiOgłoszeńBur && stanSeriiOgłoszeńBur.zadania || [];
+    Promise.all(zadania.filter(function błędne(zadanie) { return ["blad", "wymaga_decyzji", "karta_zamknieta"].includes(zadanie.status) && zadanie.tabId; })
+      .map(function otwórz(zadanie) { return wyślijPolecenieSerii({ typ: komunikaty.OTWORZ_KARTE_ZADANIA_BUR, jobId: zadanie.jobId }); }))
+      .catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusSerii, błąd.message, "status-blad"); });
+  });
+  elementy.zadaniaSerii.addEventListener("click", function obsłużAkcjęZadania(zdarzenie) {
+    const otwórz = zdarzenie.target && zdarzenie.target.closest("[data-otworz-job-serii]");
+    const ponów = zdarzenie.target && zdarzenie.target.closest("[data-ponow-job-serii]");
+    if (!otwórz && !ponów) { return; }
+    const typ = otwórz ? komunikaty.OTWORZ_KARTE_ZADANIA_BUR : komunikaty.PONOW_ZADANIE_SERII_BUR;
+    const jobId = otwórz ? otwórz.dataset.otworzJobSerii : ponów.dataset.ponowJobSerii;
+    wyślijPolecenieSerii({ typ: typ, jobId: jobId }).then(function pokaż(seria) { renderujStanSerii(seria); })
+      .catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusSerii, błąd.message, "status-blad"); });
+  });
   elementy.kolejkaTermowWejście.addEventListener("input", function odświeżPodglądKolejki() {
     renderujPodglądKolejkiTerminów();
     ustawStatus(elementy.statusKolejkiTerminów, "Podgląd zmieniony. Działająca kolejka nie została zmieniona.", "status-neutralny");
@@ -3319,6 +3497,7 @@
     });
 
   odczytajStanPanelu();
+  odświeżSerię(false);
   odczytajStanSesjiWalidacji();
   odświeżStanProgramuHarmonogramu();
   odświeżStanPrzygotowaniaHarmonogramu();

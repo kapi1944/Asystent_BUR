@@ -68,13 +68,13 @@
     });
   }
 
-  test("Panel ma pięć pionowych przycisków nawigacji", function sprawdźPrzyciski() {
+  test("Panel ma sześć pionowych przycisków nawigacji", function sprawdźPrzyciski() {
     return Promise.all([pobierzPlik("../panel/panel.html"), pobierzPlik("../panel/panel.css")]).then(function sprawdźPliki(wyniki) {
       const przyciski = pobierzElementyNawigacji(wyniki[0]);
       const zakładki = przyciski.map(function pobierzZakładkę(przycisk) { return przycisk.dataset.przelaczZakladke; });
 
-      sprawdzRownosc(przyciski.length, 5, "Panel powinien zawierać pięć przycisków nawigacji.");
-      sprawdzRownosc(zakładki.join(","), "semper,terminy,checklista,harmonogram,diagnostyka", "Kolejność zakładek jest niepoprawna.");
+      sprawdzRownosc(przyciski.length, 6, "Panel powinien zawierać sześć przycisków nawigacji.");
+      sprawdzRownosc(zakładki.join(","), "semper,terminy,seria,checklista,harmonogram,diagnostyka", "Kolejność zakładek jest niepoprawna.");
       sprawdzWarunek(/\.zakladki-panelu\s*\{[^}]*flex-direction:\s*column;/s.test(wyniki[1]), "Nawigacja musi być pionowa.");
       sprawdzWarunek(!/\.zakladki-panelu\s*\{[^}]*overflow-x:\s*auto;/s.test(wyniki[1]), "Nawigacja nie może wymagać poziomego przewijania.");
     });

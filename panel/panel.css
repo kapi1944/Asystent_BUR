@@ -1053,11 +1053,41 @@ li + li {
 
 body[data-aktywna-zakladka="semper"] .karta[data-zakladki~="semper"],
 body[data-aktywna-zakladka="terminy"] .karta[data-zakladki~="terminy"],
+body[data-aktywna-zakladka="seria"] .karta[data-zakladki~="seria"],
 body[data-aktywna-zakladka="checklista"] .karta[data-zakladki~="checklista"],
 body[data-aktywna-zakladka="harmonogram"] .karta[data-zakladki~="harmonogram"],
 body[data-aktywna-zakladka="diagnostyka"] .karta[data-zakladki~="diagnostyka"] {
   display: block;
 }
+
+.liczniki-serii {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-bottom: 10px;
+}
+
+.lista-terminow-serii {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.termin-serii {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 9px;
+  padding: 9px;
+  border: 1px solid var(--ramka);
+  border-radius: 6px;
+}
+
+.termin-serii small { grid-column: 2; color: var(--tekst-slaby); }
+.termin-serii-niedostepny { opacity: 0.65; }
+.tabela-serii-kontener { overflow-x: auto; margin-top: 12px; }
+.tabela-serii { width: 100%; border-collapse: collapse; font-size: 11px; }
+.tabela-serii th, .tabela-serii td { padding: 6px; border: 1px solid var(--ramka); vertical-align: top; }
+.tabela-serii button { min-width: 110px; margin-bottom: 4px; padding: 5px; font-size: 11px; }
 
 .pozycja-walidacji strong,
 .pozycja-walidacji span {
