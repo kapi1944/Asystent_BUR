@@ -1,9 +1,11 @@
 (function zarejestrujPrzygotowanieWypelnieniaBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
-  function przygotujPropozycje(dokument, szkolenie, termin) {
+  function przygotujPropozycje(dokument, szkolenie, termin, kontekst) {
     return przestrzeń.pobierzDefinicjePólWypełnieniaBur({
       szkolenieSemper: szkolenie || {},
-      wybranyTermin: termin || {}
+      szkolenieŹródłowe: szkolenie || {},
+      wybranyTermin: termin || {},
+      profilId: kontekst && kontekst.profilId || szkolenie && szkolenie.profilId || "semper"
     }).map(function utwórz(definicja) {
       const znalezione = przestrzeń.znajdźPoleBurZSzczegółami
         ? przestrzeń.znajdźPoleBurZSzczegółami(dokument, definicja.definicjaPola || {})
@@ -23,7 +25,11 @@
       const zgodne = definicja.typPola === "data" && przestrzeń.normalizujDatęBur
         ? przestrzeń.normalizujDatęBur(aktualna) === przestrzeń.normalizujDatęBur(proponowana)
         : String(aktualna || "").trim() === String(proponowana || "").trim();
-      const status = !element
+      const status = definicja.regułaNieDotyczy
+        ? "reguła_dotyczy_tylko_online"
+        : definicja.doSprawdzenia
+          ? "do_sprawdzenia"
+          : !element
         ? "brak_pola_bur"
         : !proponowana
           ? "brak_danych_źródłowych"
@@ -41,7 +47,9 @@
           ? "Istniejąca wartość wymaga świadomej decyzji."
           : "",
         metodaZnalezienia: znalezione.metodaZnalezienia || "",
-        selektorZnaleziony: znalezione.selektor || ""
+        selektorZnaleziony: znalezione.selektor || "",
+        tylkoOnline: Boolean(definicja.tylkoOnline),
+        profilId: kontekst && kontekst.profilId || szkolenie && szkolenie.profilId || "semper"
       });
     });
   }

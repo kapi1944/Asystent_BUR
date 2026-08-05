@@ -99,7 +99,7 @@
     };
   }
 
-  function uzupełnijProgramUsługi(program) {
+  function uzupełnijProgramUsługi(program, programGotowy) {
     const edytor = document.querySelector(selektory.edytorProgramu);
 
     if (!edytor) {
@@ -109,7 +109,7 @@
       };
     }
 
-    const tekstProgramu = przestrzen.przygotujTekstProgramu(program || "");
+    const tekstProgramu = programGotowy ? String(program || "").trim() : przestrzen.przygotujTekstProgramu(program || "");
     const htmlProgramu = przestrzen.konwertujTekstProgramuNaHtml(tekstProgramu);
 
     edytor.innerHTML = htmlProgramu;
@@ -1405,13 +1405,11 @@
           return;
         }
 
-        if (typeof przestrzen.skorygujPodstawęWpisuBur === "function") {
-          przestrzen.skorygujPodstawęWpisuBur(document);
-        }
-
         const wynik = przestrzen.walidujFormularzBur(document, {
           szkolenieSemper: szkolenieSemper,
-          wybranyTermin: wybórTerminu.termin
+          wybranyTermin: wybórTerminu.termin,
+          profilId: szkolenieSemper.profilId || "semper",
+          wykryteKontoBur: wykryjKontoDostawcyBur(document)
         });
 
         zastosujWynikWalidacjiNaStronie(document, wynik);
@@ -1624,35 +1622,33 @@
     }
 
     if (wiadomosc.typ === komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR) {
-      const korektaPodstawyWpisu = typeof przestrzen.skorygujPodstawęWpisuBur === "function"
-        ? przestrzen.skorygujPodstawęWpisuBur(document)
-        : null;
       odpowiedz({
         typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR,
         wynik: {
-          propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}),
-          korektaPodstawyWpisu: korektaPodstawyWpisu ? {
-            ok: korektaPodstawyWpisu.ok,
-            status: korektaPodstawyWpisu.status,
-            wartośćPrzed: korektaPodstawyWpisu.wartośćPrzed,
-            wartośćPo: korektaPodstawyWpisu.wartośćPo,
-            wartośćOczekiwana: korektaPodstawyWpisu.wartośćOczekiwana,
-            kodBłędu: korektaPodstawyWpisu.kodBłędu,
-            komunikat: korektaPodstawyWpisu.komunikat
-          } : null
+          propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}, { profilId: wiadomosc.profilId }),
+          kontoBur: wykryjKontoDostawcyBur(document)
         }
       });
       return true;
     }
 
     if (wiadomosc.typ === komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR) {
+      const kontekst = wiadomosc.kontekstOperacji || {};
+      const konto = wykryjKontoDostawcyBur(document);
+      if (!kontekst.profilId || !przestrzen.czyProfilZgodnyZKontemBur(kontekst.profilId, konto)) {
+        odpowiedz({ typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR, wynik: { ok: false, wyniki: [{ ok: false, status: "konflikt_konta", sekcja: "Kontekst operacji", pole: "Konto BUR", kodBłędu: "KONFLIKT_KONTA_BUR", komunikat: "Konto BUR zmieniło się albo nie odpowiada profilowi podglądu." }] } });
+        return true;
+      }
       Promise.all((wiadomosc.propozycje || []).filter(function wybrane(propozycja) { return propozycja.zaznaczona; }).map(function ustaw(propozycja) {
+        if (propozycja.typPola === "osoby_prowadzace") {
+          return przestrzen.zastąpOsobyProwadzące(document, propozycja.wartośćProponowana);
+        }
         const znalezione = przestrzen.znajdźPoleBurZSzczegółami(document, propozycja.definicjaPola);
         const aktualna = znalezione.element ? przestrzen.pobierzWartośćPola(znalezione.element) : "";
         if (aktualna !== propozycja.wartośćAktualna) {
           return Promise.resolve({ ok: false, status: "konflikt_po_przygotowaniu", sekcja: propozycja.sekcja, pole: propozycja.pole, wartośćPrzed: aktualna, wartośćOczekiwana: propozycja.wartośćProponowana, wartośćPo: aktualna, kodBłędu: "KONFLIKT_PO_PRZYGOTOWANIU", komunikat: "Wartość BUR zmieniła się po przygotowaniu podglądu." });
         }
-        return przestrzen.ustawPoleBurZWeryfikacją(document, { sekcja: propozycja.sekcja, pole: propozycja.pole, typPola: propozycja.typPola, wartość: propozycja.wartośćProponowana, definicjaPola: propozycja.definicjaPola, zezwólNaNadpisanie: propozycja.status === "konflikt" });
+        return przestrzen.ustawPoleBurZWeryfikacją(document, { sekcja: propozycja.sekcja, pole: propozycja.pole, typPola: propozycja.typPola, wartość: propozycja.wartośćProponowana, definicjaPola: propozycja.definicjaPola, zezwólNaNadpisanie: propozycja.status === "konflikt", dokładnySelect2: propozycja.dokładnySelect2 });
       })).then(function odpowiedzWynikiem(wyniki) { odpowiedz({ typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR, wynik: { wyniki: wyniki, ok: wyniki.every(function poprawne(wynik) { return wynik.ok; }) } }); });
       return true;
     }
@@ -1682,7 +1678,7 @@
     if (wiadomosc.typ === komunikaty.UZUPEŁNIJ_PROGRAM_BUR) {
       odpowiedz({
         typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR,
-        wynik: uzupełnijProgramUsługi(wiadomosc.program)
+        wynik: uzupełnijProgramUsługi(wiadomosc.program, wiadomosc.programGotowy)
       });
 
       return true;

@@ -567,6 +567,10 @@
     wynik.wartośćPrzed = pobierzWartośćTechniczną(element, typPola);
     if (normalizujKluczBur(wynik.wartośćPrzed) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "już_zgodne"; wynik.wartośćPo = wynik.wartośćPrzed; return wynik; }
     if (wynik.wartośćPrzed && !ustawienia.zezwólNaNadpisanie) { wynik.kodBłędu = "KONFLIKT_WARTOŚCI"; wynik.komunikat = "Pole zawiera inną wartość i wymaga decyzji użytkownika."; return wynik; }
+    if (typPola === "select2" && ustawienia.dokładnySelect2) {
+      const wybór = ustawSelect2PoDokładnymTekście(dokument, definicja, wynik.wartośćOczekiwana);
+      return Object.assign(wynik, wybór, { sekcja: wynik.sekcja, pole: wynik.pole, typPola: typPola, metodaZnalezienia: znalezione.metodaZnalezienia, selektor: znalezione.selektor });
+    }
     const ustawiono = ustawPoleJeśliIstnieje(Object.assign({}, definicja, { dokument: dokument }), wynik.wartośćOczekiwana);
     if (element.blur) { element.blur(); }
     const potwierdzono = await poczekajNaReakcję(element, function zgodne() { return normalizujKluczBur(pobierzWartośćTechniczną(element, typPola)) === normalizujKluczBur(wynik.wartośćOczekiwana); });
@@ -629,6 +633,7 @@
   function wypełnijFormularzWstępny(dokument, kontekst, raport) {
     const termin = kontekst.wybranyTermin || {};
     const forma = czyTerminOnline(termin) ? "online" : "stacjonarna";
+    const profil = przestrzeń.pobierzProfilDostawcy(kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId || "semper") || {};
 
     [
       {
@@ -645,7 +650,7 @@
       {
         sekcja: "Formularz wstępny",
         pole: "Wariant zajęć",
-        wartość: "Zajęcia grupowe",
+        wartość: profil.wariantZajęćBur || "Zajęcia grupowe",
         typ: "select2",
         definicja: {
           sekcja: "Formularz wstępny",
@@ -656,7 +661,7 @@
       {
         sekcja: "Formularz wstępny",
         pole: "Podstawa uzyskania wpisu do BUR",
-        wartość: "Znak Jakości TGLS Quality Alliance",
+        wartość: profil.podstawaWpisuBur || AKTUALNA_PODSTAWA_WPISU_BUR,
         typ: "select2",
         definicja: {
           sekcja: "Formularz wstępny",
@@ -667,7 +672,7 @@
       {
         sekcja: "Formularz wstępny",
         pole: "Usługa zamknięta",
-        wartość: "NIE",
+        wartość: profil.usługaZamkniętaBur || "NIE",
         typ: "przełącznik",
         definicja: {
           sekcja: "Formularz wstępny",
@@ -687,7 +692,9 @@
   function wypełnijInformacjePodstawowe(dokument, kontekst, raport) {
     const szkolenieSemper = kontekst.szkolenieSemper || {};
     const termin = kontekst.wybranyTermin || {};
-    const minimum = czyTerminOnline(termin) ? "2" : "5";
+    const profil = przestrzeń.pobierzProfilDostawcy(kontekst.profilId || szkolenieSemper.profilId || "semper") || {};
+    const regułaUczestników = profil.liczbaUczestnikówBur;
+    const minimum = regułaUczestników ? (czyTerminOnline(termin) ? regułaUczestników.onlineMinimum : regułaUczestników.stacjonarneMinimum) : "";
     const pola = [
       {
         sekcja: "Informacje podstawowe",
@@ -753,7 +760,7 @@
       {
         sekcja: "Informacje podstawowe",
         pole: "Maksymalna liczba uczestników",
-        wartość: "15",
+        wartość: regułaUczestników ? regułaUczestników.maksimum : "",
         definicja: {
           sekcja: "Informacje podstawowe",
           etykieta: "Maksymalna liczba uczestników",
@@ -762,9 +769,12 @@
       }
     ];
 
-    pola.forEach(function ustaw(ustawienia) {
+    pola.filter(function pomińNiepotwierdzoneLiczby(ustawienia) { return ustawienia.wartość || !/liczba uczestników/i.test(ustawienia.pole); }).forEach(function ustaw(ustawienia) {
       ustawRaportowanePole(raport, dokument, ustawienia);
     });
+    if (!regułaUczestników) {
+      dodajOstrzeżenie(raport, "Informacje podstawowe", "Minimalna i maksymalna liczba uczestników", "Profil nie definiuje tych wartości — pozostawiono obecne dane do sprawdzenia.");
+    }
   }
 
   function ustawPrzełącznikiGłównegoCelu(dokument, raport) {
@@ -894,17 +904,15 @@
     };
 
     try {
-      const korektaPodstawyWpisu = skorygujPodstawęWpisuBur(dokument);
-      if (korektaPodstawyWpisu.status === "potwierdzone") {
-        dodajUzupełnione(raport, "Formularz wstępny", "Podstawa uzyskania wpisu do BUR", AKTUALNA_PODSTAWA_WPISU_BUR);
-      } else if (!korektaPodstawyWpisu.ok) {
-        dodajPominięte(raport, "Formularz wstępny", "Podstawa uzyskania wpisu do BUR", korektaPodstawyWpisu.komunikat);
-        dodajOstrzeżenie(raport, "Formularz wstępny", "Podstawa uzyskania wpisu do BUR", korektaPodstawyWpisu.komunikat);
-      }
-
       const definicje = przestrzeń.pobierzDefinicjePólWypełnieniaBur(kontekst || {});
       definicje.forEach(function wypełnij(definicja) {
-        if (definicja.id === "podstawa-wpisu" && korektaPodstawyWpisu.status !== "nie_dotyczy") {
+        if (definicja.typPola === "osoby_prowadzace" || definicja.regułaNieDotyczy || definicja.doSprawdzenia) {
+          return;
+        }
+        if (definicja.id === "podstawa-wpisu") {
+          const wynikPodstawy = ustawSelect2PoDokładnymTekście(dokument, definicja.definicjaPola, definicja.wartośćProponowana);
+          if (wynikPodstawy.ok) { dodajUzupełnione(raport, definicja.sekcja, definicja.pole, definicja.wartośćProponowana); }
+          else { dodajPominięte(raport, definicja.sekcja, definicja.pole, wynikPodstawy.komunikat); dodajOstrzeżenie(raport, definicja.sekcja, definicja.pole, wynikPodstawy.komunikat); }
           return;
         }
         let pole = null;
@@ -921,6 +929,71 @@
 
     raport.ok = raport.błędy.length === 0;
     return raport;
+  }
+
+  function pobierzWierszeOsóbProwadzących(tabela) {
+    return Array.from(tabela && tabela.querySelectorAll ? tabela.querySelectorAll("tbody tr") : []).filter(function maDane(wiersz) {
+      return Boolean(String(wiersz.textContent || "").replace(/\s+/g, " ").trim()) && !/brak danych|nie znaleziono/i.test(wiersz.textContent || "");
+    });
+  }
+
+  async function zastąpOsobyProwadzące(dokument, osoby, adapter) {
+    const oczekiwane = Array.isArray(osoby) ? osoby : [];
+    const cel = przestrzeń.pobierzCelFormularzaBur && przestrzeń.pobierzCelFormularzaBur("osobyProwadzace");
+    const znalezione = przestrzeń.znajdźPoleBurZSzczegółami(dokument, { sekcja: cel && cel.sekcja, etykieta: cel && cel.etykieta, selektory: (cel && cel.selektory || []).concat(cel && cel.selektoryAwaryjne || []) });
+    const tabela = znalezione.element;
+    const wynik = { ok: false, status: "błąd", sekcja: "Osoby prowadzące", pole: "Osoby prowadzące", usunięto: 0, dodano: 0, metodaZnalezienia: znalezione.metodaZnalezienia || "", selektor: znalezione.selektor || "", kodBłędu: "", komunikat: "" };
+    if (!tabela) { wynik.kodBłędu = "BRAK_TABELI_OSOB"; wynik.komunikat = "Nie znaleziono tabeli osób prowadzących."; return wynik; }
+    const obsługa = adapter || {};
+    const początkowe = obsługa.pobierzWiersze ? obsługa.pobierzWiersze(tabela) : pobierzWierszeOsóbProwadzących(tabela);
+    for (let indeks = początkowe.length - 1; indeks >= 0; indeks -= 1) {
+      const wiersz = początkowe[indeks];
+      const usunięto = obsługa.usuńWiersz ? await obsługa.usuńWiersz(wiersz, indeks) : (function usuńNatywnie() {
+        const przycisk = wiersz.querySelector("button[title*='Usuń' i], button[aria-label*='Usuń' i], [data-action*='delete' i], .delete, .usun");
+        if (!przycisk) { return false; }
+        przycisk.click();
+        const potwierdzenie = dokument.querySelector("[role='dialog'] button[data-confirm], [role='dialog'] button.btn-danger");
+        if (potwierdzenie) { potwierdzenie.click(); }
+        return true;
+      })();
+      if (!usunięto) { wynik.kodBłędu = "NIE_USUNIĘTO_OSOBY"; wynik.komunikat = "Nie udało się bezpiecznie usunąć istniejącej osoby prowadzącej."; return wynik; }
+      wynik.usunięto += 1;
+    }
+    const poUsunięciu = obsługa.pobierzWiersze ? obsługa.pobierzWiersze(tabela) : pobierzWierszeOsóbProwadzących(tabela);
+    if (poUsunięciu.length) { wynik.kodBłędu = "TABELA_OSOB_NIEPUSTA"; wynik.komunikat = "Tabela osób prowadzących nadal zawiera stare rekordy."; return wynik; }
+    for (let indeks = 0; indeks < oczekiwane.length; indeks += 1) {
+      const osoba = oczekiwane[indeks];
+      let dodano = false;
+      if (obsługa.dodajOsobę) {
+        dodano = await obsługa.dodajOsobę(osoba, indeks);
+      } else {
+        const przyciskDodaj = Array.from(dokument.querySelectorAll("button, a")).find(function znajdź(element) { return /dodaj.*osob.*prowadz|dodaj prowadząc/i.test(element.textContent || ""); });
+        if (!przyciskDodaj) { wynik.kodBłędu = "BRAK_PRZYCISKU_DODAJ_OSOBE"; wynik.komunikat = "Nie znaleziono przycisku dodawania osoby prowadzącej."; return wynik; }
+        przyciskDodaj.click();
+        const dialog = dokument.querySelector("[role='dialog'], .modal.show, .modal") || dokument;
+        const pola = {
+          imięINazwisko: dialog.querySelector("#osobyprowadzacesekcja-imieinazwisko, [name*='imieinazwisko' i], [data-pole-osoby='imie']"),
+          email: dialog.querySelector("#osobyprowadzacesekcja-email, input[type='email'], [name*='email' i], [data-pole-osoby='email']"),
+          rola: dialog.querySelector("#osobyprowadzacesekcja-rola, select[name*='rola' i], [data-pole-osoby='rola']"),
+          opis: dialog.querySelector("#osobyprowadzacesekcja-opisdoswiadczenia, textarea[name*='doswiadc' i], [data-pole-osoby='opis']")
+        };
+        if (!pola.imięINazwisko || !pola.email || !pola.rola || !pola.opis) { wynik.kodBłędu = "BRAK_POL_OSOBY"; wynik.komunikat = "Nie znaleziono wszystkich technicznych pól osoby prowadzącej."; return wynik; }
+        ustawWartośćPola(pola.imięINazwisko, osoba.imięINazwisko);
+        ustawWartośćPola(pola.email, osoba.email);
+        const wybórRoli = pola.rola.tagName === "SELECT" ? ustawSelect2PoDokładnymTekście(dokument, { selektory: ["#" + pola.rola.id] }, osoba.rola) : { ok: false };
+        ustawWartośćPola(pola.opis, osoba.opisDoświadczenia);
+        if (!wybórRoli.ok) { wynik.kodBłędu = "NIEPOTWIERDZONA_ROLA_OSOBY"; wynik.komunikat = "Nie potwierdzono technicznej wartości roli osoby prowadzącej."; return wynik; }
+        const zapisz = Array.from(dialog.querySelectorAll("button")).find(function znajdź(element) { return /zapisz|dodaj/i.test(element.textContent || "") && element !== przyciskDodaj; });
+        if (!zapisz) { wynik.kodBłędu = "BRAK_ZAPISU_OSOBY"; wynik.komunikat = "Nie znaleziono przycisku zapisu osoby prowadzącej."; return wynik; }
+        zapisz.click();
+        dodano = true;
+      }
+      const potwierdzono = obsługa.potwierdźOsobę ? await obsługa.potwierdźOsobę(osoba, indeks) : [osoba.imięINazwisko, osoba.email].every(function zawiera(wartość) { return normalizujKluczBur(tabela.textContent).includes(normalizujKluczBur(wartość)); });
+      if (!dodano || !potwierdzono) { wynik.kodBłędu = "NIEPOTWIERDZONA_OSOBA"; wynik.komunikat = "Nie potwierdzono danych technicznych dodanej osoby prowadzącej."; return wynik; }
+      wynik.dodano += 1;
+    }
+    if (wynik.dodano !== oczekiwane.length) { wynik.kodBłędu = "NIEPRAWIDLOWA_LICZBA_OSOB"; wynik.komunikat = "Nie dodano oczekiwanej liczby osób prowadzących."; return wynik; }
+    wynik.ok = true; wynik.status = "potwierdzone"; wynik.wartośćPo = oczekiwane; return wynik;
   }
 
   przestrzeń.wypełnijFormularzBur = wypełnijFormularzBur;
@@ -940,6 +1013,8 @@
   przestrzeń.normalizujDatęBur = normalizujDatęBur;
   przestrzeń.znajdźTechnicznyInputDaty = znajdźTechnicznyInputDaty;
   przestrzeń.ustawDatęTechniczną = ustawDatęTechniczną;
+  przestrzeń.zastąpOsobyProwadzące = zastąpOsobyProwadzące;
+  przestrzeń.pobierzWierszeOsóbProwadzących = pobierzWierszeOsóbProwadzących;
 
   globalny.BurAsystent = przestrzeń;
 })(globalThis);

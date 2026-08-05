@@ -76,7 +76,7 @@
             <dt>Ostatni błąd service workera</dt>
             <dd id="diagnostyka-blad-sw">-</dd>
 
-            <dt>Zapis ostatnieSzkolenieSemper</dt>
+            <dt>Zapis danych aktywnego profilu</dt>
             <dd id="diagnostyka-zapis-importu">-</dd>
 
             <dt>Liczba terminów po imporcie</dt>
@@ -89,7 +89,7 @@
       </section>
 
       <section id="karta-terminy" class="karta" data-zakladki="terminy">
-        <h2>Terminy</h2>
+        <h2>Terminy <span data-nazwa-zrodla>SEMPER</span></h2>
         <section class="kolejka-terminow-bur" aria-labelledby="naglowek-kolejki-terminow">
           <h3 id="naglowek-kolejki-terminow">Kolejka terminów BUR</h3>
           <div class="liczniki-kolejki-terminow">
@@ -120,7 +120,7 @@
           <button type="button" data-filtr-terminow="online" aria-pressed="false">Online</button>
         </div>
         <div id="lista-terminow-semper" class="lista-terminow-semper" aria-label="Terminy SEMPER"></div>
-        <label class="kontrolka-techniczna" for="wybor-terminu-semper">Techniczny wybór terminu SEMPER</label>
+        <label class="kontrolka-techniczna" for="wybor-terminu-semper">Techniczny wybór terminu dostawcy</label>
         <select id="wybor-terminu-semper" class="kontrolka-techniczna" tabindex="-1" aria-hidden="true">
           <option value="">Brak zaimportowanych terminów</option>
         </select>
@@ -244,6 +244,8 @@
     <script src="../shared/bur-program-harmonogram.js"></script>
     <script src="../shared/wyszukiwarka-semper.js"></script>
     <script src="../shared/parser-semper.js"></script>
+    <script src="../shared/parser-iist.js"></script>
+    <script src="../background/klient-iist.js"></script>
     <script src="../shared/definicje-pol-bur.js"></script>
     <script src="../shared/przygotowanie-wypelnienia-bur.js"></script>
     <script src="panel.js"></script>

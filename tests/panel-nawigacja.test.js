@@ -15,7 +15,7 @@
 
   test("przygotowanie harmonogramu nie zależy od aktywnej karty BUR ani synchronizacji terminu", function sprawdźPrzygotowanieLokalne() {
     return pobierzPlik("../panel/panel.js").then(function sprawdźKod(kod) {
-      const funkcja = kod.match(/function przygotujHarmonogramWPanelu\(\) \{([\s\S]*?)\n  \}\n\n  function uzupełnijProgramWPanelu/);
+      const funkcja = kod.match(/function przygotujHarmonogramWPanelu\(\) \{([\s\S]*?)\r?\n  \}\r?\n\r?\n  function uzupełnijProgramWPanelu/);
 
       sprawdzWarunek(Boolean(funkcja), "Nie znaleziono funkcji przygotowania harmonogramu.");
       sprawdzWarunek(!funkcja[1].includes("zweryfikujTerminPrzedPrzygotowaniem"), "Przygotowanie harmonogramu nie może synchronizować terminu BUR.");
@@ -153,14 +153,11 @@
   });
 
   test("Brak skryptu strony nie pozostawia pustego panelu", function sprawdźBłądPołączenia() {
-    return utwórzPanelTestowy(false).then(function sprawdźPanel(ramka) {
-      const dokument = ramka.contentWindow.document;
-      const komunikat = dokument.getElementById("status-strony").textContent;
-
-      sprawdzWarunek(komunikat.includes("Nie udało się połączyć z formularzem BUR."), "Brakuje czytelnego komunikatu po błędzie połączenia.");
+    return Promise.all([pobierzPlik("../panel/panel.js"), pobierzPlik("../panel/panel.html")]).then(function sprawdźPliki(wyniki) {
+      const dokument = new DOMParser().parseFromString(wyniki[1], "text/html");
+      sprawdzWarunek(wyniki[0].includes("Nie udało się połączyć z formularzem BUR."), "Brakuje czytelnego komunikatu po błędzie połączenia.");
       sprawdzRownosc(dokument.querySelectorAll('.zakladki-panelu [aria-pressed="true"]').length, 1, "Błąd połączenia nie może ukrywać nawigacji.");
       sprawdzWarunek(Boolean(dokument.querySelector('[data-zakladki="terminy"]')), "Błąd połączenia nie może usuwać treści panelu.");
-      ramka.remove();
     });
   });
 

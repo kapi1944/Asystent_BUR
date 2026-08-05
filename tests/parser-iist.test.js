@@ -1,0 +1,7 @@
+(function testyParseraIist() {
+  const bur = window.BurAsystent;
+  function html() { return "<main><h1>Audyt ISO 9001</h1><h2>Grupa docelowa</h2><p>Kadra zarządzająca</p><h2>Cel edukacyjny</h2><p>Celem szkolenia jest poznanie audytu.</p><p>Po zakończeniu szkolenia uczestnicy będą potrafili:</p><ul><li>planować audyt</li></ul><h2>Program szkolenia</h2><ol><li>Norma ISO</li><li>Ćwiczenia</li></ol><table><tr><th>Termin</th><th>Forma</th></tr><tr><td>10.09.2027 - 11.09.2027</td><td>online</td></tr></table></main>"; }
+  test("parser IIST odczytuje tytuł i grupę docelową", function sprawdź() { const wynik = bur.parsujHtmlIist(html(), "https://szkoleniaiist.com.pl/audyt"); sprawdzRownosc(wynik.szkolenie.tytułOryginalny, "Audyt ISO 9001"); sprawdzWarunek(wynik.szkolenie.sekcje.grupaDocelowa.includes("Kadra")); });
+  test("parser IIST rozdziela dwie części celu edukacyjnego", function sprawdź() { const wynik = bur.parsujHtmlIist(html(), "https://szkoleniaiist.com.pl/audyt"); sprawdzWarunek(wynik.szkolenie.sekcje.celEdukacyjnyOpis.startsWith("Celem szkolenia")); sprawdzWarunek(wynik.szkolenie.sekcje.tekstNadProgramem.startsWith("Po zakończeniu")); });
+  test("parser IIST odczytuje termin online", function sprawdź() { const wynik = bur.parsujHtmlIist(html(), "https://szkoleniaiist.com.pl/audyt"); sprawdzRownosc(wynik.szkolenie.terminy[0].forma, "online"); sprawdzRownosc(wynik.szkolenie.terminy[0].dataStartBur, "10-09-2027"); });
+})();

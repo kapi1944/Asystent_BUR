@@ -150,8 +150,9 @@
     return null;
   }
 
-  function walidujPodstawęWpisuBur(dokument, pozycje) {
-    const oczekiwanaWartość = przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR;
+  function walidujPodstawęWpisuBur(dokument, pozycje, kontekst) {
+    const profil = przestrzeń.pobierzProfilDostawcy(kontekst && (kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId) || "semper");
+    const oczekiwanaWartość = profil && profil.podstawaWpisuBur || przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR;
     const nieaktualnaWartość = przestrzeń.NIEAKTUALNA_PODSTAWA_WPISU_BUR;
     const definicja = przestrzeń.pobierzDefinicjęPodstawyWpisuBur();
     const natywnePole = przestrzeń.znajdźNatywnePoleWyboruBur
@@ -226,7 +227,7 @@
       selektorPomocniczy: "#select2-formularzwstepnysekcja-wariantzajec-container"
     });
 
-    walidujPodstawęWpisuBur(dokument, pozycje);
+    walidujPodstawęWpisuBur(dokument, pozycje, kontekst);
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -497,8 +498,52 @@
     walidujFormularzWstępny(dokument, dane, pozycje);
     walidujInformacjePodstawowe(dokument, dane, pozycje);
     walidujGłównyCelUsługi(dokument, dane, pozycje);
+    walidujProfilDostawcy(dokument, dane, pozycje);
 
     return przestrzeń.utwórzWynikWalidacjiBur(pozycje);
+  }
+
+  function odczytajCel(dokument, celId) {
+    const znalezione = przestrzeń.znajdźCelFormularzaBur(dokument, celId);
+    return znalezione.ok ? { element: znalezione.element, wartość: przestrzeń.pobierzWartośćPola(znalezione.element) || "" } : { element: null, wartość: "" };
+  }
+
+  function dodajSprawdzenieProfilu(pozycje, sekcja, pole, poprawne, oczekiwana, aktualna, element, komunikatBłędu, statusBraku) {
+    dodajPozycję(pozycje, { sekcja: sekcja, pole: pole, status: poprawne ? "poprawne" : (statusBraku || "błąd"), komunikat: poprawne ? "Wartość jest zgodna z profilem dostawcy." : komunikatBłędu, oczekiwanaWartość: oczekiwana, aktualnaWartość: aktualna || "Nie odczytano wartości", element: element });
+  }
+
+  function walidujProfilDostawcy(dokument, kontekst, pozycje) {
+    const profilId = kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId || "semper";
+    const profil = przestrzeń.pobierzProfilDostawcy(profilId);
+    if (!profil || !profil.daneKontaktowe || !profil.daneKontaktowe.email) { return; }
+    const szkolenie = kontekst.szkolenieSemper || {};
+    const termin = kontekst.wybranyTermin || {};
+    const konto = kontekst.wykryteKontoBur || (typeof przestrzeń.wykryjKontoDostawcyBur === "function" ? przestrzeń.wykryjKontoDostawcyBur(dokument) : null);
+    dodajSprawdzenieProfilu(pozycje, "Kontekst operacji", "Konto BUR", przestrzeń.czyProfilZgodnyZKontemBur(profilId, konto), profil.pełnaNazwa, konto && konto.nazwaOrganizacji || "", null, "Konto BUR nie odpowiada profilowi " + profil.nazwa + ".");
+    [["kontaktImieNazwisko", "Imię i nazwisko", profil.daneKontaktowe.imięINazwisko], ["kontaktEmail", "E-mail", profil.daneKontaktowe.email], ["kontaktTelefon", "Telefon", profil.daneKontaktowe.telefon]].forEach(function sprawdźKontakt(dane) {
+      const pole = odczytajCel(dokument, dane[0]);
+      dodajSprawdzenieProfilu(pozycje, "Dane kontaktowe", dane[1], normalizujDoPorównaniaBur(pole.wartość) === normalizujDoPorównaniaBur(dane[2]), dane[2], pole.wartość, pole.element, "Dane kontaktowe nie odpowiadają profilowi " + profil.nazwa + ".");
+    });
+    const tabelaOsób = odczytajCel(dokument, "osobyProwadzace");
+    const tekstOsób = normalizujDoPorównaniaBur(tabelaOsób.wartość);
+    const osobyPoprawne = [profil.osobaProwadzącaUsługę, profil.osobaProwadzącaWalidację].every(function maOsobę(osoba) { return tekstOsób.includes(normalizujDoPorównaniaBur(osoba.imięINazwisko)) && tekstOsób.includes(normalizujDoPorównaniaBur(osoba.email)); });
+    dodajSprawdzenieProfilu(pozycje, "Osoby prowadzące", "Właściwe osoby prowadzące", osobyPoprawne && !/semper|szkolenia-semper\.pl/i.test(tabelaOsób.wartość), "Dokładnie dwie osoby " + profil.nazwa + ", bez SEMPER", tabelaOsób.wartość, tabelaOsób.element, "Tabela osób prowadzących jest niezgodna z profilem " + profil.nazwa + ".");
+    const cel = odczytajCel(dokument, "opisCeluEdukacyjnego");
+    const opis = szkolenie.sekcje && (szkolenie.sekcje.celEdukacyjnyOpis || szkolenie.sekcje.celSzkolenia) || "";
+    dodajSprawdzenieProfilu(pozycje, "Główny cel usługi", "Cel edukacyjny - opis", Boolean(opis) && normalizujDoPorównaniaBur(cel.wartość).includes(normalizujDoPorównaniaBur(opis)), opis, cel.wartość, cel.element, "Brakuje pierwszej części celu edukacyjnego " + profil.nazwa + ".", opis ? "błąd" : "ostrzeżenie");
+    const program = odczytajCel(dokument, "program");
+    const tekstNad = szkolenie.sekcje && (szkolenie.sekcje.tekstNadProgramem || szkolenie.sekcje.efektyPoSzkoleniu) || "";
+    dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", "Druga część celu nad programem", Boolean(tekstNad) && normalizujDoPorównaniaBur(program.wartość).includes(normalizujDoPorównaniaBur(tekstNad)), tekstNad, program.wartość, program.element, "Brakuje drugiej części celu edukacyjnego nad programem.", tekstNad ? "błąd" : "ostrzeżenie");
+    dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", "Tekst organizacyjny profilu", normalizujDoPorównaniaBur(program.wartość).includes(normalizujDoPorównaniaBur(profil.tekstPodProgramem)) && !normalizujDoPorównaniaBur(program.wartość).includes(normalizujDoPorównaniaBur(przestrzeń.INFORMACJA_ORGANIZACYJNA_PROGRAMU)), profil.tekstPodProgramem, program.wartość, program.element, "Program nie zawiera właściwego tekstu organizacyjnego albo zawiera tekst SEMPER.");
+    const harmonogram = odczytajCel(dokument, "harmonogram");
+    const harmonogramPoprawny = [profil.osobaProwadzącaUsługę.email, profil.osobaProwadzącaWalidację.email].every(function maEmail(email) { return normalizujDoPorównaniaBur(harmonogram.wartość).includes(normalizujDoPorównaniaBur(email)); }) && !/szkolenia-semper\.pl/i.test(harmonogram.wartość);
+    dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", "Adresy prowadzących w harmonogramie", harmonogramPoprawny, profil.osobaProwadzącaUsługę.email + ", " + profil.osobaProwadzącaWalidację.email, harmonogram.wartość, harmonogram.element, "Harmonogram nie używa wyłącznie adresów profilu " + profil.nazwa + ".");
+    const online = /online/i.test([termin.forma, termin.miejsce].join(" "));
+    [["informacjaOMaterialach", "Informacja o materiałach", profil.materiałyOnline], ["warunkiUczestnictwa", "Warunki uczestnictwa", profil.warunkiUczestnictwaOnline], ["informacjeDodatkowe", "Informacje dodatkowe", profil.informacjeDodatkoweOnline], ["warunkiTechniczne", "Warunki techniczne", profil.warunkiTechniczneOnline], ["kodyDostepowe", "Kody dostępowe", profil.kodyDostępoweOnline]].forEach(function sprawdźOnline(dane) {
+      const pole = odczytajCel(dokument, dane[0]);
+      if (!online) { dodajPozycję(pozycje, { sekcja: "Informacje dodatkowe", pole: dane[1], status: "poprawne", komunikat: "Reguła dotyczy tylko online; pole nie jest wymuszane.", oczekiwanaWartość: "Reguła dotyczy tylko online", aktualnaWartość: pole.wartość, element: pole.element }); return; }
+      dodajSprawdzenieProfilu(pozycje, "Informacje dodatkowe", dane[1], normalizujDoPorównaniaBur(pole.wartość) === normalizujDoPorównaniaBur(dane[2]), dane[2], pole.wartość, pole.element, "Pole online jest niezgodne z profilem " + profil.nazwa + ".");
+    });
   }
 
   przestrzeń.walidujFormularzBur = walidujFormularzBur;

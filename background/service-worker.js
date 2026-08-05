@@ -2,7 +2,8 @@ importScripts(
   "../shared/profile-dostawcow.js",
   "../shared/komunikaty.js",
   "../shared/wyszukiwarka-semper.js",
-  "klient-semper.js"
+  "klient-semper.js",
+  "klient-iist.js"
 );
 
 chrome.runtime.onInstalled.addListener(function ustawPanelBoczny() {
@@ -55,6 +56,20 @@ chrome.runtime.onMessage.addListener(function obsłużKomunikatTła(wiadomość,
         });
       });
 
+    return true;
+  }
+
+  if (wiadomość.typ === komunikaty.IMPORTUJ_SZKOLENIE_Z_LINKU) {
+    globalThis.BurAsystent.importujSzkolenieZLinkuIist(wiadomość.url || "")
+      .then(function zwróćHtmlIist(wynik) {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_IMPORTUJ_SZKOLENIE, wynik: wynik });
+      })
+      .catch(function zwróćBłądIist(błąd) {
+        odpowiedz({
+          typ: komunikaty.BŁĄD_IMPORTU_SZKOLENIA,
+          wynik: { ok: false, błąd: błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych szkolenia IIST." }
+        });
+      });
     return true;
   }
 

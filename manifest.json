@@ -50,6 +50,22 @@
     },
     {
       "matches": [
+        "https://szkoleniaiist.com.pl/*",
+        "https://www.szkoleniaiist.com.pl/*"
+      ],
+      "js": [
+        "shared/profile-dostawcow.js",
+        "shared/komunikaty.js",
+        "shared/model.js",
+        "shared/normalizacja-tytulu.js",
+        "shared/daty.js",
+        "shared/parser-iist.js",
+        "content/iist-content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
         "https://uslugirozwojowe.parp.gov.pl/*",
         "https://*.uslugirozwojowe.parp.gov.pl/*"
       ],

@@ -475,16 +475,16 @@ textarea:focus {
   overflow-y: auto;
 }
 
-.lista-terminow-harmonogramu .grupa-terminow {
+.lista-terminow-harmonogramu .grupa-terminow-harmonogramu {
   min-width: 0;
 }
 
-.lista-terminow-harmonogramu .grupa-terminow + .grupa-terminow {
+.lista-terminow-harmonogramu .grupa-terminow-harmonogramu + .grupa-terminow-harmonogramu {
   margin-top: 6px;
   padding-top: 7px;
 }
 
-.lista-terminow-harmonogramu .naglowek-grupy-terminow {
+.lista-terminow-harmonogramu .naglowek-grupy-terminow-harmonogramu {
   margin-bottom: 5px;
   padding: 2px 4px;
   color: var(--tekst);

@@ -58,12 +58,14 @@
     <script src="../shared/bur-program-harmonogram.js"></script>
     <script src="../shared/wyszukiwarka-semper.js"></script>
     <script src="../shared/parser-semper.js"></script>
+    <script src="../shared/parser-iist.js"></script>
     <script src="../shared/selektory-bur.js"></script>
     <script src="../shared/walidatory-bur.js"></script>
     <script src="../shared/definicje-pol-bur.js"></script>
     <script src="../shared/przygotowanie-wypelnienia-bur.js"></script>
     <script src="../shared/wypełniacz-bur.js"></script>
     <script src="../background/klient-semper.js"></script>
+    <script src="../background/klient-iist.js"></script>
     <script>
       window.chrome = window.chrome || { runtime: { onMessage: { addListener: function dodajSłuchacza() {} } } };
     </script>
@@ -94,6 +96,8 @@
     <script src="aktualny-termin-bur.test.js"></script>
     <script src="wyszukiwarka-semper.test.js"></script>
     <script src="parser-semper-html.test.js"></script>
+    <script src="parser-iist.test.js"></script>
+    <script src="parser-iist-wymagania.test.js"></script>
     <script src="polskie-znaki.test.js"></script>
     <script src="bur-program-harmonogram.test.js"></script>
     <script src="selektory-bur.test.js"></script>
@@ -109,6 +113,7 @@
     <script src="niejednoznaczne-terminy-bur.test.js"></script>
     <script src="harmonogram-csv.test.js"></script>
     <script src="profile-dostawcow.test.js"></script>
+    <script src="iist-bur.test.js"></script>
     <script>
       (async function uruchomTesty() {
         const kontener = document.getElementById("wyniki");

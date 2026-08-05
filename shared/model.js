@@ -7,11 +7,15 @@
     NIEZNANA: "nieznana"
   };
 
-  function utworzSekcjeOpisuSemper(dane) {
+  function utworzSekcjeSzkolenia(dane) {
     const wartosci = dane || {};
+    const celEdukacyjnyOpis = wartosci.celEdukacyjnyOpis || wartosci.celSzkolenia || "";
 
     return {
-      celSzkolenia: wartosci.celSzkolenia || "",
+      celEdukacyjnyOpis: celEdukacyjnyOpis,
+      celSzkolenia: celEdukacyjnyOpis,
+      efektyPoSzkoleniu: wartosci.efektyPoSzkoleniu || "",
+      tekstNadProgramem: wartosci.tekstNadProgramem || wartosci.efektyPoSzkoleniu || "",
       grupaDocelowa: wartosci.grupaDocelowa || "",
       korzysci: wartosci.korzysci || "",
       program: wartosci.program || "",
@@ -22,6 +26,10 @@
       cenyStacjonarne: wartosci.cenyStacjonarne || "",
       cenyOnline: wartosci.cenyOnline || ""
     };
+  }
+
+  function utworzSekcjeOpisuSemper(dane) {
+    return utworzSekcjeSzkolenia(dane);
   }
 
   function utworzTerminSzkolenia(dane) {
@@ -43,19 +51,26 @@
     };
   }
 
-  function utworzSzkolenieSemper(dane) {
+  function utworzSzkolenie(dane) {
     const wartosci = dane || {};
+    const urlŹródła = wartosci.urlŹródła || wartosci.urlZrodla || "";
+    const tytułOryginalny = wartosci.tytułOryginalny || wartosci.tytulOryginalny || "";
+    const tytułBur = wartosci.tytułBur || wartosci.tytulBur || "";
+    const ostrzeżenia = Array.isArray(wartosci.ostrzeżenia) ? wartosci.ostrzeżenia : (Array.isArray(wartosci.ostrzezenia) ? wartosci.ostrzezenia : []);
 
     return {
-      urlZrodla: wartosci.urlZrodla || "",
-      urlŹródła: wartosci.urlŹródła || wartosci.urlZrodla || "",
-      tytulOryginalny: wartosci.tytulOryginalny || "",
-      tytułOryginalny: wartosci.tytułOryginalny || wartosci.tytulOryginalny || "",
-      tytulBur: wartosci.tytulBur || "",
-      tytułBur: wartosci.tytułBur || wartosci.tytulBur || "",
-      tytułPoNormalizacjiBur: wartosci.tytułPoNormalizacjiBur || wartosci.tytulBur || "",
+      profilId: wartosci.profilId || "",
+      urlŹródła: urlŹródła,
+      tytułOryginalny: tytułOryginalny,
+      tytułBur: tytułBur,
       terminy: Array.isArray(wartosci.terminy) ? wartosci.terminy : [],
-      sekcje: utworzSekcjeOpisuSemper(wartosci.sekcje),
+      sekcje: utworzSekcjeSzkolenia(wartosci.sekcje),
+      ostrzeżenia: ostrzeżenia,
+      urlZrodla: urlŹródła,
+      tytulOryginalny: tytułOryginalny,
+      tytulBur: tytułBur,
+      tytułPoNormalizacjiBur: wartosci.tytułPoNormalizacjiBur || tytułBur,
+      ostrzezenia: ostrzeżenia,
       cenaBezZakwaterowania: wartosci.cenaBezZakwaterowania || (wartosci.sekcje ? wartosci.sekcje.cenaBezZakwaterowania : "") || "",
       cenaBezZakwaterowaniaRodzaj: wartosci.cenaBezZakwaterowaniaRodzaj || (wartosci.sekcje ? wartosci.sekcje.cenaBezZakwaterowaniaRodzaj : "") || "",
       inwestycja: wartosci.inwestycja || (wartosci.sekcje ? wartosci.sekcje.inwestycja : ""),
@@ -63,9 +78,15 @@
     };
   }
 
+  function utworzSzkolenieSemper(dane) {
+    return utworzSzkolenie(Object.assign({ profilId: "semper" }, dane || {}));
+  }
+
   przestrzen.FORMY_SZKOLENIA = FORMY_SZKOLENIA;
+  przestrzen.utworzSekcjeSzkolenia = utworzSekcjeSzkolenia;
   przestrzen.utworzSekcjeOpisuSemper = utworzSekcjeOpisuSemper;
   przestrzen.utworzTerminSzkolenia = utworzTerminSzkolenia;
+  przestrzen.utworzSzkolenie = utworzSzkolenie;
   przestrzen.utworzSzkolenieSemper = utworzSzkolenieSemper;
 
   globalny.BurAsystent = przestrzen;

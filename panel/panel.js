@@ -1,7 +1,7 @@
 (function uruchomPanel(globalny) {
   const przestrzeń = globalny.BurAsystent;
   const komunikaty = przestrzeń.KOMUNIKATY;
-  const komunikatBrakuSkryptu = "Nie znaleziono skryptu strony na tej karcie. Odśwież stronę BUR/SEMPER albo otwórz obsługiwaną stronę.";
+  const komunikatBrakuSkryptu = "Nie znaleziono skryptu strony na tej karcie. Odśwież stronę BUR lub stronę dostawcy albo otwórz obsługiwaną stronę.";
   const plikiContentBur = [
     "shared/profile-dostawcow.js",
     "shared/komunikaty.js",
@@ -128,6 +128,11 @@
 
   function pobierzKluczDanychProfilu(profilId) { return przestrzeń.kluczDanychProfilu(profilId); }
 
+  function pobierzNazwęAktywnegoProfilu() {
+    const profil = przestrzeń.pobierzProfilDostawcy(aktywnyProfilDostawcy);
+    return profil ? profil.nazwa : "dostawcy";
+  }
+
   function czyKonfliktProfiluZKontem() {
     return Boolean(wykryteKontoBur && wykryteKontoBur.profilId && !przestrzeń.czyProfilZgodnyZKontemBur(aktywnyProfilDostawcy, wykryteKontoBur));
   }
@@ -146,11 +151,14 @@
     document.documentElement.style.setProperty("--akcent-ciemny", aktywnyProfilDostawcy === "iist" ? "#1f668f" : "#9f1f1c");
     document.querySelectorAll("[data-profil-dostawcy]").forEach(function ustawPrzycisk(przycisk) { przycisk.setAttribute("aria-pressed", String(przycisk.dataset.profilDostawcy === aktywnyProfilDostawcy)); });
     document.querySelectorAll("[data-nazwa-zrodla]").forEach(function ustawNazwę(element) { element.textContent = profil.nazwa; });
-    document.querySelectorAll("[data-etykieta-linku]").forEach(function ustawEtykietę(element) { element.textContent = "Link lub fraza " + profil.nazwa; });
-    elementy.linkLubFrazaSemper.placeholder = aktywnyProfilDostawcy === "iist" ? "Wklej link do szkolenia IIST (parser w przygotowaniu)" : "Wklej link albo wpisz frazę";
-    elementy.przyciskSzukajLinku.textContent = aktywnyProfilDostawcy === "iist" ? "Szukaj linku IIST" : "Szukaj linku";
-    elementy.przyciskUzupełnijZLinku.textContent = aktywnyProfilDostawcy === "iist" ? "Uzupełnij z linku IIST" : "Uzupełnij z linku";
+    document.querySelectorAll("[data-etykieta-linku]").forEach(function ustawEtykietę(element) { element.textContent = aktywnyProfilDostawcy === "iist" ? "Link do szkolenia IIST" : "Link lub fraza " + profil.nazwa; });
+    elementy.linkLubFrazaSemper.placeholder = aktywnyProfilDostawcy === "iist" ? "https://szkoleniaiist.com.pl/nazwa-szkolenia/" : "Wklej link albo wpisz frazę";
+    elementy.przyciskSzukajLinku.textContent = aktywnyProfilDostawcy === "iist" ? "Wyszukiwanie po tytule niedostępne" : "Szukaj linku";
+    elementy.przyciskSzukajLinku.disabled = aktywnyProfilDostawcy === "iist";
+    elementy.przyciskUzupełnijZLinku.textContent = "Uzupełnij z linku";
     document.getElementById("naglowek-terminow-semper-harmonogramu").textContent = "Terminy " + profil.nazwa;
+    elementy.listaTerminówSemper.setAttribute("aria-label", "Terminy " + profil.nazwa);
+    document.querySelector("[data-filtr-terminow]").parentElement.setAttribute("aria-label", "Filtr terminów " + profil.nazwa);
     elementy.etykietaWykrytegoKontaBur.textContent = "WYKRYTE KONTO BUR: " + (wykryteKontoBur && wykryteKontoBur.nazwaProfilu || "NIE ROZPOZNANO");
     elementy.nazwaWykrytegoKontaBur.textContent = wykryteKontoBur && wykryteKontoBur.nazwaOrganizacji || "Brak odczytanej nazwy organizacji.";
     const konflikt = czyKonfliktProfiluZKontem();
@@ -161,13 +169,34 @@
     if (konflikt) { ustawStatus(elementy.statusSemper, "Aktywny profil nie odpowiada kontu dostawcy wykrytemu w BUR.", "status-ostrzezenie"); }
   }
 
+  function przywróćDaneAktywnegoProfilu() {
+    return odczytajStorage([pobierzKluczDanychProfilu(aktywnyProfilDostawcy), "ostatnieSzkolenieSemper", "ostatnieOstrzezeniaSemper", "wybranyTerminSemperIndex", "ostatnieŁączeSemper"]).then(function przywróć(dane) {
+      let zapis = dane[pobierzKluczDanychProfilu(aktywnyProfilDostawcy)] || null;
+      if (!zapis && aktywnyProfilDostawcy === "semper" && dane.ostatnieSzkolenieSemper && (!dane.ostatnieSzkolenieSemper.profilId || dane.ostatnieSzkolenieSemper.profilId === "semper")) {
+        zapis = { szkolenieŹródłowe: dane.ostatnieSzkolenieSemper, wybranyTerminŹródłowyIndex: dane.wybranyTerminSemperIndex, ostrzeżenia: dane.ostatnieOstrzezeniaSemper || [], urlŹródła: dane.ostatnieŁączeSemper || "" };
+      }
+      wyczyśćDane();
+      elementy.linkLubFrazaSemper.value = zapis && zapis.urlŹródła || "";
+      if (!zapis || !zapis.szkolenieŹródłowe) {
+        return zapiszStorage({ ostatnieSzkolenieSemper: null, ostatnieOstrzezeniaSemper: [], wybranyTerminSemperIndex: null });
+      }
+      pokażSzkolenie({ szkolenie: zapis.szkolenieŹródłowe, ostrzeżenia: zapis.ostrzeżenia || [], wybranyTerminSemperIndex: zapis.wybranyTerminŹródłowyIndex });
+      return zapiszStorage({
+        szkolenieŹródłowe: zapis.szkolenieŹródłowe,
+        ostatnieSzkolenieSemper: zapis.szkolenieŹródłowe,
+        ostatnieOstrzezeniaSemper: zapis.ostrzeżenia || [],
+        wybranyTerminSemperIndex: zapis.wybranyTerminŹródłowyIndex
+      });
+    });
+  }
+
   function ustawAktywnyProfilDostawcy(profilId, czyUnieważnić) {
     if (!przestrzeń.pobierzProfilDostawcy(profilId)) { return Promise.resolve(); }
     const zmieniono = aktywnyProfilDostawcy !== profilId;
     aktywnyProfilDostawcy = profilId;
     return (zmieniono && czyUnieważnić ? unieważnijOperacjeProfilu() : Promise.resolve())
       .then(function zapiszProfil() { return zapiszStorage({ aktywnyProfilDostawcy: profilId }); })
-      .then(function odśwież() { odświeżWidokProfilu(); });
+      .then(function odśwież() { odświeżWidokProfilu(); return przywróćDaneAktywnegoProfilu(); });
   }
 
   function zastosujWykryteKontoBur(wynik) {
@@ -202,7 +231,18 @@
   }
 
   function rozpocznijOperacjęBur(karta, szkolenie, indeksTerminu) {
-    const dane = { identyfikatorKartyBur: karta.id, odciskSzkolenia: JSON.stringify([szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "", elementy.linkLubFrazaSemper.value]), indeksTerminu: indeksTerminu };
+    const termin = szkolenie && szkolenie.terminy && szkolenie.terminy[indeksTerminu] || {};
+    const dane = {
+      profilId: aktywnyProfilDostawcy,
+      identyfikatorKartyBur: karta.id,
+      identyfikatorSzkolenia: szkolenie.identyfikatorSzkolenia || szkolenie.urlŹródła || szkolenie.urlZrodla || szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "",
+      urlŹródłowy: szkolenie.urlŹródła || szkolenie.urlZrodla || elementy.linkLubFrazaSemper.value,
+      odciskSzkolenia: JSON.stringify([szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "", elementy.linkLubFrazaSemper.value]),
+      indeksTerminu: indeksTerminu,
+      identyfikatorTerminu: termin.identyfikator || termin.id || JSON.stringify([termin.dataStartBur, termin.dataKoniecBur, termin.forma, termin.miejsce]),
+      wykryteKontoBur: wykryteKontoBur,
+      czasPrzygotowania: new Date().toISOString()
+    };
     const konflikt = aktywnaOperacjaBur && przestrzeń.znajdźKonfliktOperacjiBur([aktywnaOperacjaBur], dane);
     if (konflikt) { throw new Error("Ta karta i termin mają już aktywną operację BUR."); }
     aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(przestrzeń.utwórzOperacjęBur(dane), "przygotowywanie");
@@ -347,14 +387,16 @@
     const pola = [
       { nazwa: "Cel szkolenia", wartość: sekcje.celSzkolenia || sekcje.celSzkoleniaHtml || sekcje.goalHtml },
       { nazwa: "Grupa docelowa", wartość: sekcje.grupaDocelowa || sekcje.grupaDocelowaHtml || sekcje.groupHtml },
-      { nazwa: "Korzyści", wartość: sekcje.korzysci || sekcje.korzyści || sekcje.benefitsHtml },
-      { nazwa: "Program", wartość: sekcje.program || sekcje.programHtml },
-      { nazwa: "Inwestycja", wartość: sekcje.inwestycja || sekcje.inwestycjaHtml }
+      { nazwa: "Program", wartość: sekcje.program || sekcje.programHtml }
     ];
+    if (aktywnyProfilDostawcy === "semper") {
+      pola.push({ nazwa: "Korzyści", wartość: sekcje.korzysci || sekcje.korzyści || sekcje.benefitsHtml });
+      pola.push({ nazwa: "Inwestycja", wartość: sekcje.inwestycja || sekcje.inwestycjaHtml });
+    }
 
     pola.forEach(function sprawdźPole(pole) {
       const tekst = formatujSekcjęSzkolenia(pole.wartość);
-      const komunikat = "Brak właściwej sekcji SEMPER: " + pole.nazwa + ".";
+      const komunikat = "Brak właściwej sekcji " + pobierzNazwęAktywnegoProfilu() + ": " + pole.nazwa + ".";
 
       if (tekst === "Brak danych" && !wynik.includes(komunikat)) {
         wynik.push(komunikat);
@@ -376,7 +418,7 @@
     return terminy.map(function formatujTermin(termin, indeks) {
       const części = [
         "Termin " + (indeks + 1),
-        "SEMPER: " + (termin.dataOdTekst || "?") + " - " + (termin.dataDoTekst || "?"),
+        pobierzNazwęAktywnegoProfilu() + ": " + (termin.dataOdTekst || "?") + " - " + (termin.dataDoTekst || "?"),
         "BUR: " + (termin.dataStartBur || "?") + " - " + (termin.dataKoniecBur || "?"),
         "Rekrutacja do: " + (pobierzDatęRekrutacji(termin) || "?"),
         termin.miejsce ? "Miejsce: " + termin.miejsce : "",
@@ -407,7 +449,7 @@
 
   function pobierzKandydatówSemperHarmonogramu() {
     return ostatnieTerminySemper.map(function mapujTermin(termin, indeks) {
-      return przestrzeń.utwórzTerminHarmonogramuZeSemper(termin, indeks);
+      return Object.assign(przestrzeń.utwórzTerminHarmonogramuZeSemper(termin, indeks), { źródło: aktywnyProfilDostawcy, profilId: aktywnyProfilDostawcy });
     });
   }
 
@@ -503,7 +545,7 @@
       const zgodność = przestrzeń.sprawdźZgodnośćTerminuHarmonogramuZBur(termin, aktualnyTerminBur);
       if (zgodność.ok || zgodność.zgodneDaty) {
         const oznaczenie = document.createElement("span");
-        oznaczenie.className = zgodność.ok ? "oznaczenie-bur" : "oznaczenie-zgodnej-daty";
+        oznaczenie.className = zgodność.ok ? "oznaczenie-bur-harmonogramu" : "oznaczenie-zgodnej-daty-harmonogramu";
         oznaczenie.textContent = zgodność.ok ? "✓ edytowany BUR" : "zgodna data";
         przycisk.appendChild(oznaczenie);
       }
@@ -552,8 +594,8 @@
       const pusty = document.createElement("p");
       pusty.className = "pusta-lista-terminow";
       pusty.textContent = ostatnieTerminySemper.length
-        ? "Brak terminów SEMPER dla wybranego filtra."
-        : "Brak zaimportowanych terminów SEMPER.";
+        ? "Brak terminów " + pobierzNazwęAktywnegoProfilu() + " dla wybranego filtra."
+        : "Brak zaimportowanych terminów " + pobierzNazwęAktywnegoProfilu() + ".";
       kontener.appendChild(pusty);
       return;
     }
@@ -561,13 +603,13 @@
     grupy.forEach(function dodajGrupę(grupa) {
       const sekcja = document.createElement("section");
       const nagłówek = document.createElement("h3");
-      sekcja.className = "grupa-terminow";
-      nagłówek.className = "naglowek-grupy-terminow";
+      sekcja.className = "grupa-terminow-harmonogramu";
+      nagłówek.className = "naglowek-grupy-terminow-harmonogramu";
       nagłówek.textContent = grupa.etykieta;
       sekcja.appendChild(nagłówek);
 
       grupa.pozycje.forEach(function dodajTermin(pozycja) {
-        const terminHarmonogramu = przestrzeń.utwórzTerminHarmonogramuZeSemper(pozycja.termin, pozycja.indeks);
+        const terminHarmonogramu = Object.assign(przestrzeń.utwórzTerminHarmonogramuZeSemper(pozycja.termin, pozycja.indeks), { źródło: aktywnyProfilDostawcy, profilId: aktywnyProfilDostawcy });
         sekcja.appendChild(
           utwórzPrzyciskTerminuHarmonogramu(
             terminHarmonogramu,
@@ -628,7 +670,7 @@
 
   function zsynchronizujWybórTerminuHarmonogramuZSemper() {
     const kandydaci = pobierzKandydatówSemperHarmonogramu();
-    if (wybranyTerminHarmonogramuBur && wybranyTerminHarmonogramuBur.źródło === "semper") {
+    if (wybranyTerminHarmonogramuBur && ["semper", "iist"].includes(wybranyTerminHarmonogramuBur.źródło)) {
       const nadalIstnieje = kandydaci.find(function sprawdź(termin) {
         return przestrzeń.czyTenSamTerminHarmonogramu(termin, wybranyTerminHarmonogramuBur);
       });
@@ -680,12 +722,12 @@
 
     const tryb = przestrzeń.normalizujTrybTerminu(aktualnyTerminBur.tryb);
     const lokalizacjaLubTryb = tryb === "online"
-      ? "Online"
+      ? "online"
       : (aktualnyTerminBur.lokalizacja || (tryb === "stacjonarny" ? "stacjonarna" : ""));
     const zakres = przestrzeń.formatujZakresDatPrezentacyjny(daty.dataRozpoczęcia, daty.dataZakończenia);
-    elementy.aktualnyZakresBur.textContent = [zakres, lokalizacjaLubTryb].filter(Boolean).join(" · ");
-    elementy.aktualneSzczegółyBur.textContent = "";
-    elementy.aktualneSzczegółyBur.classList.add("ukryty");
+    elementy.aktualnyZakresBur.textContent = zakres;
+    elementy.aktualneSzczegółyBur.textContent = lokalizacjaLubTryb;
+    elementy.aktualneSzczegółyBur.classList.toggle("ukryty", !lokalizacjaLubTryb);
     elementy.aktualnyTerminBur.classList.remove("ukryty");
     odświeżZgodnośćTerminuHarmonogramu();
     renderujListęTerminówHarmonogramu();
@@ -722,17 +764,17 @@
     if (!aktualnyTerminBur) {
       ustawStatus(elementy.statusDopasowaniaTerminu, "Nie odczytano jeszcze dat z formularza BUR.", "status-neutralny");
     } else if (wybrany && !przestrzeń.czyDatyTerminówZgodne(wybrany, aktualnyTerminBur)) {
-      ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrany ręcznie termin SEMPER jest niezgodny z aktualnymi datami BUR: " + zakresBur + ".", "status-ostrzezenie");
+      ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrany ręcznie termin " + pobierzNazwęAktywnegoProfilu() + " jest niezgodny z aktualnymi datami BUR: " + zakresBur + ".", "status-ostrzezenie");
     } else if (czyWybranyTerminJestWłaściwyDlaBur()) {
-      ustawStatus(elementy.statusDopasowaniaTerminu, źródłoWyboruTerminuSemper === "automatyczny" ? "Automatycznie dopasowano termin SEMPER do BUR." : "Wybrany termin jest zgodny z aktualnym terminem BUR.", "status-odczytano");
+      ustawStatus(elementy.statusDopasowaniaTerminu, źródłoWyboruTerminuSemper === "automatyczny" ? "Automatycznie dopasowano termin " + pobierzNazwęAktywnegoProfilu() + " do BUR." : "Wybrany termin jest zgodny z aktualnym terminem BUR.", "status-odczytano");
     } else if (wybrany) {
-      ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrany ręcznie termin SEMPER nie jest zgodny z rozpoznanym trybem lub lokalizacją BUR.", "status-ostrzezenie");
+      ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrany ręcznie termin " + pobierzNazwęAktywnegoProfilu() + " nie jest zgodny z rozpoznanym trybem lub lokalizacją BUR.", "status-ostrzezenie");
     } else if (stanDopasowaniaTerminuBur.status === "niejednoznaczny") {
-      ustawStatus(elementy.statusDopasowaniaTerminu, "Znaleziono kilka terminów SEMPER zgodnych z datą aktualnej usługi BUR. Wybierz właściwą lokalizację lub tryb.", "status-ostrzezenie");
+      ustawStatus(elementy.statusDopasowaniaTerminu, "Znaleziono kilka terminów " + pobierzNazwęAktywnegoProfilu() + " zgodnych z datą aktualnej usługi BUR. Wybierz właściwą lokalizację lub tryb.", "status-ostrzezenie");
     } else if (stanDopasowaniaTerminuBur.status === "brak") {
-      ustawStatus(elementy.statusDopasowaniaTerminu, "Nie znaleziono terminu SEMPER zgodnego z aktualnym terminem BUR: " + zakresBur + ".", "status-ostrzezenie");
+      ustawStatus(elementy.statusDopasowaniaTerminu, "Nie znaleziono terminu " + pobierzNazwęAktywnegoProfilu() + " zgodnego z aktualnym terminem BUR: " + zakresBur + ".", "status-ostrzezenie");
     } else {
-      ustawStatus(elementy.statusDopasowaniaTerminu, "Wczytaj terminy SEMPER, aby wykonać dopasowanie.", "status-neutralny");
+      ustawStatus(elementy.statusDopasowaniaTerminu, "Wczytaj terminy " + pobierzNazwęAktywnegoProfilu() + ", aby wykonać dopasowanie.", "status-neutralny");
     }
   }
 
@@ -856,7 +898,7 @@
       const opcjaPusta = document.createElement("option");
 
       opcjaPusta.value = "";
-      opcjaPusta.textContent = "Wybierz termin SEMPER";
+      opcjaPusta.textContent = "Wybierz termin " + pobierzNazwęAktywnegoProfilu();
       elementy.wybórTerminuSemper.appendChild(opcjaPusta);
     }
 
@@ -907,7 +949,7 @@
     odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieOstrzezeniaSemper"]).then(function zastosujCenęWybranegoTerminu(dane) {
       const szkolenie = dane.ostatnieSzkolenieSemper;
       const termin = szkolenie && szkolenie.terminy && szkolenie.terminy[indeks];
-      const ostrzeżenia = przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu
+      const ostrzeżenia = aktywnyProfilDostawcy === "semper" && przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu
         ? przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie || {}, termin, dane.ostatnieOstrzezeniaSemper || [])
         : (dane.ostatnieOstrzezeniaSemper || []);
 
@@ -916,7 +958,9 @@
         ostatnieOstrzezeniaSemper: ostrzeżenia,
         wybranyTerminSemperIndex: indeks,
         źródłoWyboruTerminuSemper: źródłoWyboruTerminuSemper,
-        zgodnośćWybranegoTerminuBur: Boolean(termin && aktualnyTerminBur && przestrzeń.czyDatyTerminówZgodne(termin, aktualnyTerminBur))
+        zgodnośćWybranegoTerminuBur: Boolean(termin && aktualnyTerminBur && przestrzeń.czyDatyTerminówZgodne(termin, aktualnyTerminBur)),
+        harmonogramBurPrzygotowany: false,
+        harmonogramBurNieaktualny: true
       }).then(function odświeżWidok() {
         if (szkolenie) {
           pokażSzkolenie({ szkolenie: szkolenie, ostrzeżenia: ostrzeżenia, wybranyTerminSemperIndex: indeks });
@@ -982,7 +1026,7 @@
     wpisz("czasTrwania", formatujUnikalne(terminy.map(function pobierzCzas(termin) { return termin.czasTrwania; })));
     wpisz("celSzkolenia", formatujSekcjęSzkolenia(sekcje.celSzkolenia || sekcje.celSzkoleniaHtml || sekcje.goalHtml));
     wpisz("grupaDocelowa", formatujSekcjęSzkolenia(sekcje.grupaDocelowa || sekcje.grupaDocelowaHtml || sekcje.groupHtml));
-    wpisz("korzyści", formatujSekcjęSzkolenia(sekcje.korzysci || sekcje.korzyści || sekcje.benefitsHtml));
+    wpisz("korzyści", formatujSekcjęSzkolenia(sekcje.efektyPoSzkoleniu || sekcje.korzysci || sekcje.korzyści || sekcje.benefitsHtml));
     wpisz("program", formatujSekcjęSzkolenia(sekcje.program || sekcje.programHtml));
     wpisz("inwestycja", formatujInwestycjęSzkolenia(szkolenie, sekcje));
     pokażWybórTerminuSemper(terminy, wynik.wybranyTerminSemperIndex);
@@ -1015,6 +1059,10 @@
   function rozpoznajTypStrony(url) {
     if (/^https:\/\/(www\.)?szkolenia-semper\.pl\//i.test(url || "")) {
       return "SEMPER";
+    }
+
+    if (/^https:\/\/(www\.)?szkoleniaiist\.com\.pl\//i.test(url || "")) {
+      return "IIST";
     }
 
     if (/^https:\/\/(?:[^./]+\.)*uslugirozwojowe\.parp\.gov\.pl\//i.test(url || "")) {
@@ -1124,7 +1172,7 @@
   function bezpiecznieWyślijDoAktywnejKarty(komunikat) {
     return pobierzAktywnąKartę().then(function wyślij(karta) {
       if (!czyObsługiwanaKarta(karta)) {
-        throw new Error("Aktywna karta nie jest obsługiwaną stroną BUR/SEMPER.");
+        throw new Error("Aktywna karta nie jest obsługiwaną stroną BUR ani dostawcy szkolenia.");
       }
 
       return zapewnijSkryptStrony(karta).then(function wyślijPoPołączeniu() {
@@ -1446,7 +1494,7 @@
 
   function wybierzZakładkęDlaKarty(karta) {
     const url = String(karta && karta.url || "");
-    if (rozpoznajTypStrony(url) === "SEMPER") {
+    if (["SEMPER", "IIST"].includes(rozpoznajTypStrony(url))) {
       return "semper";
     }
     if (rozpoznajTypStrony(url) === "BUR") {
@@ -1578,7 +1626,7 @@
       let terminHarmonogramu = wybranyTerminHarmonogramuBur || dane.wybranyTerminHarmonogramuBur;
 
       if (!szkolenie) {
-        throw new Error("Najpierw zaimportuj dane z SEMPER, aby ustalić temat harmonogramu.");
+        throw new Error("Najpierw zaimportuj dane z " + pobierzNazwęAktywnegoProfilu() + ", aby ustalić temat harmonogramu.");
       }
 
       if (!terminHarmonogramu) {
@@ -1603,17 +1651,18 @@
       const tytułHarmonogramu = pobierzTytułHarmonogramu(szkolenie);
       const tematSzkolenia = przestrzeń.przygotujTematHarmonogramu(tytułHarmonogramu);
       const czyOnline = terminHarmonogramu.tryb === "online";
+      const profil = przestrzeń.pobierzProfilDostawcy(szkolenie.profilId || aktywnyProfilDostawcy) || {};
       const pozycje = przestrzeń.zbudujPozycjeHarmonogramu({
         tematSzkolenia: tematSzkolenia,
         daty: daty,
         czyOnline: czyOnline,
-        emailTrenera: przestrzeń.EMAIL_TRENERA_HARMONOGRAMU,
-        emailWalidatora: przestrzeń.EMAIL_WALIDATORA_HARMONOGRAMU
+        emailTrenera: profil.osobaProwadzącaUsługę && profil.osobaProwadzącaUsługę.email || przestrzeń.EMAIL_TRENERA_HARMONOGRAMU,
+        emailWalidatora: profil.osobaProwadzącaWalidację && profil.osobaProwadzącaWalidację.email || przestrzeń.EMAIL_WALIDATORA_HARMONOGRAMU
       });
       const ostrzeżenia = zbudujOstrzeżeniaHarmonogramu(terminHarmonogramu, daty, tytułHarmonogramu, tematSzkolenia);
 
       return {
-        program: szkolenie.sekcje ? szkolenie.sekcje.program : "",
+        program: przestrzeń.zbudujProgramDostawcy(szkolenie.profilId || aktywnyProfilDostawcy, szkolenie),
         tematSzkolenia: tematSzkolenia,
         terminHarmonogramu: terminHarmonogramu,
         opisTerminu: przestrzeń.opiszTerminHarmonogramu(terminHarmonogramu),
@@ -1766,12 +1815,18 @@
 
   function zweryfikujPrzygotowanyHarmonogramZBur() {
     return synchronizujAktualnyTerminBur().then(function odczytajDatyPrzygotowania() {
-      return odczytajStorage(["datyPrzygotowanegoHarmonogramuBur", "kontekstPrzygotowanegoHarmonogramuBur"]);
+      return odczytajStorage(["datyPrzygotowanegoHarmonogramuBur", "kontekstPrzygotowanegoHarmonogramuBur", "ostatnieSzkolenieSemper", "wybranyTerminSemperIndex"]);
     }).then(function porównajDaty(dane) {
       const kontekst = dane.kontekstPrzygotowanegoHarmonogramuBur || Object.assign({
         źródło: "legacy"
       }, dane.datyPrzygotowanegoHarmonogramuBur || {});
       const zgodność = przestrzeń.sprawdźZgodnośćTerminuHarmonogramuZBur(kontekst, aktualnyTerminBur);
+      const szkolenie = dane.ostatnieSzkolenieSemper || {};
+      const terminWybrany = Number.isInteger(dane.wybranyTerminSemperIndex) && szkolenie.terminy ? szkolenie.terminy[dane.wybranyTerminSemperIndex] : null;
+      const kontekstWybrany = terminWybrany ? przestrzeń.utwórzKontekstTerminuSemper(terminWybrany, dane.wybranyTerminSemperIndex) : null;
+      if (kontekstWybrany && kontekst.stabilnyId && !przestrzeń.czyKontekstTerminuSemperZgodny(kontekst, kontekstWybrany)) {
+        throw new Error("NIE WPROWADZONO HARMONOGRAMU — przygotowany harmonogram dotyczy innego wariantu terminu.");
+      }
       if (!zgodność.ok) {
         const przygotowany = przestrzeń.opiszTerminHarmonogramu(kontekst);
         const edytowany = opiszAktualnyTerminBurDlaHarmonogramu();
@@ -2018,12 +2073,13 @@
         const szkolenie = dane.ostatnieSzkolenieSemper || {};
 
         if (!dane.ostatnieSzkolenieSemper) {
-          throw new Error("Najpierw zaimportuj dane z SEMPER.");
+          throw new Error("Najpierw zaimportuj dane z " + pobierzNazwęAktywnegoProfilu() + ".");
         }
 
         return bezpiecznieWyślijDoAktywnejKarty({
           typ: komunikaty.UZUPEŁNIJ_PROGRAM_BUR,
-          program: szkolenie.sekcje ? szkolenie.sekcje.program : ""
+          program: przestrzeń.zbudujProgramDostawcy(szkolenie.profilId || aktywnyProfilDostawcy, szkolenie),
+          programGotowy: true
         });
       })
       .then(function pokażWynik(odpowiedź) {
@@ -2263,12 +2319,12 @@
 
     if (odpowiedź.typ === komunikaty.BRAK_DANYCH_SEMPER) {
       wyczyśćWynikWalidacjiBur();
-      throw new Error(odpowiedź.komunikat || "Najpierw pobierz dane szkolenia ze strony SEMPER albo użyj funkcji »Uzupełnij z linku«.");
+      throw new Error(odpowiedź.komunikat || "Najpierw pobierz dane szkolenia ze strony dostawcy albo użyj funkcji »Uzupełnij z linku«.");
     }
 
     if (odpowiedź.typ === komunikaty.BRAK_WYBRANEGO_TERMINU_SEMPER) {
       wyczyśćWynikWalidacjiBur();
-      throw new Error(odpowiedź.komunikat || "Wybierz termin SEMPER do walidacji BUR.");
+      throw new Error(odpowiedź.komunikat || "Wybierz termin aktywnego dostawcy do walidacji BUR.");
     }
 
     if (odpowiedź.typ !== komunikaty.ODPOWIEDŹ_WALIDACJA_BUR) {
@@ -2375,10 +2431,15 @@
       throw new Error(odpowiedź.blad || "Błąd parsera.");
     }
 
-    if (odpowiedź.typ === komunikaty.ODPOWIEDZ_DANE_SEMPER) {
-      pokażSzkolenie(odpowiedź.wynik || {});
-      ustawStatus(elementy.statusAkcji, "Odczytano dane SEMPER.", (odpowiedź.wynik?.ostrzeżenia || odpowiedź.wynik?.ostrzezenia || []).length ? "status-ostrzezenie" : "status-odczytano");
-      return;
+    if (odpowiedź.typ === komunikaty.ODPOWIEDZ_DANE_SEMPER || odpowiedź.typ === komunikaty.ODPOWIEDŹ_DANE_SZKOLENIA) {
+      const profilId = odpowiedź.typ === komunikaty.ODPOWIEDŹ_DANE_SZKOLENIA ? "iist" : "semper";
+      const wynikParsera = odpowiedź.wynik || {};
+      return ustawAktywnyProfilDostawcy(profilId, profilId !== aktywnyProfilDostawcy)
+        .then(function zapiszOdczyt() { return zapiszWynikImportu(wynikParsera, profilId, wynikParsera.url || wynikParsera.szkolenie && wynikParsera.szkolenie.urlŹródła || ""); })
+        .then(function pokażOdczyt() {
+          pokażSzkolenie(wynikParsera);
+          ustawStatus(elementy.statusAkcji, "Odczytano dane " + pobierzNazwęAktywnegoProfilu() + ".", (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []).length ? "status-ostrzezenie" : "status-odczytano");
+        });
     }
 
     if (odpowiedź.typ === komunikaty.ODPOWIEDZ_STATUS_STRONY) {
@@ -2472,7 +2533,7 @@
     const link = document.createElement("a");
 
     karta.className = "wynik-semper";
-    tytuł.textContent = "Znaleziono: " + (wynik.tytuł || wynik.title || "Wybrany link SEMPER");
+    tytuł.textContent = "Znaleziono: " + (wynik.tytuł || wynik.title || "Wybrany link " + pobierzNazwęAktywnegoProfilu());
     url.textContent = wynik.url;
     link.href = wynik.url;
     link.target = "_blank";
@@ -2558,6 +2619,10 @@
   }
 
   function szukajLinkuSemper() {
+    if (aktywnyProfilDostawcy === "iist") {
+      ustawStatus(elementy.statusSemper, "IIST obsługuje import z bezpośredniego linku; wyszukiwanie po tytule nie jest dostępne.", "status-neutralny");
+      return;
+    }
     wyczyśćWynikiSemper();
     ustawStatus(elementy.statusSemper, "Szukam...", "status-neutralny");
 
@@ -2634,24 +2699,22 @@
   }
 
   function importujSzkolenieZLinku() {
-    if (aktywnyProfilDostawcy === "iist") {
-      ustawStatus(elementy.statusSemper, "Parser strony IIST zostanie dodany w kolejnym etapie. Możesz nadal przeglądać dane i ręcznie zmienić profil.", "status-ostrzezenie");
-      return;
-    }
-    const url = przestrzeń.normalizujŁączeSemper(elementy.linkLubFrazaSemper.value);
+    const czyIist = aktywnyProfilDostawcy === "iist";
+    const profilId = czyIist ? "iist" : "semper";
+    const url = czyIist ? przestrzeń.normalizujLinkIist(elementy.linkLubFrazaSemper.value) : przestrzeń.normalizujŁączeSemper(elementy.linkLubFrazaSemper.value);
 
     wyczyśćWynikiSemper();
 
-    if (!przestrzeń.czyŁączeSzczegółówSzkolenia(url)) {
-      ustawStatus(elementy.statusSemper, "Wklej poprawny link do szkolenia na szkolenia-semper.pl.", "status-blad");
+    if (!(czyIist ? przestrzeń.czyLinkSzkoleniaIist(url) : przestrzeń.czyŁączeSzczegółówSzkolenia(url))) {
+      ustawStatus(elementy.statusSemper, czyIist ? "Wklej bezpośredni link do szkolenia na szkoleniaiist.com.pl." : "Wklej poprawny link do szkolenia na szkolenia-semper.pl.", "status-blad");
       return;
     }
 
     elementy.linkLubFrazaSemper.value = url;
-    ustawStatus(elementy.statusSemper, "Pobieram dane z SEMPER...", "status-neutralny");
+    ustawStatus(elementy.statusSemper, "Pobieram dane z " + pobierzNazwęAktywnegoProfilu() + "...", "status-neutralny");
 
     wyślijDoServiceWorkera({
-      typ: komunikaty.IMPORTUJ_SEMPER_Z_ŁĄCZA,
+      typ: czyIist ? komunikaty.IMPORTUJ_SZKOLENIE_Z_LINKU : komunikaty.IMPORTUJ_SEMPER_Z_ŁĄCZA,
       url: url
     })
       .then(function sparsujHtml(odpowiedź) {
@@ -2661,28 +2724,18 @@
           throw new Error((wynik && wynik.błąd) || "Nie udało się pobrać danych z linku.");
         }
 
-        const wynikParsera = przestrzeń.parsujHtmlSemper(wynik.html, wynik.url || url);
+        const wynikParsera = czyIist ? przestrzeń.parsujHtmlIist(wynik.html, wynik.url || url) : przestrzeń.parsujHtmlSemper(wynik.html, wynik.url || url);
         const szkolenie = wynikParsera.szkolenie;
         const wybranyTerminSemperIndex = szkolenie.terminy && szkolenie.terminy.length === 1 ? 0 : null;
         const wybranyTermin = wybranyTerminSemperIndex === null ? null : szkolenie.terminy[wybranyTerminSemperIndex];
-        const ostrzeżenia = przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu
+        const ostrzeżenia = !czyIist && przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu
           ? przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, wybranyTermin, wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || [])
           : (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []);
 
         wynikParsera.ostrzeżenia = ostrzeżenia;
         wynikParsera.ostrzezenia = ostrzeżenia;
 
-        return zapiszStorage({
-          szkolenieŹródłowe: szkolenie,
-          [pobierzKluczDanychProfilu("semper")]: { szkolenieŹródłowe: szkolenie, wybranyTerminŹródłowyIndex: wybranyTerminSemperIndex, ostrzeżenia: ostrzeżenia },
-          ostatnieSzkolenieSemper: szkolenie,
-          ostatnieOstrzezeniaSemper: ostrzeżenia,
-          ostatnieŁączeSemper: wynik.url || url,
-          dataImportuSemper: new Date().toISOString(),
-          wybranyTerminSemperIndex: wybranyTerminSemperIndex,
-          harmonogramBurPrzygotowany: false,
-          harmonogramBurNieaktualny: true
-        }).then(function zwróćWynik() {
+        return zapiszWynikImportu(wynikParsera, profilId, wynik.url || url).then(function zwróćWynik() {
           diagnostykaSemper.importZapisałSzkolenie = "tak";
           diagnostykaSemper.liczbaTerminówPoImporcie = szkolenie.terminy ? szkolenie.terminy.length : 0;
           diagnostykaSemper.ostatniBłądServiceWorkera = "";
@@ -2700,7 +2753,7 @@
         });
         ustawStatus(
           elementy.statusSemper,
-          (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []).length ? "Zaimportowano, ale część sekcji jest pusta." : "Zaimportowano dane z SEMPER.",
+          (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []).length ? "Zaimportowano dane, ale część wymaga sprawdzenia." : "Zaimportowano dane z " + pobierzNazwęAktywnegoProfilu() + ".",
           (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []).length ? "status-ostrzezenie" : "status-odczytano"
         );
       })
@@ -2710,6 +2763,24 @@
         pokażDiagnostykęSemper();
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.", "status-blad");
       });
+  }
+
+  function zapiszWynikImportu(wynikParsera, profilId, url) {
+    const szkolenie = wynikParsera.szkolenie || wynikParsera || {};
+    const ostrzeżenia = wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || szkolenie.ostrzeżenia || [];
+    const wybranyTerminIndex = szkolenie.terminy && szkolenie.terminy.length === 1 ? 0 : null;
+    const wpisProfilu = { szkolenieŹródłowe: szkolenie, wybranyTerminŹródłowyIndex: wybranyTerminIndex, ostrzeżenia: ostrzeżenia, urlŹródła: url || szkolenie.urlŹródła || "" };
+    return zapiszStorage({
+      szkolenieŹródłowe: szkolenie,
+      [pobierzKluczDanychProfilu(profilId)]: wpisProfilu,
+      ostatnieSzkolenieSemper: szkolenie,
+      ostatnieOstrzezeniaSemper: ostrzeżenia,
+      ostatnieŁączeSemper: url || szkolenie.urlŹródła || "",
+      dataImportuSemper: new Date().toISOString(),
+      wybranyTerminSemperIndex: wybranyTerminIndex,
+      harmonogramBurPrzygotowany: false,
+      harmonogramBurNieaktualny: true
+    });
   }
 
   function pobierzWybranyTerminWypełniania(szkolenie, indeks) {
@@ -2736,7 +2807,7 @@
     if (!Number.isInteger(liczbowyIndeks) || liczbowyIndeks < 0 || liczbowyIndeks >= terminy.length) {
       return {
         ok: false,
-        komunikat: "Wybierz termin SEMPER do wypełnienia formularza."
+        komunikat: "Wybierz termin " + pobierzNazwęAktywnegoProfilu() + " do wypełnienia formularza."
       };
     }
 
@@ -2770,7 +2841,7 @@
         }
 
         if (!wybór.ok) {
-          throw new Error(wybór.komunikat || "Wybierz termin SEMPER do wypełnienia formularza.");
+          throw new Error(wybór.komunikat || "Wybierz termin aktywnego dostawcy do wypełnienia formularza.");
         }
 
         if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") {
@@ -2780,14 +2851,16 @@
         return rozpocznijOperacjęBur(karta, szkolenieSemper, wybór.indeks).then(function przygotujOperację() { return wyślijDoKarty(karta, {
           typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR,
           szkolenieSemper: szkolenieSemper,
-          wybranyTermin: wybór.termin
+          wybranyTermin: wybór.termin,
+          profilId: aktywnyProfilDostawcy,
+          kontekstOperacji: aktywnaOperacjaBur
         }); });
       })
       .then(function pokażOdpowiedź(odpowiedź) {
         const propozycje = odpowiedź && odpowiedź.wynik && odpowiedź.wynik.propozycje;
         const korektaPodstawyWpisu = odpowiedź && odpowiedź.wynik && odpowiedź.wynik.korektaPodstawyWpisu;
         if (!propozycje) { throw new Error("Nie udało się przygotować podglądu zmian BUR."); }
-        podglądWypełnieniaBur = { propozycje: propozycje, kartaId: aktywnaOperacjaBur.identyfikatorKartyBur, indeksTerminu: aktywnaOperacjaBur.indeksTerminu, odciskSzkolenia: aktywnaOperacjaBur.odciskSzkolenia };
+        podglądWypełnieniaBur = { propozycje: propozycje, kartaId: aktywnaOperacjaBur.identyfikatorKartyBur, profilId: aktywnaOperacjaBur.profilId, indeksTerminu: aktywnaOperacjaBur.indeksTerminu, identyfikatorTerminu: aktywnaOperacjaBur.identyfikatorTerminu, odciskSzkolenia: aktywnaOperacjaBur.odciskSzkolenia, czasPrzygotowania: aktywnaOperacjaBur.czasPrzygotowania };
         aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "oczekuje_na_zatwierdzenie");
         zapiszStorage({ podglądWypełnieniaBur: podglądWypełnieniaBur, aktywnaOperacjaBur: aktywnaOperacjaBur });
         renderujPodglądWypełnieniaBur(); odświeżStatusOperacjiBur(); elementy.przyciskZastosujZmianyBur.disabled = false;
@@ -2820,9 +2893,9 @@
     elementy.podglądZmianBur.textContent = "";
     (podglądWypełnieniaBur && podglądWypełnieniaBur.propozycje || []).forEach(function dodaj(propozycja) {
       const etykieta = document.createElement("label"); const checkbox = document.createElement("input"); const tekst = document.createElement("span");
-      checkbox.type = "checkbox"; checkbox.checked = propozycja.domyślnieZaznaczona; checkbox.disabled = propozycja.status === "bez_zmiany" || propozycja.status === "brak_pola_bur";
+      checkbox.type = "checkbox"; checkbox.checked = propozycja.domyślnieZaznaczona; checkbox.disabled = ["bez_zmiany", "brak_pola_bur", "do_sprawdzenia", "reguła_dotyczy_tylko_online"].includes(propozycja.status);
       checkbox.addEventListener("change", function zapiszDecyzję() { propozycja.zaznaczona = checkbox.checked; zapiszStorage({ podglądWypełnieniaBur: podglądWypełnieniaBur }); });
-      propozycja.zaznaczona = checkbox.checked; tekst.textContent = propozycja.sekcja + " — " + propozycja.pole + ": „" + propozycja.wartośćAktualna + "” → „" + propozycja.wartośćProponowana + "” (" + propozycja.status + ")";
+      propozycja.zaznaczona = checkbox.checked; tekst.textContent = propozycja.sekcja + " — " + propozycja.pole + ": „" + propozycja.wartośćAktualna + "” → „" + (Array.isArray(propozycja.wartośćProponowana) ? propozycja.wartośćProponowana.map(function osoba(pozycja) { return pozycja.imięINazwisko + " <" + pozycja.email + ">"; }).join(", ") : propozycja.wartośćProponowana) + "” | źródło: " + propozycja.źródło + " | status: " + propozycja.status + (propozycja.tylkoOnline ? " | tylko online" : "");
       etykieta.appendChild(checkbox); etykieta.appendChild(tekst); elementy.podglądZmianBur.appendChild(etykieta);
     });
   }
@@ -2845,10 +2918,21 @@
       return;
     }
 
-    pobierzAktywnąKartę()
-      .then(function zastosuj(karta) {
+    Promise.all([pobierzAktywnąKartę(), odczytajStorage(["wybranyTerminSemperIndex"])])
+      .then(function zastosuj(wynikiKontekstu) {
+        const karta = wynikiKontekstu[0];
+        const zapis = wynikiKontekstu[1] || {};
         if (!karta || karta.id !== podglądWypełnieniaBur.kartaId) {
           throw new Error("Zmieniła się karta BUR — przygotuj podgląd ponownie.");
+        }
+        if (aktywnyProfilDostawcy !== podglądWypełnieniaBur.profilId || aktywnaOperacjaBur.profilId !== aktywnyProfilDostawcy) {
+          throw new Error("Aktywny profil zmienił się po przygotowaniu podglądu.");
+        }
+        if (!przestrzeń.czyProfilZgodnyZKontemBur(aktywnyProfilDostawcy, wykryteKontoBur)) {
+          throw new Error("Wykryte konto BUR nie odpowiada profilowi przygotowanego podglądu.");
+        }
+        if (zapis.wybranyTerminSemperIndex !== null && zapis.wybranyTerminSemperIndex !== undefined && Number(zapis.wybranyTerminSemperIndex) !== Number(podglądWypełnieniaBur.indeksTerminu)) {
+          throw new Error("Wybrany termin zmienił się po przygotowaniu podglądu.");
         }
 
         aktywnaOperacjaBur = przestrzeń.przejdźOperacjęBur(aktywnaOperacjaBur, "wprowadzanie");
@@ -2856,7 +2940,8 @@
         return zapiszStorage({ aktywnaOperacjaBur: aktywnaOperacjaBur }).then(function wyślij() {
           return wyślijDoKarty(karta, {
             typ: komunikaty.ZASTOSUJ_ZATWIERDZONE_ZMIANY_BUR,
-            propozycje: podglądWypełnieniaBur.propozycje
+            propozycje: podglądWypełnieniaBur.propozycje,
+            kontekstOperacji: aktywnaOperacjaBur
           });
         });
       })
@@ -3033,6 +3118,11 @@
       }
       if (wiadomość.typ !== komunikaty.ZMIENIONO_AKTUALNY_TERMIN_BUR) { return false; }
 
+      pokażAktualnyTerminBur(wiadomość.wynik || null);
+      stanDopasowaniaTerminuBur = przestrzeń.dopasujTerminSemperDoBur(ostatnieTerminySemper, wiadomość.wynik || {});
+      pokażStatusDopasowaniaTerminu();
+      renderujListęTerminówSemper();
+
       pobierzAktywnąKartę().then(function odświeżJeśliAktywna(karta) {
         if (!karta || nadawca && nadawca.tab && nadawca.tab.id !== karta.id) {
           return;
@@ -3063,7 +3153,6 @@
       ustawDostępnośćWalidacji(false);
     });
 
-  odczytajOstatniImport();
   odczytajStanPanelu();
   odczytajStanSesjiWalidacji();
   odświeżStanProgramuHarmonogramu();

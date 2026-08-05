@@ -705,8 +705,11 @@
     });
 
     const ostrzeżeniaPoWyborze = zastosujCenęBezZakwaterowaniaWybranegoTerminu(szkolenie, wybranyTermin, ostrzeżenia);
+    szkolenie.ostrzeżenia = ostrzeżeniaPoWyborze;
+    szkolenie.ostrzezenia = ostrzeżeniaPoWyborze;
 
     return {
+      profilId: "semper",
       typ: "SEMPER",
       url: locationHref || "",
       szkolenie: szkolenie,
