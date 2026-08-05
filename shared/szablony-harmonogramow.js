@@ -1,5 +1,7 @@
 (function zarejestrujSzablonyHarmonogramow(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
+  const DOZWOLONE_ROLE_PROWADZĄCYCH = ["ekspert", "walidator", "brak"];
+  const DOZWOLONE_KLUCZE_TEMATÓW = ["standard", "podsumowanie", "brak"];
 
   function utwórzWiersz(indeksDnia, od, doGodziny, typAktywności, kluczTematu, rolaProwadzącego) {
     return {
@@ -207,6 +209,25 @@
     }
   }
 
+  function walidujDaneSzablonu(szablon, konfiguracja) {
+    const błędy = [];
+    const prowadzący = konfiguracja && konfiguracja.prowadzącyWedługRoli || {};
+    const tematy = konfiguracja && konfiguracja.tematyWedługKlucza || {};
+
+    szablon.pozycje.forEach(function sprawdźWiersz(wiersz, indeks) {
+      dodajBłądJeśli(błędy, !DOZWOLONE_ROLE_PROWADZĄCYCH.includes(wiersz.rolaProwadzacego), "Wiersz szablonu " + (indeks + 1) + " ma niedozwoloną rolę prowadzącego: " + wiersz.rolaProwadzacego + ".");
+      dodajBłądJeśli(błędy, !DOZWOLONE_KLUCZE_TEMATÓW.includes(wiersz.temat), "Wiersz szablonu " + (indeks + 1) + " ma niedozwolony klucz tematu: " + wiersz.temat + ".");
+    });
+
+    dodajBłądJeśli(błędy, !String(prowadzący.ekspert || "").trim(), "Profil nie definiuje prowadzącego dla roli ekspert.");
+    dodajBłądJeśli(błędy, !String(prowadzący.walidator || "").trim(), "Profil nie definiuje prowadzącego dla roli walidator.");
+    dodajBłądJeśli(błędy, prowadzący.brak !== "", "Rola brak musi być mapowana na pusty ciąg.");
+    dodajBłądJeśli(błędy, !String(tematy.standard || "").trim(), "Profil nie definiuje tematu standardowego.");
+    dodajBłądJeśli(błędy, !String(tematy.podsumowanie || "").trim(), "Profil nie definiuje tematu podsumowania.");
+    dodajBłądJeśli(błędy, tematy.brak !== "", "Klucz tematu brak musi być mapowany na pusty ciąg.");
+    return błędy;
+  }
+
   function walidujWygenerowanyHarmonogram(kontekst, pozycje) {
     const dane = kontekst || {};
     const lista = Array.isArray(pozycje) ? pozycje : [];
@@ -222,6 +243,8 @@
       błędy.push("Brak szablonu dla profilu " + (dane.profilId || "brak") + ", formy " + (dane.forma || "brak") + " i " + daty.length + " dni.");
       return błędy;
     }
+
+    błędy.push.apply(błędy, walidujDaneSzablonu(szablon, konfiguracja));
 
     dodajBłądJeśli(błędy, lista.length !== szablon.sumaKontrolna.liczbaPozycji, "Niepoprawna liczba pozycji: " + lista.length + ", oczekiwano " + szablon.sumaKontrolna.liczbaPozycji + ".");
 
@@ -277,7 +300,7 @@
         dodajBłądJeśli(błędy, pozycja.prowadzacy !== "", "Pozycja przerwy " + numer + " ma prowadzącego.");
         dodajBłądJeśli(błędy, pozycja.przedmiot !== "", "Pozycja przerwy " + numer + " ma niepusty temat.");
       }
-      dodajBłądJeśli(błędy, /szkolenia-semper\.pl/i.test(String(pozycja.prowadzacy || "")), "Pozycja " + numer + " zawiera adres SEMPER.");
+      dodajBłądJeśli(błędy, /szkolenia-semper\.pl/i.test(JSON.stringify(pozycja)), "Pozycja " + numer + " zawiera adres SEMPER.");
       if (pozycja.przedmiot === tematy.podsumowanie) {
         dodajBłądJeśli(błędy, indeks !== lista.length - 1, "Temat podsumowania występuje przed ostatnim wierszem.");
       }

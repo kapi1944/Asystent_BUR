@@ -156,6 +156,27 @@
     });
   });
 
+  test("Silnik odrzuca niedozwolone dane szablonu i niepełną konfigurację profilu", function sprawdź() {
+    const szablon = asystent.pobierzSzablonHarmonogramu("iist", "online", 1);
+    const profil = asystent.pobierzProfilDostawcy("iist");
+    const poprzedniaRola = szablon.pozycje[0].rolaProwadzacego;
+    const poprzedniEkspert = profil.harmonogramBur.prowadzącyWedługRoli.ekspert;
+
+    try {
+      szablon.pozycje[0].rolaProwadzacego = "trener";
+      profil.harmonogramBur.prowadzącyWedługRoli.ekspert = "";
+      const wynik = generuj("10-09-2027", "10-09-2027");
+      sprawdzWarunek(!wynik.ok);
+      sprawdzRownosc(wynik.kod, "NIEPRAWIDŁOWY_HARMONOGRAM");
+      sprawdzRownosc(wynik.pozycje.length, 0);
+      sprawdzWarunek(wynik.błędy.some(function maBłąd(błąd) { return błąd.includes("niedozwoloną rolę"); }));
+      sprawdzWarunek(wynik.błędy.some(function maBłąd(błąd) { return błąd.includes("roli ekspert"); }));
+    } finally {
+      szablon.pozycje[0].rolaProwadzacego = poprzedniaRola;
+      profil.harmonogramBur.prowadzącyWedługRoli.ekspert = poprzedniEkspert;
+    }
+  });
+
   test("Walidacja IIST zwraca konkretne błędy struktury", function sprawdź() {
     const kontekst = { profilId: "iist", forma: "online", dataStartBur: "10-09-2027", dataKoniecBur: "10-09-2027" };
     const pozycje = generuj(kontekst.dataStartBur, kontekst.dataKoniecBur).pozycje.map(function skopiuj(pozycja) { return Object.assign({}, pozycja); });
