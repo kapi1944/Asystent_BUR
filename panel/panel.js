@@ -11,6 +11,7 @@
     "shared/daty.js",
     "shared/terminy-bur.js",
     "shared/stan-operacji-bur.js",
+    "shared/szablony-harmonogramow.js",
     "shared/bur-program-harmonogram.js",
     "shared/wyszukiwarka-semper.js",
     "shared/selektory-bur.js",
@@ -1651,18 +1652,25 @@
       const tytułHarmonogramu = pobierzTytułHarmonogramu(szkolenie);
       const tematSzkolenia = przestrzeń.przygotujTematHarmonogramu(tytułHarmonogramu);
       const czyOnline = terminHarmonogramu.tryb === "online";
-      const profil = przestrzeń.pobierzProfilDostawcy(szkolenie.profilId || aktywnyProfilDostawcy) || {};
-      const pozycje = przestrzeń.zbudujPozycjeHarmonogramu({
+      const profilId = szkolenie.profilId || aktywnyProfilDostawcy;
+      const profil = przestrzeń.pobierzProfilDostawcy(profilId) || {};
+      const wynikHarmonogramu = przestrzeń.generujHarmonogramDlaTerminu({
+        profilId: profilId,
+        forma: terminHarmonogramu.tryb || (czyOnline ? "online" : "stacjonarna"),
+        dataStartBur: datyTerminu.dataRozpoczęcia,
+        dataKoniecBur: datyTerminu.dataZakończenia,
         tematSzkolenia: tematSzkolenia,
-        daty: daty,
-        czyOnline: czyOnline,
         emailTrenera: profil.osobaProwadzącaUsługę && profil.osobaProwadzącaUsługę.email || przestrzeń.EMAIL_TRENERA_HARMONOGRAMU,
         emailWalidatora: profil.osobaProwadzącaWalidację && profil.osobaProwadzącaWalidację.email || przestrzeń.EMAIL_WALIDATORA_HARMONOGRAMU
       });
+      if (!wynikHarmonogramu.ok) {
+        throw new Error(wynikHarmonogramu.komunikat);
+      }
+      const pozycje = wynikHarmonogramu.pozycje;
       const ostrzeżenia = zbudujOstrzeżeniaHarmonogramu(terminHarmonogramu, daty, tytułHarmonogramu, tematSzkolenia);
 
       return {
-        program: przestrzeń.zbudujProgramDostawcy(szkolenie.profilId || aktywnyProfilDostawcy, szkolenie),
+        program: przestrzeń.zbudujProgramDostawcy(profilId, szkolenie),
         tematSzkolenia: tematSzkolenia,
         terminHarmonogramu: terminHarmonogramu,
         opisTerminu: przestrzeń.opiszTerminHarmonogramu(terminHarmonogramu),

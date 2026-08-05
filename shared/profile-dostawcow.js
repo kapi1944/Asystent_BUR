@@ -62,6 +62,18 @@
       informacjeDodatkoweOnline: INFORMACJE_DODATKOWE_ONLINE_IIST,
       warunkiTechniczneOnline: WARUNKI_TECHNICZNE_ONLINE_IIST,
       kodyDostępoweOnline: KODY_DOSTĘPOWE_ONLINE_IIST,
+      harmonogramBur: {
+        prowadzącyWedługRoli: {
+          ekspert: "ekspert@iist.pl",
+          walidator: "koordynator@iist.pl",
+          brak: ""
+        },
+        tematyWedługKlucza: {
+          standard: "szkolenie (rozmowa na żywo, współdzielenie ekranu, ćwiczenia)",
+          podsumowanie: "Podsumowanie i zakończenie szkolenia",
+          brak: ""
+        }
+      },
       przełącznikiGłównegoCelu: { celEdukacyjny: "TAK", kwalifikacjeZsk: "NIE", kwalifikacjeInne: "NIE", kompetencje: "TAK" }
     }
   };
