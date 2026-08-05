@@ -528,6 +528,20 @@
     return przestrzeń.pobierzWartośćPola ? przestrzeń.pobierzWartośćPola(element) : String(element.value || element.textContent || "");
   }
 
+  function normalizujWartośćTechnicznąDoPorównania(wartość, typ) {
+    if (typ !== "quill") {
+      return normalizujKluczBur(wartość);
+    }
+
+    const tekstZBlokami = String(wartość || "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(?:p|div|li|h[1-6])>/gi, "\n")
+      .replace(/<[^>]+>/g, "");
+    const dekoder = document.createElement("textarea");
+    dekoder.innerHTML = tekstZBlokami;
+    return normalizujKluczBur(dekoder.value);
+  }
+
   function poczekajNaReakcję(element, warunek, timeoutMs) {
     return new Promise(function oczekuj(resolve) {
       if (warunek()) { resolve(true); return; }
@@ -565,7 +579,7 @@
       return wynik;
     }
     wynik.wartośćPrzed = pobierzWartośćTechniczną(element, typPola);
-    if (normalizujKluczBur(wynik.wartośćPrzed) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "już_zgodne"; wynik.wartośćPo = wynik.wartośćPrzed; return wynik; }
+    if (normalizujWartośćTechnicznąDoPorównania(wynik.wartośćPrzed, typPola) === normalizujWartośćTechnicznąDoPorównania(wynik.wartośćOczekiwana, typPola)) { wynik.ok = true; wynik.status = "już_zgodne"; wynik.wartośćPo = wynik.wartośćPrzed; return wynik; }
     if (wynik.wartośćPrzed && !ustawienia.zezwólNaNadpisanie) { wynik.kodBłędu = "KONFLIKT_WARTOŚCI"; wynik.komunikat = "Pole zawiera inną wartość i wymaga decyzji użytkownika."; return wynik; }
     if (typPola === "select2" && ustawienia.dokładnySelect2) {
       const wybór = ustawSelect2PoDokładnymTekście(dokument, definicja, wynik.wartośćOczekiwana);
@@ -573,9 +587,9 @@
     }
     const ustawiono = ustawPoleJeśliIstnieje(Object.assign({}, definicja, { dokument: dokument }), wynik.wartośćOczekiwana);
     if (element.blur) { element.blur(); }
-    const potwierdzono = await poczekajNaReakcję(element, function zgodne() { return normalizujKluczBur(pobierzWartośćTechniczną(element, typPola)) === normalizujKluczBur(wynik.wartośćOczekiwana); });
+    const potwierdzono = await poczekajNaReakcję(element, function zgodne() { return normalizujWartośćTechnicznąDoPorównania(pobierzWartośćTechniczną(element, typPola), typPola) === normalizujWartośćTechnicznąDoPorównania(wynik.wartośćOczekiwana, typPola); });
     wynik.wartośćPo = pobierzWartośćTechniczną(element, typPola);
-    if (ustawiono && normalizujKluczBur(wynik.wartośćPo) === normalizujKluczBur(wynik.wartośćOczekiwana)) { wynik.ok = true; wynik.status = "potwierdzone"; return wynik; }
+    if (ustawiono && normalizujWartośćTechnicznąDoPorównania(wynik.wartośćPo, typPola) === normalizujWartośćTechnicznąDoPorównania(wynik.wartośćOczekiwana, typPola)) { wynik.ok = true; wynik.status = "potwierdzone"; return wynik; }
     wynik.kodBłędu = potwierdzono ? (typPola === "select2" ? "BRAK_POTWIERDZENIA_SELECT2" : "ODRZUCONA_WARTOŚĆ") : "TIMEOUT";
     wynik.komunikat = "BUR nie potwierdził oczekiwanej wartości po zapisie.";
     return wynik;

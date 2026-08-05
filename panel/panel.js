@@ -119,6 +119,7 @@
   let aktywnyProfilDostawcy = "semper";
   let wykryteKontoBur = null;
   let czyUżytkownikWybrałZakładkę = false;
+  let czyImportHarmonogramuWToku = false;
   const diagnostykaSemper = {
     fraza: "",
     źródłoFrazy: "",
@@ -2221,10 +2222,18 @@
   }
 
   function wprowadźPrzygotowanyHarmonogramDoBur(typKomunikatu) {
+    if (czyImportHarmonogramuWToku) {
+      ustawStatusProgramuHarmonogramu("Import harmonogramu już trwa. Poczekaj na jego zakończenie.", "status-ostrzezenie");
+      return Promise.resolve({ ok: false, kod: "IMPORT_HARMONOGRAMU_W_TOKU" });
+    }
+
+    czyImportHarmonogramuWToku = true;
+    elementy.przyciskImportujHarmonogramXlsx.disabled = true;
+    elementy.przyciskWypełnijHarmonogramRęcznie.disabled = true;
     wyczyśćDecyzjęHarmonogramuBur();
     ustawStatusProgramuHarmonogramu("Wprowadzanie harmonogramu do BUR...", "status-neutralny");
 
-    zweryfikujPrzygotowanyHarmonogramZBur()
+    return zweryfikujPrzygotowanyHarmonogramZBur()
       .then(odczytajPrzygotowanyHarmonogram)
       .then(function wyślij(dane) {
         pokażPodglądHarmonogramu(dane);
@@ -2279,6 +2288,10 @@
           pokażKontrolęHarmonogramu([komunikat]);
         }
         ustawStatusProgramuHarmonogramu(komunikat, "status-blad");
+      })
+      .finally(function zakończImport() {
+        czyImportHarmonogramuWToku = false;
+        return odświeżStanPrzygotowaniaHarmonogramu();
       });
   }
 

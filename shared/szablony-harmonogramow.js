@@ -549,6 +549,9 @@
         if (!osoby.includes("ekspert@iist.pl") || !osoby.includes("koordynator@iist.pl")) {
           błędy.push("Najpierw uzupełnij osoby prowadzące dla profilu IIST.");
         }
+        if (/semper|szkolenia-semper\.pl/i.test(osoby)) {
+          błędy.push("Usuń pozostałości osób SEMPER przed importem harmonogramu IIST.");
+        }
       }
     }
 

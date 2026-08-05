@@ -332,6 +332,13 @@
   async function poczekajNaWynikImportu(pozycje, liczbaPrzed, podsumowanie) {
     let ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || [], podsumowanie);
 
+    if (pobierzLiczbęPozycjiWTabeli() > liczbaPrzed && ostatniRaport.ok) {
+      return {
+        ok: true,
+        raport: ostatniRaport
+      };
+    }
+
     for (let próba = 0; próba < 24; próba += 1) {
       await opóźnij(500);
       ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || [], podsumowanie);
@@ -601,7 +608,9 @@
         isTrusted: eventChange.isTrusted
       });
 
-      await opóźnij(350);
+      if (pobierzLiczbęPozycjiWTabeli() === liczbaPrzed) {
+        await opóźnij(350);
+      }
 
       if (pobierzLiczbęPozycjiWTabeli() === liczbaPrzed) {
         const przyciskWykonaniaImportu = znajdźPrzyciskWykonaniaImportu(inputPliku);
