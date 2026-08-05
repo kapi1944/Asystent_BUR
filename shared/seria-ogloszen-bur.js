@@ -3,7 +3,14 @@
   const STATUSY_SERII_BUR = [
     "oczekuje", "otwieranie_karty", "oczekiwanie_na_zaladowanie",
     "oczekiwanie_na_content_script", "kontrola_konta", "karta_gotowa",
-    "wymaga_decyzji", "blad", "karta_zamknieta", "anulowane"
+    "wypelnianie", "import_harmonogramu", "walidacja", "gotowe_do_kontroli",
+    "wymaga_decyzji", "wymaga_recznego_importu", "blad", "karta_zamknieta", "anulowane"
+  ];
+  const ETAPY_WORKFLOW_SERII_BUR = [
+    "kontrola_kontekstu", "kontrola_stanu_formularza", "przygotowanie_propozycji",
+    "wypelnianie_pol", "kontrola_pol", "zastepowanie_osob_prowadzacych",
+    "kontrola_osob_prowadzacych", "przygotowanie_programu", "generowanie_harmonogramu",
+    "import_harmonogramu", "weryfikacja_harmonogramu", "walidacja_formularza", "gotowe_do_kontroli"
   ];
 
   function utwórzIdSerii(prefiks) {
@@ -64,6 +71,9 @@
       liczbaDni: ocena.liczbaDni, szablonHarmonogramu: ocena.szablonHarmonogramu,
       tabId: null, urlKarty: "", typFormularza: "", etap: "oczekuje", status: "oczekuje",
       raport: null, wynikWalidacji: null, bledy: ocena.powodyBlokady.slice(), ostrzezenia: [],
+      wybranyTermin: Object.assign({}, termin), etapy: {}, następnyEtapIndex: 0, postep: 0,
+      liczbaUzupełnionychPól: 0, statusHarmonogramu: "nieprzygotowany", csv: null,
+      odciskFormularzaPoWalidacji: "", rozpoczętoWorkflow: "", zakończonoWorkflow: "",
       proby: 0, utworzono: teraz, zaktualizowano: teraz
     };
   }
@@ -80,7 +90,7 @@
       tytul: wejście.tytul || "", urlZrodla: wejście.urlZrodla || "", odciskSzkolenia: wejście.odciskSzkolenia || "",
       sposobTworzeniaKart: wejście.sposobTworzeniaKart || "nowe_formularze",
       urlFormularzaBazowego: wejście.urlFormularzaBazowego || "", utworzono: teraz, zaktualizowano: teraz,
-      status: "oczekuje", zatrzymanaPrzyczyna: "",
+      status: "oczekuje", zatrzymanaPrzyczyna: "", szkolenie: wejście.szkolenie || null,
       wzorzecKopiowania: wejście.wzorzecKopiowania || null,
       zadania: terminy.map(function mapuj(termin, pozycja) { return utwórzZadanieSeriiBur(batchId, profilId, termin, indeksy[pozycja], teraz); })
     };
@@ -109,7 +119,29 @@
     };
   }
 
+  function utwórzOdciskTekstuSerii(wartość) {
+    const tekst = typeof wartość === "string" ? wartość : JSON.stringify(wartość || null);
+    let skrót = 2166136261;
+    for (let indeks = 0; indeks < tekst.length; indeks += 1) {
+      skrót ^= tekst.charCodeAt(indeks);
+      skrót = Math.imul(skrót, 16777619);
+    }
+    return "fnv1a-" + (skrót >>> 0).toString(16).padStart(8, "0");
+  }
+
+  function utwórzOdciskSzkoleniaSerii(szkolenie) {
+    const dane = szkolenie || {};
+    return utwórzOdciskTekstuSerii({
+      profilId: dane.profilId || "", tytuł: dane.tytułPoNormalizacjiBur || dane.tytułOryginalny || dane.tytulOryginalny || "",
+      url: dane.urlŹródła || dane.urlZrodla || "", sekcje: dane.sekcje || {},
+      terminy: (dane.terminy || []).map(function termin(pozycja) {
+        return [pozycja.dataStartBur, pozycja.dataKoniecBur, pozycja.dataZakończeniaRekrutacjiBur || pozycja.dataZakonczeniaRekrutacjiBur, pozycja.forma, pozycja.miejsce, pozycja.cena];
+      })
+    });
+  }
+
   przestrzeń.STATUSY_SERII_BUR = STATUSY_SERII_BUR;
+  przestrzeń.ETAPY_WORKFLOW_SERII_BUR = ETAPY_WORKFLOW_SERII_BUR;
   przestrzeń.utwórzIdSerii = utwórzIdSerii;
   przestrzeń.obliczLiczbęDniSerii = obliczLiczbęDniSerii;
   przestrzeń.oceńTerminSeriiBur = oceńTerminSeriiBur;
@@ -117,5 +149,7 @@
   przestrzeń.utwórzSerięOgłoszeńBur = utwórzSerięOgłoszeńBur;
   przestrzeń.znajdźZadaniePoKarcie = znajdźZadaniePoKarcie;
   przestrzeń.rozpoznajWzorzecKopiowaniaBur = rozpoznajWzorzecKopiowaniaBur;
+  przestrzeń.utwórzOdciskTekstuSerii = utwórzOdciskTekstuSerii;
+  przestrzeń.utwórzOdciskSzkoleniaSerii = utwórzOdciskSzkoleniaSerii;
   globalny.BurAsystent = przestrzeń;
 })(globalThis);

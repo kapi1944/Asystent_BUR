@@ -194,21 +194,30 @@
 
       <section id="karta-seria-ogloszen" class="karta" data-zakladki="seria">
         <h2>Seria ogłoszeń</h2>
-        <p class="opis-akcji">Ten etap wyłącznie przypisuje terminy do osobnych kart i sprawdza ich gotowość. Nie zmienia formularzy BUR.</p>
+        <p class="opis-akcji">Najpierw przygotuj niezależne karty, a następnie uruchom sekwencyjne wypełnianie. Karty pozostają otwarte i niezapisane.</p>
         <div class="liczniki-serii" aria-live="polite">
           <span>Wszystkie: <strong id="seria-liczba-wszystkich">0</strong></span>
           <span>Zaznaczone: <strong id="seria-liczba-zaznaczonych">0</strong></span>
           <span>Obsługiwane: <strong id="seria-liczba-obslugiwanych">0</strong></span>
         </div>
+        <div class="liczniki-serii" aria-live="polite">
+          <span>Oczekujące: <strong id="seria-stan-oczekujace">0</strong></span>
+          <span>Przetwarzane: <strong id="seria-stan-przetwarzane">0</strong></span>
+          <span>Gotowe: <strong id="seria-stan-gotowe">0</strong></span>
+          <span>Decyzja: <strong id="seria-stan-decyzja">0</strong></span>
+          <span>Import ręczny: <strong id="seria-stan-import-reczny">0</strong></span>
+          <span>Błędne: <strong id="seria-stan-bledne">0</strong></span>
+        </div>
         <div id="lista-terminow-serii" class="lista-terminow-serii"></div>
         <label class="etykieta" for="sposob-tworzenia-kart-serii">Sposób tworzenia kart</label>
         <select id="sposob-tworzenia-kart-serii">
           <option value="nowe_formularze">Niezależne nowe formularze</option>
-          <option value="kopiowanie_z_wzorca">Kopiowanie z jednego wzorca (tylko rozpoznanie)</option>
+          <option value="kopiowanie_z_wzorca">Bezpośrednie kopie z jednego wzorca</option>
         </select>
         <div class="siatka-przycisków">
           <button id="przycisk-sprawdz-gotowosc-serii" type="button">Sprawdź gotowość</button>
           <button id="przycisk-przygotuj-serie" type="button">Przygotuj serię kart</button>
+          <button id="przycisk-uruchom-workflow-serii" type="button">Wypełnij serię</button>
           <button id="przycisk-anuluj-serie" type="button">Anuluj serię</button>
           <button id="przycisk-otworz-bledne-serii" type="button">Otwórz wszystkie błędne</button>
           <button id="przycisk-odswiez-serie" type="button">Odśwież stan kart</button>
@@ -216,8 +225,8 @@
         <div id="status-serii" class="komunikat status-neutralny">Wybierz terminy IIST i sprawdź gotowość.</div>
         <div class="tabela-serii-kontener">
           <table class="tabela-serii">
-            <thead><tr><th>Termin</th><th>Forma</th><th>Karta</th><th>Etap</th><th>Status</th><th>Błędy</th><th>Ostrzeżenia</th><th>Akcje</th></tr></thead>
-            <tbody id="zadania-serii"><tr><td colspan="8">Brak aktywnej serii.</td></tr></tbody>
+            <thead><tr><th>Termin</th><th>Etap</th><th>Status</th><th>Postęp</th><th>Pola</th><th>Ostrzeżenia</th><th>Błędy</th><th>Harmonogram</th><th>Czas</th><th>Akcje</th></tr></thead>
+            <tbody id="zadania-serii"><tr><td colspan="10">Brak aktywnej serii.</td></tr></tbody>
           </table>
         </div>
       </section>

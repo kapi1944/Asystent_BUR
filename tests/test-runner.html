@@ -73,6 +73,7 @@
       window.chrome = window.chrome || { runtime: { onMessage: { addListener: function dodajSłuchacza() {} } } };
     </script>
     <script src="../content/bur-content.js"></script>
+    <script src="../content/workflow-bur-dla-zadania.js"></script>
     <script>
       window.testyBurAsystent = [];
 
@@ -121,6 +122,7 @@
     <script src="iist-bur.test.js"></script>
     <script src="stabilizacja-iist-e2e.test.js"></script>
     <script src="seria-ogloszen-bur.test.js"></script>
+    <script src="workflow-serii-bur.test.js"></script>
     <script>
       (async function uruchomTesty() {
         const kontener = document.getElementById("wyniki");

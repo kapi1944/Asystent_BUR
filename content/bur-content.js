@@ -1489,6 +1489,9 @@
   przestrzen.pobierzWierszeHarmonogramu = odczytajWierszeHarmonogramu;
   przestrzen.odczytajPodsumowanieHarmonogramuBur = odczytajPodsumowanieHarmonogramuBur;
   przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;
+  przestrzen.wprowadźHarmonogramDoBur = wprowadźHarmonogramDoBur;
+  przestrzen.zastąpHarmonogram = zastąpHarmonogram;
+  przestrzen.pobierzStanProgramuHarmonogramu = pobierzStanProgramuHarmonogramu;
   przestrzen.usuńIstniejącyHarmonogram = usuńIstniejącyHarmonogram;
   przestrzen.odczytajAktualnyTerminBur = odczytajAktualnyTerminBur;
   przestrzen.odczytajNazweKontaBur = odczytajNazweKontaBur;

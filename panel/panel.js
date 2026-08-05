@@ -20,7 +20,7 @@
     "shared/definicje-pol-bur.js",
     "shared/przygotowanie-wypelnienia-bur.js",
     "shared/wypełniacz-bur.js",
-    "content/bur-content.js"
+    "content/bur-content.js", "content/workflow-bur-dla-zadania.js"
   ];
   const styleContentBur = ["content/bur-highlighter.css"];
   const elementy = {
@@ -108,11 +108,18 @@
     ,sposóbTworzeniaKartSerii: document.getElementById("sposob-tworzenia-kart-serii")
     ,przyciskSprawdźGotowośćSerii: document.getElementById("przycisk-sprawdz-gotowosc-serii")
     ,przyciskPrzygotujSerię: document.getElementById("przycisk-przygotuj-serie")
+    ,przyciskUruchomWorkflowSerii: document.getElementById("przycisk-uruchom-workflow-serii")
     ,przyciskAnulujSerię: document.getElementById("przycisk-anuluj-serie")
     ,przyciskOtwórzBłędneSerii: document.getElementById("przycisk-otworz-bledne-serii")
     ,przyciskOdświeżSerię: document.getElementById("przycisk-odswiez-serie")
     ,statusSerii: document.getElementById("status-serii")
     ,zadaniaSerii: document.getElementById("zadania-serii")
+    ,seriaStanOczekujące: document.getElementById("seria-stan-oczekujace")
+    ,seriaStanPrzetwarzane: document.getElementById("seria-stan-przetwarzane")
+    ,seriaStanGotowe: document.getElementById("seria-stan-gotowe")
+    ,seriaStanDecyzja: document.getElementById("seria-stan-decyzja")
+    ,seriaStanImportRęczny: document.getElementById("seria-stan-import-reczny")
+    ,seriaStanBłędne: document.getElementById("seria-stan-bledne")
   };
   let ostatnieTerminySemper = [];
   let ostatnieSzkolenieSemperZPanelu = null;
@@ -292,25 +299,47 @@
   function renderujStanSerii(seria) {
     stanSeriiOgłoszeńBur = seria || null;
     elementy.zadaniaSerii.textContent = "";
+    const zadania = seria && Array.isArray(seria.zadania) ? seria.zadania : [];
+    const ustawLicznik = function ustaw(element, statusy) {
+      if (element) { element.textContent = String(zadania.filter(function policz(zadanie) { return statusy.includes(zadanie.status); }).length); }
+    };
+    ustawLicznik(elementy.seriaStanOczekujące, ["oczekuje", "karta_gotowa"]);
+    ustawLicznik(elementy.seriaStanPrzetwarzane, ["przetwarzanie", "wypelnianie", "import_harmonogramu", "walidacja"]);
+    ustawLicznik(elementy.seriaStanGotowe, ["gotowe_do_kontroli"]);
+    ustawLicznik(elementy.seriaStanDecyzja, ["wymaga_decyzji"]);
+    ustawLicznik(elementy.seriaStanImportRęczny, ["wymaga_recznego_importu"]);
+    ustawLicznik(elementy.seriaStanBłędne, ["blad", "karta_zamknieta"]);
     if (!seria || !Array.isArray(seria.zadania) || !seria.zadania.length) {
       const wiersz = document.createElement("tr");
       const komórka = dodajKomórkęSerii(wiersz, "Brak aktywnej serii.");
-      komórka.colSpan = 8; elementy.zadaniaSerii.appendChild(wiersz); return;
+      komórka.colSpan = 10; elementy.zadaniaSerii.appendChild(wiersz); return;
     }
     seria.zadania.forEach(function dodajZadanie(zadanie) {
       const wiersz = document.createElement("tr");
       dodajKomórkęSerii(wiersz, zadanie.dataStartBur + " – " + zadanie.dataKoniecBur);
-      dodajKomórkęSerii(wiersz, zadanie.forma);
-      dodajKomórkęSerii(wiersz, zadanie.tabId ? "#" + zadanie.tabId : "—");
       dodajKomórkęSerii(wiersz, zadanie.etap);
       dodajKomórkęSerii(wiersz, zadanie.status);
-      dodajKomórkęSerii(wiersz, (zadanie.bledy || []).join(" "));
+      dodajKomórkęSerii(wiersz, String(zadanie.postep || 0) + "%");
+      dodajKomórkęSerii(wiersz, String(zadanie.liczbaUzupełnionychPól || 0));
       dodajKomórkęSerii(wiersz, (zadanie.ostrzezenia || []).join(" "));
+      dodajKomórkęSerii(wiersz, (zadanie.bledy || []).join(" "));
+      dodajKomórkęSerii(wiersz, zadanie.statusHarmonogramu || "nieprzygotowany");
+      const czasEtapów = Object.values(zadanie.etapy || {}).reduce(function suma(wynik, etap) { return wynik + Number(etap.czasMs || 0); }, 0);
+      dodajKomórkęSerii(wiersz, czasEtapów ? Math.round(czasEtapów) + " ms" : "—");
       const akcje = dodajKomórkęSerii(wiersz, "");
       const otwórz = document.createElement("button"); otwórz.type = "button"; otwórz.dataset.otworzJobSerii = zadanie.jobId; otwórz.textContent = "Otwórz kartę"; otwórz.disabled = !zadanie.tabId;
-      const ponów = document.createElement("button"); ponów.type = "button"; ponów.dataset.ponowJobSerii = zadanie.jobId; ponów.textContent = "Ponów przygotowanie karty";
-      akcje.appendChild(otwórz); akcje.appendChild(ponów);
+      const raport = document.createElement("button"); raport.type = "button"; raport.dataset.raportJobSerii = zadanie.jobId; raport.textContent = "Pokaż raport";
+      const ponów = document.createElement("button"); ponów.type = "button"; ponów.dataset.ponowJobSerii = zadanie.jobId; ponów.textContent = "Ponów od błędnego etapu";
+      const waliduj = document.createElement("button"); waliduj.type = "button"; waliduj.dataset.walidujJobSerii = zadanie.jobId; waliduj.textContent = "Waliduj ponownie"; waliduj.disabled = !zadanie.tabId;
+      akcje.appendChild(otwórz); akcje.appendChild(raport); akcje.appendChild(ponów); akcje.appendChild(waliduj);
+      if (zadanie.status === "wymaga_recznego_importu" && zadanie.csv) {
+        const csv = document.createElement("button"); csv.type = "button"; csv.dataset.csvJobSerii = zadanie.jobId; csv.textContent = "Pobierz CSV"; akcje.appendChild(csv);
+      }
       elementy.zadaniaSerii.appendChild(wiersz);
+      const szczegóły = document.createElement("tr"); szczegóły.dataset.raportDlaJob = zadanie.jobId; szczegóły.hidden = true;
+      const poleRaportu = dodajKomórkęSerii(szczegóły, ""); poleRaportu.colSpan = 10;
+      const pre = document.createElement("pre"); pre.textContent = JSON.stringify({ jobId: zadanie.jobId, tabId: zadanie.tabId, etapy: zadanie.etapy || {}, wynikWalidacji: zadanie.wynikWalidacji || null }, null, 2);
+      poleRaportu.appendChild(pre); elementy.zadaniaSerii.appendChild(szczegóły);
     });
   }
 
@@ -347,7 +376,7 @@
         profilId: "iist", szkolenieId: szkolenie.id || szkolenie.urlŹródła || szkolenie.urlZrodla || "",
         tytul: szkolenie.tytułPoNormalizacjiBur || szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || "",
         urlZrodla: szkolenie.urlŹródła || szkolenie.urlZrodla || "",
-        odciskSzkolenia: JSON.stringify([szkolenie.tytułPoNormalizacjiBur || szkolenie.tytułOryginalny || "", szkolenie.urlŹródła || "", terminy.length]),
+        odciskSzkolenia: przestrzeń.utwórzOdciskSzkoleniaSerii(szkolenie), szkolenie: szkolenie,
         sposobTworzeniaKart: elementy.sposóbTworzeniaKartSerii.value,
         terminy: terminy, indeksyTerminów: wybrane
       }
@@ -357,7 +386,7 @@
         throw new Error(błąd || "Nie udało się przygotować serii.");
       }
       renderujStanSerii(wynik.seria);
-      ustawStatus(elementy.statusSerii, "Utworzono serię " + wynik.seria.batchId + ". Karty są sprawdzane bez modyfikowania formularzy.", "status-odczytano");
+      ustawStatus(elementy.statusSerii, "Utworzono serię " + wynik.seria.batchId + ". Zweryfikuj karty i uruchom wypełnianie.", "status-odczytano");
     }).catch(function błąd(wyjątek) { ustawStatus(elementy.statusSerii, wyjątek.message, "status-blad"); });
   }
 
@@ -365,6 +394,22 @@
     return wyślijPolecenieSerii({ typ: komunikaty.POBIERZ_STAN_SERII_BUR, odśwież: Boolean(czySprawdzaćKarty) })
       .then(function pokaż(seria) { renderujStanSerii(seria); if (seria && seria.zatrzymanaPrzyczyna) { ustawStatus(elementy.statusSerii, seria.zatrzymanaPrzyczyna, "status-blad"); } return seria; })
       .catch(function błąd(wyjątek) { ustawStatus(elementy.statusSerii, wyjątek.message, "status-blad"); });
+  }
+
+  function uruchomWorkflowSerii() {
+    ustawStatus(elementy.statusSerii, "Sekwencyjne wypełnianie kart zostało uruchomione. Panel nie przełącza aktywnej karty.", "status-neutralny");
+    return wyślijPolecenieSerii({ typ: komunikaty.URUCHOM_WORKFLOW_SERII_BUR })
+      .then(function pokaż(seria) {
+        renderujStanSerii(seria);
+        ustawStatus(elementy.statusSerii, seria && seria.zatrzymanaPrzyczyna || "Przetwarzanie serii zakończone. Formularze pozostały niezapisane.", seria && seria.zatrzymanaPrzyczyna ? "status-blad" : "status-odczytano");
+      }).catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusSerii, błąd.message, "status-blad"); });
+  }
+
+  function pobierzCsvZadania(zadanie) {
+    if (!zadanie || !zadanie.csv || !Array.isArray(zadanie.csv.bajty)) { throw new Error("Zadanie nie ma zachowanego pliku CSV."); }
+    const adres = URL.createObjectURL(new Blob([new Uint8Array(zadanie.csv.bajty)], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a"); link.href = adres; link.download = zadanie.csv.nazwaPliku || zadanie.csv.nazwa || (zadanie.jobId + ".csv");
+    document.body.appendChild(link); link.click(); link.remove(); setTimeout(function zwolnij() { URL.revokeObjectURL(adres); }, 0);
   }
 
   function odświeżStatusOperacjiBur() {
@@ -3368,6 +3413,7 @@
   });
   elementy.przyciskSprawdźGotowośćSerii.addEventListener("click", sprawdźGotowośćSerii);
   elementy.przyciskPrzygotujSerię.addEventListener("click", przygotujSerięKart);
+  elementy.przyciskUruchomWorkflowSerii.addEventListener("click", uruchomWorkflowSerii);
   elementy.przyciskAnulujSerię.addEventListener("click", function anulujSerię() {
     wyślijPolecenieSerii({ typ: komunikaty.ANULUJ_SERIE_BUR }).then(function pokaż(seria) {
       renderujStanSerii(seria); ustawStatus(elementy.statusSerii, "Seria została anulowana. Otwarte karty pozostawiono bez zmian.", "status-neutralny");
@@ -3383,9 +3429,22 @@
   elementy.zadaniaSerii.addEventListener("click", function obsłużAkcjęZadania(zdarzenie) {
     const otwórz = zdarzenie.target && zdarzenie.target.closest("[data-otworz-job-serii]");
     const ponów = zdarzenie.target && zdarzenie.target.closest("[data-ponow-job-serii]");
-    if (!otwórz && !ponów) { return; }
-    const typ = otwórz ? komunikaty.OTWORZ_KARTE_ZADANIA_BUR : komunikaty.PONOW_ZADANIE_SERII_BUR;
-    const jobId = otwórz ? otwórz.dataset.otworzJobSerii : ponów.dataset.ponowJobSerii;
+    const waliduj = zdarzenie.target && zdarzenie.target.closest("[data-waliduj-job-serii]");
+    const raport = zdarzenie.target && zdarzenie.target.closest("[data-raport-job-serii]");
+    const csv = zdarzenie.target && zdarzenie.target.closest("[data-csv-job-serii]");
+    if (raport) {
+      const wiersz = elementy.zadaniaSerii.querySelector('[data-raport-dla-job="' + raport.dataset.raportJobSerii + '"]');
+      if (wiersz) { wiersz.hidden = !wiersz.hidden; raport.textContent = wiersz.hidden ? "Pokaż raport" : "Ukryj raport"; }
+      return;
+    }
+    if (csv) {
+      try { pobierzCsvZadania((stanSeriiOgłoszeńBur.zadania || []).find(function znajdź(zadanie) { return zadanie.jobId === csv.dataset.csvJobSerii; })); }
+      catch (błąd) { ustawStatus(elementy.statusSerii, błąd.message, "status-blad"); }
+      return;
+    }
+    if (!otwórz && !ponów && !waliduj) { return; }
+    const typ = otwórz ? komunikaty.OTWORZ_KARTE_ZADANIA_BUR : (ponów ? komunikaty.PONOW_ZADANIE_SERII_BUR : komunikaty.WALIDUJ_PONOWNIE_ZADANIE_SERII_BUR);
+    const jobId = otwórz ? otwórz.dataset.otworzJobSerii : (ponów ? ponów.dataset.ponowJobSerii : waliduj.dataset.walidujJobSerii);
     wyślijPolecenieSerii({ typ: typ, jobId: jobId }).then(function pokaż(seria) { renderujStanSerii(seria); })
       .catch(function pokażBłąd(błąd) { ustawStatus(elementy.statusSerii, błąd.message, "status-blad"); });
   });

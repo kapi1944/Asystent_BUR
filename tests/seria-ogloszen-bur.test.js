@@ -150,7 +150,7 @@
     const środowisko = utwórzŚrodowisko();
     środowisko.raporty.set(99, Object.assign(środowisko.raport(99), {
       typFormularza: "edycja_uslugi",
-      wzorzecKopiowania: { urlWzorca: środowisko.aktywnaKarta.url, numerUslugi: "12345", jednoznacznaAkcjaKopiowania: true, kopieBezposrednioZTegoSamegoWzorca: true, kopiowanieLancuchoweDozwolone: false }
+      wzorzecKopiowania: { urlWzorca: środowisko.aktywnaKarta.url, numerUslugi: "12345", adresAkcjiKopiowania: "https://uslugirozwojowe.parp.gov.pl/kopiuj/12345", jednoznacznaAkcjaKopiowania: true, kopieBezposrednioZTegoSamegoWzorca: true, kopiowanieLancuchoweDozwolone: false }
     }));
     const wynik = await środowisko.koordynator.sprawdźGotowość("kopiowanie_z_wzorca");
     sprawdzWarunek(wynik.ok);
@@ -161,11 +161,13 @@
     const środowisko = utwórzŚrodowisko();
     const wzorzec = Object.assign(środowisko.raport(99), {
       typFormularza: "edycja_uslugi",
-      wzorzecKopiowania: { numerUslugi: "12345", jednoznacznaAkcjaKopiowania: true, kopieBezposrednioZTegoSamegoWzorca: true, kopiowanieLancuchoweDozwolone: false }
+      wzorzecKopiowania: { numerUslugi: "12345", adresAkcjiKopiowania: "https://uslugirozwojowe.parp.gov.pl/kopiuj/12345", jednoznacznaAkcjaKopiowania: true, kopieBezposrednioZTegoSamegoWzorca: true, kopiowanieLancuchoweDozwolone: false }
     });
     środowisko.raporty.set(99, wzorzec);
-    sprawdzWarunek(!(await środowisko.koordynator.utwórzSerię(Object.assign(daneSerii(2), { sposobTworzeniaKart: "kopiowanie_z_wzorca" }))).ok);
-    sprawdzRownosc(środowisko.pobierzLiczbęUtworzonych(), 0);
+    const wynik = await środowisko.koordynator.utwórzSerię(Object.assign(daneSerii(2), { sposobTworzeniaKart: "kopiowanie_z_wzorca" }));
+    sprawdzWarunek(wynik.ok);
+    sprawdzRownosc(środowisko.pobierzLiczbęUtworzonych(), 2);
+    sprawdzWarunek(Array.from(środowisko.karty.values()).every(function tenSamWzorzec(karta) { return karta.url === "https://uslugirozwojowe.parp.gov.pl/kopiuj/12345"; }));
   });
 
   test("adapter BUR rozpoznaje jedną bezpośrednią akcję kopiowania", function sprawdź() {
