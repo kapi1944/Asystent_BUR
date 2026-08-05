@@ -455,14 +455,6 @@ textarea:focus {
   text-transform: uppercase;
 }
 
-.wybor-terminu-harmonogramu > h4 {
-  margin: 10px 0 4px;
-  color: var(--tekst-slaby);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .wybrany-termin-harmonogramu {
   padding: 7px 8px;
   border: 1px solid var(--ramka);
@@ -483,6 +475,19 @@ textarea:focus {
 
 .lista-terminow-harmonogramu .grupa-terminow {
   min-width: 0;
+}
+
+.lista-terminow-harmonogramu .grupa-terminow + .grupa-terminow {
+  margin-top: 6px;
+  padding-top: 7px;
+}
+
+.lista-terminow-harmonogramu .naglowek-grupy-terminow {
+  margin-bottom: 5px;
+  padding: 2px 4px;
+  color: var(--tekst);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .pozycja-terminu-harmonogramu {
@@ -532,7 +537,32 @@ textarea:focus {
 }
 
 .filtr-terminow-harmonogramu {
-  margin-bottom: 8px;
+  margin-bottom: 0;
+}
+
+.źródła-terminów-harmonogramu {
+  display: grid;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.karta-listy-terminów-harmonogramu {
+  padding: 10px;
+  border: 1px solid var(--ramka);
+  border-radius: 6px;
+  background: #1b1b1b;
+}
+
+.karta-listy-terminów-harmonogramu > h3 {
+  margin: -10px -10px 9px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ramka);
+  border-radius: 6px 6px 0 0;
+  background: var(--panel-drugi);
+  color: var(--tekst);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .przycisk-główny {
@@ -722,14 +752,16 @@ li + li {
 
 .podglad-harmonogramu table {
   width: 100%;
-  min-width: 720px;
+  min-width: 620px;
   border-collapse: collapse;
   background: var(--panel-drugi);
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .podglad-harmonogramu th,
 .podglad-harmonogramu td {
-  padding: 7px;
+  padding: 4px 5px;
   border: 1px solid var(--ramka);
   text-align: left;
   vertical-align: top;
@@ -738,8 +770,51 @@ li + li {
 
 .podglad-harmonogramu th {
   color: var(--tekst-slaby);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
+}
+
+.podglad-harmonogramu th:nth-child(1),
+.podglad-harmonogramu td:nth-child(1) {
+  width: 38px;
+  min-width: 38px;
+  white-space: nowrap;
+}
+
+.podglad-harmonogramu th:nth-child(2),
+.podglad-harmonogramu td:nth-child(2) {
+  width: 105px;
+  min-width: 105px;
+  white-space: nowrap;
+}
+
+.podglad-harmonogramu th:nth-child(3),
+.podglad-harmonogramu td:nth-child(3) {
+  width: 86px;
+  min-width: 86px;
+  white-space: nowrap;
+}
+
+.podglad-harmonogramu th:nth-child(4),
+.podglad-harmonogramu td:nth-child(4),
+.podglad-harmonogramu th:nth-child(5),
+.podglad-harmonogramu td:nth-child(5) {
+  width: 48px;
+  min-width: 48px;
+  white-space: nowrap;
+}
+
+.podglad-harmonogramu th:nth-child(6),
+.podglad-harmonogramu td:nth-child(6) {
+  min-width: 130px;
+  white-space: normal;
+}
+
+.podglad-harmonogramu th:nth-child(7),
+.podglad-harmonogramu td:nth-child(7) {
+  min-width: 105px;
+  overflow-wrap: anywhere;
 }
 
 .podglad-typ-zajęcia td:first-child,

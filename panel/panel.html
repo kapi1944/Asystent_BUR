@@ -150,10 +150,6 @@
             <button type="button" data-filtr-harmonogramu="stacjonarne" aria-pressed="false">Stacjonarne</button>
             <button type="button" data-filtr-harmonogramu="online" aria-pressed="false">Online</button>
           </div>
-          <h4>Kolejka BUR</h4>
-          <div id="lista-terminow-harmonogramu-kolejka" class="lista-terminow-harmonogramu"></div>
-          <h4>Terminy SEMPER</h4>
-          <div id="lista-terminow-harmonogramu-semper" class="lista-terminow-harmonogramu"></div>
         </section>
         <section id="wybor-niejednoznacznego-terminu" class="wybor-niejednoznacznego-terminu ukryty" aria-live="polite"></section>
         <div class="siatka-przycisków">
@@ -173,6 +169,16 @@
         </details>
         <div id="podglad-harmonogramu" class="podglad-harmonogramu"></div>
         <div id="decyzja-harmonogramu-bur" class="decyzja-harmonogramu ukryty"></div>
+        <section class="źródła-terminów-harmonogramu" aria-label="Terminy dostępne dla harmonogramu">
+          <section class="karta-listy-terminów-harmonogramu" aria-labelledby="naglowek-kolejki-harmonogramu">
+            <h3 id="naglowek-kolejki-harmonogramu">Kolejka BUR</h3>
+            <div id="lista-terminow-harmonogramu-kolejka" class="lista-terminow-harmonogramu"></div>
+          </section>
+          <section class="karta-listy-terminów-harmonogramu" aria-labelledby="naglowek-terminow-semper-harmonogramu">
+            <h3 id="naglowek-terminow-semper-harmonogramu">Terminy SEMPER</h3>
+            <div id="lista-terminow-harmonogramu-semper" class="lista-terminow-harmonogramu"></div>
+          </section>
+        </section>
       </section>
 
       <section class="karta" data-zakladki="semper">
