@@ -10,6 +10,8 @@
   --czerwony-ciemny: #9f1f1c;
   --zielony: #37b26c;
   --pomaranczowy: #ff9f1c;
+  --akcent: var(--czerwony);
+  --akcent-ciemny: var(--czerwony-ciemny);
 }
 
 * {
@@ -73,9 +75,9 @@ h2 {
 button {
   width: 100%;
   min-height: 42px;
-  border: 1px solid var(--czerwony);
+  border: 1px solid var(--akcent);
   border-radius: 6px;
-  background: var(--czerwony-ciemny);
+  background: var(--akcent-ciemny);
   color: white;
   font: inherit;
   font-weight: 700;
@@ -83,7 +85,7 @@ button {
 }
 
 button:hover {
-  background: var(--czerwony);
+  background: var(--akcent);
 }
 
 button:disabled {
@@ -118,12 +120,12 @@ select {
 }
 
 input:focus {
-  border-color: var(--czerwony);
+  border-color: var(--akcent);
   outline: none;
 }
 
 select:focus {
-  border-color: var(--czerwony);
+  border-color: var(--akcent);
   outline: none;
 }
 
@@ -678,8 +680,14 @@ li + li {
 }
 
 .wynik-semper:hover {
-  border-color: var(--czerwony);
+  border-color: var(--akcent);
 }
+
+.przelacznik-profilu { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 12px 0; }
+.przelacznik-profilu button[aria-pressed="false"] { border-color: var(--ramka); background: var(--panel-drugi); }
+.wykryte-konto-bur { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--akcent); border-radius: 6px; color: var(--tekst-slaby); }
+.wykryte-konto-bur strong { color: var(--tekst); }
+.wykryte-konto-bur button { margin-top: 4px; }
 
 .wynik-semper strong,
 .wynik-semper span {

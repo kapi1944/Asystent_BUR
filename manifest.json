@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "BUR Asystent",
   "version": "0.1.0",
-  "description": "Panel pomocniczy do odczytu danych szkoleń SEMPER i kontroli ogłoszeń BUR.",
+  "description": "Panel pomocniczy do odczytu danych szkoleń dostawców i kontroli ogłoszeń BUR.",
   "action": {
     "default_title": "BUR Asystent"
   },
@@ -22,6 +22,8 @@
   "host_permissions": [
     "https://szkolenia-semper.pl/*",
     "https://www.szkolenia-semper.pl/*",
+    "https://szkoleniaiist.com.pl/*",
+    "https://www.szkoleniaiist.com.pl/*",
     "https://uslugirozwojowe.parp.gov.pl/*",
     "https://*.uslugirozwojowe.parp.gov.pl/*"
   ],
@@ -32,6 +34,7 @@
         "https://www.szkolenia-semper.pl/*"
       ],
       "js": [
+        "shared/profile-dostawcow.js",
         "shared/komunikaty.js",
         "shared/model.js",
         "shared/normalizacja-tytulu.js",
@@ -54,6 +57,7 @@
         "content/bur-highlighter.css"
       ],
       "js": [
+        "shared/profile-dostawcow.js",
         "shared/komunikaty.js",
         "shared/cele-formularza-bur.js",
         "shared/model-walidacji.js",

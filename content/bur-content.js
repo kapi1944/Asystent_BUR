@@ -1,6 +1,8 @@
 (function uruchomBurContent(globalny) {
   const przestrzen = globalny.BurAsystent || {};
   const komunikaty = przestrzen.KOMUNIKATY;
+  let ostatnieWykryteKontoBur = null;
+  let timerWykrywaniaKontaBur = null;
   const WERSJA_SKRYPTU_BUR = "hotfix-diagnostyka-import-csv-2026-07-17-v2";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
@@ -15,6 +17,50 @@
 
     const styl = getComputedStyle(element);
     return styl.display !== "none" && styl.visibility !== "hidden" && element.offsetParent !== null;
+  }
+
+  function pobierzWidocznyTekst(element) {
+    return element && czyWidoczny(element) ? String(element.innerText || element.textContent || "").trim() : "";
+  }
+
+  function odczytajNazweKontaBur() {
+    const selektoryNagłówka = ["header [class*='organization']", "header [class*='company']", "header [class*='provider']", "header h1", "header h2", "[role='banner'] h1", "[role='banner'] h2"];
+    const kandydaci = [];
+    selektoryNagłówka.forEach(function dodajZSelektora(selektor) { document.querySelectorAll(selektor).forEach(function dodaj(element) { kandydaci.push(element); }); });
+    if (!kandydaci.length) {
+      const nagłówek = document.querySelector("header, [role='banner'], .header, .page-header") || document.body;
+      Array.from(nagłówek.querySelectorAll("h1, h2, h3, [class*='title'], [class*='name']")).slice(0, 40).forEach(function dodaj(element) { kandydaci.push(element); });
+    }
+    for (let indeks = 0; indeks < kandydaci.length; indeks += 1) {
+      const tekst = pobierzWidocznyTekst(kandydaci[indeks]);
+      if (przestrzen.wykryjProfilPoNazwieKontaBur(tekst)) { return tekst; }
+    }
+    const górnaCzęść = Array.from(document.body.querySelectorAll("body *")).slice(0, 300);
+    for (let indeks = 0; indeks < górnaCzęść.length; indeks += 1) {
+      const tekst = pobierzWidocznyTekst(górnaCzęść[indeks]);
+      if (przestrzen.wykryjProfilPoNazwieKontaBur(tekst)) { return tekst; }
+    }
+    return "";
+  }
+
+  function wykryjKontoBur() {
+    const nazwaOrganizacji = odczytajNazweKontaBur();
+    const profil = przestrzen.wykryjProfilPoNazwieKontaBur(nazwaOrganizacji);
+    const wynik = { profilId: profil ? profil.id : null, nazwaOrganizacji: nazwaOrganizacji, nazwaProfilu: profil ? profil.nazwa : null };
+    if (JSON.stringify(wynik) !== JSON.stringify(ostatnieWykryteKontoBur)) {
+      ostatnieWykryteKontoBur = wynik;
+      if (chrome.runtime && typeof chrome.runtime.sendMessage === "function") {
+        chrome.runtime.sendMessage({ typ: komunikaty.ZMIENIONO_WYKRYTE_KONTO_BUR, wynik: wynik });
+      }
+    }
+    return wynik;
+  }
+
+  function zaplanujWykrycieKontaBur() { clearTimeout(timerWykrywaniaKontaBur); timerWykrywaniaKontaBur = setTimeout(wykryjKontoBur, 250); }
+
+  function obserwujNagłówekKontaBur() {
+    const nagłówek = document.querySelector("header, [role='banner'], .header, .page-header") || document.body;
+    new MutationObserver(zaplanujWykrycieKontaBur).observe(nagłówek, { childList: true, subtree: true, characterData: true });
   }
 
   function pobierzWartośćElementu(element) {
@@ -1435,9 +1481,13 @@
   przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;
   przestrzen.usuńIstniejącyHarmonogram = usuńIstniejącyHarmonogram;
   przestrzen.odczytajAktualnyTerminBur = odczytajAktualnyTerminBur;
+  przestrzen.odczytajNazweKontaBur = odczytajNazweKontaBur;
+  przestrzen.wykryjKontoBur = wykryjKontoBur;
 
   document.addEventListener("input", zaplanujPowiadomienieOTerminieBur, true);
   document.addEventListener("change", zaplanujPowiadomienieOTerminieBur, true);
+  wykryjKontoBur();
+  obserwujNagłówekKontaBur();
 
   function kluczDziennegoLicznikaKolejkiBur() {
     const data = new Date();
@@ -1472,6 +1522,10 @@
     return pobierzStanKolejkiBur();
   }
 
+  if (!chrome.runtime || !chrome.runtime.onMessage) {
+    return;
+  }
+
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
     if (!wiadomosc || !wiadomosc.typ) {
       return false;
@@ -1504,6 +1558,11 @@
         typ: komunikaty.ODPOWIEDŹ_AKTUALNY_TERMIN_BUR,
         wynik: odczytajAktualnyTerminBur()
       });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.POBIERZ_WYKRYTE_KONTO_BUR) {
+      odpowiedz({ typ: komunikaty.ODPOWIEDŹ_WYKRYTE_KONTO_BUR, wynik: wykryjKontoBur() });
       return true;
     }
 

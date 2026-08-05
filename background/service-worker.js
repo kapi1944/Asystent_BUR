@@ -1,4 +1,5 @@
 importScripts(
+  "../shared/profile-dostawcow.js",
   "../shared/komunikaty.js",
   "../shared/wyszukiwarka-semper.js",
   "klient-semper.js"

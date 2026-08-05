@@ -9,12 +9,21 @@
   <body data-aktywna-zakladka="semper">
     <header class="naglowek">
       <h1>BUR Asystent</h1>
+      <div class="przelacznik-profilu" role="group" aria-label="Profil dostawcy">
+        <button type="button" data-profil-dostawcy="semper" aria-pressed="true">SEMPER</button>
+        <button type="button" data-profil-dostawcy="iist" aria-pressed="false">IIST</button>
+      </div>
+      <section id="wykryte-konto-bur" class="wykryte-konto-bur" aria-live="polite">
+        <strong id="etykieta-wykrytego-konta-bur">WYKRYTE KONTO BUR: NIE ROZPOZNANO</strong>
+        <span id="nazwa-wykrytego-konta-bur">Brak odczytanej nazwy organizacji.</span>
+        <button id="przycisk-przelacz-na-wykryty-profil" type="button" class="ukryty">Przełącz na wykryty profil</button>
+      </section>
       <div id="status-strony" class="status status-neutralny">Sprawdzanie strony...</div>
     </header>
 
     <nav class="zakladki-panelu" aria-label="Sekcje Asystenta BUR">
       <div class="przyciski-zakladek">
-        <button type="button" data-przelacz-zakladke="semper" aria-pressed="true">SEMPER</button>
+        <button type="button" data-przelacz-zakladke="semper" aria-pressed="true" data-nazwa-zrodla>SEMPER</button>
         <button type="button" data-przelacz-zakladke="terminy" aria-pressed="false">Terminy</button>
         <button type="button" data-przelacz-zakladke="checklista" aria-pressed="false">Checklista</button>
         <button type="button" data-przelacz-zakladke="harmonogram" aria-pressed="false">Harmonogram</button>
@@ -41,12 +50,12 @@
       </section>
 
       <section class="karta" data-zakladki="semper">
-        <h2>SEMPER</h2>
-        <label class="etykieta" for="link-lub-fraza-semper">Link lub fraza SEMPER</label>
+        <h2 data-nazwa-zrodla>SEMPER</h2>
+        <label class="etykieta" for="link-lub-fraza-semper" data-etykieta-linku>Link lub fraza SEMPER</label>
         <input id="link-lub-fraza-semper" type="text" autocomplete="off" placeholder="Wklej link albo wpisz frazę">
         <div class="siatka-przycisków">
-          <button id="przycisk-szukaj-linku" type="button">Szukaj linku</button>
-          <button id="przycisk-uzupelnij-z-linku" type="button">Uzupełnij z linku</button>
+          <button id="przycisk-szukaj-linku" type="button" data-opis-szukania>Szukaj linku</button>
+          <button id="przycisk-uzupelnij-z-linku" type="button" data-opis-importu>Uzupełnij z linku</button>
         </div>
         <button id="przycisk-wypełnij-formularz" class="przycisk-główny" type="button">Przygotuj wypełnienie</button>
         <button id="przycisk-zastosuj-zmiany-bur" type="button" disabled>Zastosuj zatwierdzone zmiany</button>
@@ -224,6 +233,7 @@
       </section>
     </main>
 
+    <script src="../shared/profile-dostawcow.js"></script>
     <script src="../shared/komunikaty.js"></script>
     <script src="../shared/model.js"></script>
     <script src="../shared/normalizacja-tytulu.js"></script>

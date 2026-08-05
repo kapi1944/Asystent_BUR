@@ -3,6 +3,7 @@
   const komunikaty = przestrzeń.KOMUNIKATY;
   const komunikatBrakuSkryptu = "Nie znaleziono skryptu strony na tej karcie. Odśwież stronę BUR/SEMPER albo otwórz obsługiwaną stronę.";
   const plikiContentBur = [
+    "shared/profile-dostawcow.js",
     "shared/komunikaty.js",
     "shared/cele-formularza-bur.js",
     "shared/model-walidacji.js",
@@ -94,6 +95,9 @@
     przyciskPobierzHarmonogramCsv: document.getElementById("przycisk-pobierz-harmonogram-csv"),
     diagnostykaImportuHarmonogramu: document.getElementById("diagnostyka-importu-harmonogramu"),
     przyciskWypełnijHarmonogramRęcznie: document.getElementById("przycisk-wypelnij-harmonogram-recznie")
+    ,etykietaWykrytegoKontaBur: document.getElementById("etykieta-wykrytego-konta-bur")
+    ,nazwaWykrytegoKontaBur: document.getElementById("nazwa-wykrytego-konta-bur")
+    ,przyciskPrzełączNaWykrytyProfil: document.getElementById("przycisk-przelacz-na-wykryty-profil")
   };
   let ostatnieTerminySemper = [];
   let ostatnieSzkolenieSemperZPanelu = null;
@@ -110,6 +114,8 @@
   let ostatnieTerminyKolejkiBur = [];
   let źródłoWyboruTerminuSemper = "brak";
   let aktywnaZakładkaPanelu = "semper";
+  let aktywnyProfilDostawcy = "semper";
+  let wykryteKontoBur = null;
   let czyUżytkownikWybrałZakładkę = false;
   const diagnostykaSemper = {
     fraza: "",
@@ -119,6 +125,59 @@
     importZapisałSzkolenie: "",
     liczbaTerminówPoImporcie: ""
   };
+
+  function pobierzKluczDanychProfilu(profilId) { return przestrzeń.kluczDanychProfilu(profilId); }
+
+  function czyKonfliktProfiluZKontem() {
+    return Boolean(wykryteKontoBur && wykryteKontoBur.profilId && !przestrzeń.czyProfilZgodnyZKontemBur(aktywnyProfilDostawcy, wykryteKontoBur));
+  }
+
+  function unieważnijOperacjeProfilu() {
+    podglądWypełnieniaBur = null;
+    aktywnaOperacjaBur = null;
+    wybranyTerminHarmonogramuBur = null;
+    return zapiszStorage(przestrzeń.unieważnijStanOperacjiProfilu({}));
+  }
+
+  function odświeżWidokProfilu() {
+    const profil = przestrzeń.pobierzProfilDostawcy(aktywnyProfilDostawcy);
+    if (!profil) { return; }
+    document.documentElement.style.setProperty("--akcent", profil.kolorAkcentu);
+    document.documentElement.style.setProperty("--akcent-ciemny", aktywnyProfilDostawcy === "iist" ? "#1f668f" : "#9f1f1c");
+    document.querySelectorAll("[data-profil-dostawcy]").forEach(function ustawPrzycisk(przycisk) { przycisk.setAttribute("aria-pressed", String(przycisk.dataset.profilDostawcy === aktywnyProfilDostawcy)); });
+    document.querySelectorAll("[data-nazwa-zrodla]").forEach(function ustawNazwę(element) { element.textContent = profil.nazwa; });
+    document.querySelectorAll("[data-etykieta-linku]").forEach(function ustawEtykietę(element) { element.textContent = "Link lub fraza " + profil.nazwa; });
+    elementy.linkLubFrazaSemper.placeholder = aktywnyProfilDostawcy === "iist" ? "Wklej link do szkolenia IIST (parser w przygotowaniu)" : "Wklej link albo wpisz frazę";
+    elementy.przyciskSzukajLinku.textContent = aktywnyProfilDostawcy === "iist" ? "Szukaj linku IIST" : "Szukaj linku";
+    elementy.przyciskUzupełnijZLinku.textContent = aktywnyProfilDostawcy === "iist" ? "Uzupełnij z linku IIST" : "Uzupełnij z linku";
+    document.getElementById("naglowek-terminow-semper-harmonogramu").textContent = "Terminy " + profil.nazwa;
+    elementy.etykietaWykrytegoKontaBur.textContent = "WYKRYTE KONTO BUR: " + (wykryteKontoBur && wykryteKontoBur.nazwaProfilu || "NIE ROZPOZNANO");
+    elementy.nazwaWykrytegoKontaBur.textContent = wykryteKontoBur && wykryteKontoBur.nazwaOrganizacji || "Brak odczytanej nazwy organizacji.";
+    const konflikt = czyKonfliktProfiluZKontem();
+    elementy.przyciskWypełnijFormularz.disabled = konflikt;
+    elementy.przyciskZastosujZmianyBur.disabled = konflikt || !podglądWypełnieniaBur;
+    [elementy.przyciskGenerujHarmonogram, elementy.przyciskImportujHarmonogramXlsx, elementy.przyciskWypełnijHarmonogramRęcznie].forEach(function zablokuj(przycisk) { if (konflikt) { przycisk.disabled = true; } });
+    elementy.przyciskPrzełączNaWykrytyProfil.classList.toggle("ukryty", !konflikt);
+    if (konflikt) { ustawStatus(elementy.statusSemper, "Aktywny profil nie odpowiada kontu dostawcy wykrytemu w BUR.", "status-ostrzezenie"); }
+  }
+
+  function ustawAktywnyProfilDostawcy(profilId, czyUnieważnić) {
+    if (!przestrzeń.pobierzProfilDostawcy(profilId)) { return Promise.resolve(); }
+    const zmieniono = aktywnyProfilDostawcy !== profilId;
+    aktywnyProfilDostawcy = profilId;
+    return (zmieniono && czyUnieważnić ? unieważnijOperacjeProfilu() : Promise.resolve())
+      .then(function zapiszProfil() { return zapiszStorage({ aktywnyProfilDostawcy: profilId }); })
+      .then(function odśwież() { odświeżWidokProfilu(); });
+  }
+
+  function zastosujWykryteKontoBur(wynik) {
+    wykryteKontoBur = wynik || null;
+    if (wykryteKontoBur && wykryteKontoBur.profilId && wykryteKontoBur.profilId !== aktywnyProfilDostawcy) {
+      return ustawAktywnyProfilDostawcy(wykryteKontoBur.profilId, true);
+    }
+    odświeżWidokProfilu();
+    return Promise.resolve();
+  }
 
   function ustawStatus(element, tekst, klasa) {
     element.textContent = tekst;
@@ -2575,6 +2634,10 @@
   }
 
   function importujSzkolenieZLinku() {
+    if (aktywnyProfilDostawcy === "iist") {
+      ustawStatus(elementy.statusSemper, "Parser strony IIST zostanie dodany w kolejnym etapie. Możesz nadal przeglądać dane i ręcznie zmienić profil.", "status-ostrzezenie");
+      return;
+    }
     const url = przestrzeń.normalizujŁączeSemper(elementy.linkLubFrazaSemper.value);
 
     wyczyśćWynikiSemper();
@@ -2610,6 +2673,8 @@
         wynikParsera.ostrzezenia = ostrzeżenia;
 
         return zapiszStorage({
+          szkolenieŹródłowe: szkolenie,
+          [pobierzKluczDanychProfilu("semper")]: { szkolenieŹródłowe: szkolenie, wybranyTerminŹródłowyIndex: wybranyTerminSemperIndex, ostrzeżenia: ostrzeżenia },
           ostatnieSzkolenieSemper: szkolenie,
           ostatnieOstrzezeniaSemper: ostrzeżenia,
           ostatnieŁączeSemper: wynik.url || url,
@@ -2683,6 +2748,10 @@
   }
 
   function wypełnijFormularzBurZPanelu() {
+    if (czyKonfliktProfiluZKontem()) {
+      ustawStatus(elementy.statusSemper, "Aktywny profil nie odpowiada kontu dostawcy wykrytemu w BUR.", "status-ostrzezenie");
+      return;
+    }
     wyczyśćWynikWypełnianiaBur();
     ustawStatus(elementy.statusSemper, "Przygotowuję podgląd zmian formularza BUR...", "status-neutralny");
 
@@ -2759,6 +2828,10 @@
   }
 
   function zastosujZatwierdzoneZmianyBur() {
+    if (czyKonfliktProfiluZKontem()) {
+      ustawStatus(elementy.statusSemper, "Aktywny profil nie odpowiada kontu dostawcy wykrytemu w BUR.", "status-ostrzezenie");
+      return;
+    }
     if (!podglądWypełnieniaBur || !aktywnaOperacjaBur) {
       return;
     }
@@ -2932,6 +3005,12 @@
       ustawAktywnąZakładkęPanelu(przycisk.dataset.przelaczZakladke, true, true);
     });
   });
+  document.querySelectorAll("[data-profil-dostawcy]").forEach(function dodajObsługęProfilu(przycisk) {
+    przycisk.addEventListener("click", function zmieńProfil() { ustawAktywnyProfilDostawcy(przycisk.dataset.profilDostawcy, true); });
+  });
+  elementy.przyciskPrzełączNaWykrytyProfil.addEventListener("click", function przełączNaWykryty() {
+    if (wykryteKontoBur && wykryteKontoBur.profilId) { ustawAktywnyProfilDostawcy(wykryteKontoBur.profilId, true); }
+  });
   document.getElementById("karta-diagnostyka").appendChild(document.getElementById("diagnostyka-semper"));
   chrome.tabs.onActivated.addListener(function poZmianieKarty() {
     pobierzAktywnąKartę().then(ustawStatusStronyDlaKarty).catch(function pomińBłąd() {});
@@ -2945,9 +3024,14 @@
   });
   if (chrome.runtime.onMessage && chrome.runtime.onMessage.addListener) {
     chrome.runtime.onMessage.addListener(function poZmianieTerminuBur(wiadomość, nadawca) {
-      if (!wiadomość || wiadomość.typ !== komunikaty.ZMIENIONO_AKTUALNY_TERMIN_BUR) {
+      if (!wiadomość) {
         return false;
       }
+      if (wiadomość.typ === komunikaty.ZMIENIONO_WYKRYTE_KONTO_BUR) {
+        zastosujWykryteKontoBur(wiadomość.wynik).catch(function pomińBłądProfilu() {});
+        return false;
+      }
+      if (wiadomość.typ !== komunikaty.ZMIENIONO_AKTUALNY_TERMIN_BUR) { return false; }
 
       pobierzAktywnąKartę().then(function odświeżJeśliAktywna(karta) {
         if (!karta || nadawca && nadawca.tab && nadawca.tab.id !== karta.id) {
@@ -2964,8 +3048,15 @@
     }
   }, { passive: true });
 
-  pobierzAktywnąKartę()
-    .then(ustawStatusStronyDlaKarty)
+  odczytajStorage(["aktywnyProfilDostawcy"])
+    .then(function przywróćProfil(dane) { return ustawAktywnyProfilDostawcy(dane.aktywnyProfilDostawcy || "semper", false); })
+    .then(pobierzAktywnąKartę)
+    .then(function odczytajKontoIKarte(karta) {
+      ustawStatusStronyDlaKarty(karta);
+      if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") { return null; }
+      return zapewnijSkryptStrony(karta).then(function pobierzKonto() { return wyślijDoKarty(karta, { typ: komunikaty.POBIERZ_WYKRYTE_KONTO_BUR }); });
+    })
+    .then(function zastosujKonto(odpowiedź) { if (odpowiedź && odpowiedź.typ === komunikaty.ODPOWIEDŹ_WYKRYTE_KONTO_BUR) { return zastosujWykryteKontoBur(odpowiedź.wynik); } return null; })
     .catch(function pokażBłądStartowy() {
       ustawStatus(elementy.statusStrony, "Nieobsługiwana strona", "status-ostrzezenie");
       elementy.przyciskPobierz.disabled = true;
