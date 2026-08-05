@@ -767,6 +767,30 @@ li + li {
   line-height: 1.25;
 }
 
+.kontrola-harmonogramu {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid #555;
+  border-radius: 6px;
+}
+
+.kontrola-harmonogramu-gotowy {
+  border-color: #37b26c;
+  background: rgba(55, 178, 108, 0.12);
+  color: #b9f4cf;
+}
+
+.kontrola-harmonogramu-blokada {
+  border-color: #e53935;
+  background: rgba(229, 57, 53, 0.12);
+  color: #ffd2d0;
+}
+
+.kontrola-harmonogramu ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
 .podglad-harmonogramu th,
 .podglad-harmonogramu td {
   padding: 4px 5px;

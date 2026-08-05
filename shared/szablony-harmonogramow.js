@@ -70,15 +70,24 @@
     iist: {
       online: {
         1: {
+          id: "iist-online-1-dzien",
+          nazwa: "IIST online — 1 dzień",
+          wersja: "1",
           pozycje: JEDEN_DZIEŃ_IIST_ONLINE,
           sumaKontrolna: { liczbaPozycji: 10, minutyZegarowe: 360, minutyZajęć: 280, minutyWalidacji: 20, minutyPrzerw: 60, minutyDydaktyczneBezPrzerw: 400 }
         },
         2: {
+          id: "iist-online-2-dni",
+          nazwa: "IIST online — 2 dni",
+          wersja: "1",
           pozycje: ustawIndeksDnia(DZIEŃ_ROZPOCZYNAJĄCY_IIST_ONLINE, 0)
             .concat(ustawIndeksDnia(DZIEŃ_KOŃCOWY_IIST_ONLINE, 1)),
           sumaKontrolna: { liczbaPozycji: 17, minutyZegarowe: 720, minutyZajęć: 580, minutyWalidacji: 20, minutyPrzerw: 120, minutyDydaktyczneBezPrzerw: 800 }
         },
         3: {
+          id: "iist-online-3-dni",
+          nazwa: "IIST online — 3 dni",
+          wersja: "1",
           pozycje: ustawIndeksDnia(DZIEŃ_ROZPOCZYNAJĄCY_IIST_ONLINE, 0)
             .concat(ustawIndeksDnia(DZIEŃ_ŚRODKOWY_IIST_ONLINE, 1))
             .concat(ustawIndeksDnia(DZIEŃ_KOŃCOWY_IIST_ONLINE, 2)),
@@ -320,7 +329,15 @@
         emailTrenera: dane.emailTrenera,
         emailWalidatora: dane.emailWalidatora
       });
-      return { ok: true, pozycje: pozycjeSemper, podsumowanie: obliczPodsumowanieHarmonogramu(pozycjeSemper), liczbaDni: daty.length };
+      return {
+        ok: true,
+        pozycje: pozycjeSemper,
+        podsumowanie: obliczPodsumowanieHarmonogramu(pozycjeSemper),
+        liczbaDni: daty.length,
+        szablonId: "semper-zgodność",
+        nazwaSzablonu: "SEMPER — generator zgodności",
+        wersjaSzablonu: "legacy"
+      };
     }
 
     const szablon = pobierzSzablonHarmonogramu(profilId, forma, daty.length);
@@ -349,7 +366,182 @@
       return { ok: false, kod: "NIEPRAWIDŁOWY_HARMONOGRAM", komunikat: "Wygenerowany harmonogram nie przeszedł kontroli: " + błędy.join(" "), błędy: błędy, pozycje: [], liczbaDni: daty.length };
     }
 
-    return { ok: true, pozycje: pozycje, podsumowanie: obliczPodsumowanieHarmonogramu(pozycje), liczbaDni: daty.length };
+    return {
+      ok: true,
+      pozycje: pozycje,
+      podsumowanie: obliczPodsumowanieHarmonogramu(pozycje),
+      liczbaDni: daty.length,
+      szablonId: szablon.id,
+      nazwaSzablonu: szablon.nazwa,
+      wersjaSzablonu: szablon.wersja
+    };
+  }
+
+  function normalizujTekstPorównania(wartość) {
+    return String(wartość || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim().toLocaleLowerCase("pl-PL");
+  }
+
+  function normalizujDatęPorównania(wartość) {
+    const data = parsujDatęLokalną(wartość);
+    return data ? formatujDatęLokalną(data) : "";
+  }
+
+  function pobierzPoleAktualnejPozycji(pozycja, pole) {
+    const mapowanie = {
+      typ_aktywnosci: "typAktywności",
+      dzien_swiadczenia: "data",
+      czas_rozpoczecia: "od",
+      czas_zakonczenia: "do",
+      przedmiot: "przedmiot",
+      prowadzacy: "prowadzący"
+    };
+    return pozycja && (pozycja[pole] !== undefined ? pozycja[pole] : pozycja[mapowanie[pole]]) || "";
+  }
+
+  function porównajHarmonogramPoImporcie(oczekiwanePozycje, aktualnePozycje, oczekiwanePodsumowanie, aktualnePodsumowanie) {
+    const oczekiwane = Array.isArray(oczekiwanePozycje) ? oczekiwanePozycje : [];
+    const aktualne = Array.isArray(aktualnePozycje) ? aktualnePozycje : [];
+    const różnice = [];
+    const błędy = [];
+    const pola = [
+      ["Typ aktywności", "typ_aktywnosci"],
+      ["Data", "dzien_swiadczenia"],
+      ["Od", "czas_rozpoczecia"],
+      ["Do", "czas_zakonczenia"],
+      ["Przedmiot/temat", "przedmiot"],
+      ["Prowadzący", "prowadzacy"]
+    ];
+
+    if (aktualne.length !== oczekiwane.length) {
+      błędy.push("Tabela zawiera " + aktualne.length + " pozycji, oczekiwano dokładnie " + oczekiwane.length + ".");
+    }
+
+    oczekiwane.forEach(function porównajPozycję(oczekiwana, indeks) {
+      const aktualna = aktualne[indeks];
+      if (!aktualna) {
+        różnice.push({ pozycja: indeks + 1, pole: "Wiersz", oczekiwane: "Pozycja istnieje", aktualne: "Brak pozycji" });
+        return;
+      }
+      pola.forEach(function porównajPole(definicja) {
+        const oczekiwanaWartość = oczekiwana[definicja[1]] || "";
+        const aktualnaWartość = pobierzPoleAktualnejPozycji(aktualna, definicja[1]);
+        if (normalizujTekstPorównania(oczekiwanaWartość) !== normalizujTekstPorównania(aktualnaWartość)) {
+          różnice.push({ pozycja: indeks + 1, pole: definicja[0], oczekiwane: oczekiwanaWartość, aktualne: aktualnaWartość });
+        }
+      });
+    });
+
+    if (aktualne.length > oczekiwane.length) {
+      aktualne.slice(oczekiwane.length).forEach(function dodajNadmiarową(pozycja, indeks) {
+        różnice.push({ pozycja: oczekiwane.length + indeks + 1, pole: "Wiersz", oczekiwane: "Brak pozycji", aktualne: pozycja.tekst || "Nadmiarowa pozycja" });
+      });
+    }
+
+    const etykietySum = {
+      zegarowe: "Czas zegarowy",
+      zajęcia: "Zajęcia",
+      walidacja: "Walidacja",
+      przerwy: "Przerwy",
+      dydaktyczneBezPrzerw: "Godziny dydaktyczne"
+    };
+    const oczekiwaneSumy = oczekiwanePodsumowanie || {};
+    const aktualneSumy = aktualnePodsumowanie || {};
+    Object.keys(etykietySum).forEach(function porównajSumę(pole) {
+      if (aktualneSumy[pole] && normalizujTekstPorównania(aktualneSumy[pole]) !== normalizujTekstPorównania(oczekiwaneSumy[pole])) {
+        różnice.push({ pozycja: "Podsumowanie", pole: etykietySum[pole], oczekiwane: oczekiwaneSumy[pole] || "", aktualne: aktualneSumy[pole] });
+      }
+    });
+
+    if (różnice.length) {
+      błędy.push("Wykryto " + różnice.length + " różnic między przygotowanym harmonogramem a tabelą BUR.");
+    }
+
+    return {
+      ok: błędy.length === 0,
+      błędy: błędy,
+      ostrzeżenia: [],
+      różnice: różnice,
+      częściowyImport: aktualne.length > 0 && (aktualne.length !== oczekiwane.length || różnice.length > 0),
+      liczbaOczekiwanychPozycji: oczekiwane.length,
+      liczbaPozycjiWTabeli: aktualne.length,
+      podsumowanieBur: aktualneSumy
+    };
+  }
+
+  function walidujKontekstImportuHarmonogramu(kontekst) {
+    const dane = kontekst || {};
+    const metryka = dane.metryka || {};
+    const błędy = [];
+    const aktywnyProfilId = String(dane.aktywnyProfilId || "").toLowerCase();
+    const profilId = String(metryka.profilId || "").toLowerCase();
+    const aktualnyTermin = dane.aktualnyTerminBur || {};
+
+    if (!profilId) {
+      błędy.push("Brak profilu w metryce przygotowanego harmonogramu.");
+    }
+    if (!aktywnyProfilId || aktywnyProfilId !== profilId) {
+      błędy.push("Aktywny profil zmienił się po przygotowaniu harmonogramu.");
+    }
+
+    if (profilId === "iist") {
+      if (!dane.wykryteKontoBur || dane.wykryteKontoBur.profilId !== "iist") {
+        błędy.push("Wykryte konto BUR nie jest kontem IIST.");
+      }
+      if (normalizujTekstPorównania(metryka.tytułSzkolenia) !== normalizujTekstPorównania(aktualnyTermin.tytuł)) {
+        błędy.push("Harmonogram został przygotowany dla innego szkolenia.");
+      }
+      if (normalizujDatęPorównania(metryka.dataStartBur) !== normalizujDatęPorównania(aktualnyTermin.dataRozpoczęcia)
+        || normalizujDatęPorównania(metryka.dataKoniecBur) !== normalizujDatęPorównania(aktualnyTermin.dataZakończenia)) {
+        błędy.push("Termin BUR zmienił się po przygotowaniu harmonogramu.");
+      }
+      if (normalizujFormę(metryka.forma) !== normalizujFormę(aktualnyTermin.tryb)) {
+        błędy.push("Forma świadczenia zmieniła się po przygotowaniu harmonogramu.");
+      }
+      if (dane.identyfikatorWybranegoTerminu && metryka.identyfikatorWybranegoTerminu
+        && dane.identyfikatorWybranegoTerminu !== metryka.identyfikatorWybranegoTerminu) {
+        błędy.push("Wybrano inny termin niż użyty do przygotowania harmonogramu.");
+      }
+
+      const błędyStruktury = walidujWygenerowanyHarmonogram({
+        profilId: "iist",
+        forma: metryka.forma,
+        dataStartBur: metryka.dataStartBur,
+        dataKoniecBur: metryka.dataKoniecBur
+      }, dane.pozycje);
+      błędy.push.apply(błędy, błędyStruktury);
+
+      const podsumowanie = obliczPodsumowanieHarmonogramu(dane.pozycje);
+      const zapisanePodsumowanie = metryka.podsumowanie || {};
+      ["liczbaPozycji", "minutyZegarowe", "minutyZajęć", "minutyWalidacji", "minutyPrzerw", "minutyDydaktyczneBezPrzerw"].forEach(function sprawdźSumę(pole) {
+        if (podsumowanie[pole] !== zapisanePodsumowanie[pole]) {
+          błędy.push("Suma kontrolna " + pole + " zmieniła się po przygotowaniu harmonogramu.");
+        }
+      });
+      if (/szkolenia-semper\.pl/i.test(JSON.stringify(dane.pozycje || []))) {
+        błędy.push("Harmonogram IIST zawiera adres SEMPER.");
+      }
+
+      if (dane.osobyProwadząceTekst !== undefined) {
+        const osoby = normalizujTekstPorównania(dane.osobyProwadząceTekst);
+        if (!osoby.includes("ekspert@iist.pl") || !osoby.includes("koordynator@iist.pl")) {
+          błędy.push("Najpierw uzupełnij osoby prowadzące dla profilu IIST.");
+        }
+      }
+    }
+
+    return {
+      ok: błędy.length === 0,
+      kod: błędy.includes("Najpierw uzupełnij osoby prowadzące dla profilu IIST.") ? "BRAK_OSÓB_IIST" : (błędy.length ? "NIEZGODNY_KONTEKST_IMPORTU" : ""),
+      błędy: błędy,
+      błąd: błędy.join(" ")
+    };
+  }
+
+  function zbudujDiagnostycznąNazwęCsvIist(metryka) {
+    const dane = metryka || {};
+    return "BUR_IIST_Online_" + Number(dane.liczbaDni || 0) + "dni_"
+      + (normalizujDatęPorównania(dane.dataStartBur) || "brak-daty") + "--"
+      + (normalizujDatęPorównania(dane.dataKoniecBur) || "brak-daty") + ".csv";
   }
 
   przestrzeń.SZABLONY_HARMONOGRAMOW = SZABLONY_HARMONOGRAMOW;
@@ -357,5 +549,8 @@
   przestrzeń.generujHarmonogramDlaTerminu = generujHarmonogramDlaTerminu;
   przestrzeń.obliczPodsumowanieHarmonogramu = obliczPodsumowanieHarmonogramu;
   przestrzeń.walidujWygenerowanyHarmonogram = walidujWygenerowanyHarmonogram;
+  przestrzeń.porównajHarmonogramPoImporcie = porównajHarmonogramPoImporcie;
+  przestrzeń.walidujKontekstImportuHarmonogramu = walidujKontekstImportuHarmonogramu;
+  przestrzeń.zbudujDiagnostycznąNazwęCsvIist = zbudujDiagnostycznąNazwęCsvIist;
   globalny.BurAsystent = przestrzeń;
 })(globalThis);

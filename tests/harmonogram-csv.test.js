@@ -58,15 +58,28 @@
     posprzątaj();
   });
 
-  test("zgodny import nie ma różnic, a różnica jest ostrzeżeniem", function sprawdźRaport() {
+  test("parser odczytuje sumy harmonogramu BUR bez wierszy pozycji", function sprawdźPodsumowanie() {
+    zbudujTabelę([
+      ["", "Suma godzin zegarowych usługi", "06:00", "", "", "", ""],
+      ["", "W tym suma godzin zajęć", "04:40", "", "", "", ""],
+      ["", "W tym suma godzin walidacji", "00:20", "", "", "", ""],
+      ["", "W tym suma przerw", "01:00", "", "", "", ""],
+      ["", "Suma godzin dydaktycznych bez przerw", "06:40", "", "", "", ""]
+    ]);
+    const wynik = przestrzen.odczytajPodsumowanieHarmonogramuBur();
+    sprawdzRownosc(JSON.stringify(wynik), JSON.stringify({ zegarowe: "06:00", zajęcia: "04:40", walidacja: "00:20", przerwy: "01:00", dydaktyczneBezPrzerw: "06:40" }));
+    posprzątaj();
+  });
+
+  test("zgodny import nie ma różnic, a różnica blokuje zakończenie", function sprawdźRaport() {
     zbudujTabelę([["1", "Zajęcia", "2026-08-01", "09:00", "10:00", "Bezpieczny temat", "trener@example.pl"]]);
     const zgodny = przestrzen.sprawdzHarmonogramPoWypelnieniu([pozycja]);
     sprawdzRownosc(zgodny.ok, true);
     sprawdzRownosc(zgodny.ostrzeżenia.length, 0, "Raport zgodny: " + JSON.stringify(zgodny));
     const inny = przestrzen.sprawdzHarmonogramPoWypelnieniu([Object.assign({}, pozycja, { prowadzacy: "inny@example.pl" })]);
-    sprawdzRownosc(inny.ok, true);
-    sprawdzRownosc(inny.ostrzeżenia.length, 1);
-    sprawdzRownosc(inny.ostrzeżenia[0].pole, "Prowadzący");
+    sprawdzRownosc(inny.ok, false);
+    sprawdzRownosc(inny.różnice.length, 1);
+    sprawdzRownosc(inny.różnice[0].pole, "Prowadzący");
     posprzątaj();
   });
 })();

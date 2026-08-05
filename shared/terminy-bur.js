@@ -340,7 +340,7 @@
     const szczegóły = dane.tryb === "online"
       ? ["Online"]
       : [dane.lokalizacja, "stacjonarna"].filter(Boolean);
-    const źródło = dane.źródło === "kolejka" ? "Kolejka BUR" : (dane.źródło === "semper" ? "SEMPER" : "");
+    const źródło = dane.źródło === "kolejka" ? "Kolejka BUR" : (dane.źródło === "semper" ? "SEMPER" : (dane.źródło === "iist" ? "IIST" : ""));
     return [zakres].concat(szczegóły).concat(źródło ? ["Źródło: " + źródło] : []).join(" · ");
   }
 

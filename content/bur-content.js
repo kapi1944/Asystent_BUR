@@ -209,6 +209,27 @@
     return odczytajWierszeHarmonogramu().length;
   }
 
+  function odczytajPodsumowanieHarmonogramuBur() {
+    const tabela = document.querySelector(selektory.tabelaHarmonogramu);
+    const podsumowanie = {};
+    if (!tabela) {
+      return podsumowanie;
+    }
+    Array.from(tabela.querySelectorAll("tr")).forEach(function odczytajWiersz(wiersz) {
+      const tekst = normalizujTekstTabeli(wiersz.textContent);
+      const czas = tekst.match(/(\d{1,3}:\d{2})/);
+      if (!czas) {
+        return;
+      }
+      if (/suma godzin zegarowych usługi/.test(tekst)) { podsumowanie.zegarowe = czas[1]; }
+      else if (/suma godzin zajęć/.test(tekst)) { podsumowanie.zajęcia = czas[1]; }
+      else if (/suma godzin walidacji/.test(tekst)) { podsumowanie.walidacja = czas[1]; }
+      else if (/suma przerw/.test(tekst)) { podsumowanie.przerwy = czas[1]; }
+      else if (/suma godzin dydaktycznych bez przerw/.test(tekst)) { podsumowanie.dydaktyczneBezPrzerw = czas[1]; }
+    });
+    return podsumowanie;
+  }
+
   function znajdźPowiązanyInputPlikuImportu(przyciskImportu) {
     if (!przyciskImportu) {
       return null;
@@ -308,12 +329,12 @@
       }) || null;
   }
 
-  async function poczekajNaWynikImportu(pozycje, liczbaPrzed) {
-    let ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || []);
+  async function poczekajNaWynikImportu(pozycje, liczbaPrzed, podsumowanie) {
+    let ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || [], podsumowanie);
 
     for (let próba = 0; próba < 24; próba += 1) {
       await opóźnij(500);
-      ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || []);
+      ostatniRaport = sprawdzHarmonogramPoWypelnieniu(pozycje || [], podsumowanie);
 
       if (pobierzLiczbęPozycjiWTabeli() > liczbaPrzed && ostatniRaport.ok) {
         return {
@@ -381,7 +402,7 @@
     console.info("[BUR-DIAG]", etap, szczegóły === undefined ? "" : szczegóły);
   }
 
-  async function importujHarmonogramPrzezCsv(pozycje) {
+  async function importujHarmonogramPrzezCsv(pozycje, podsumowanie) {
     const diagnostyka = utwórzDiagnostykęImportuCsv(pozycje);
     const tabela = document.querySelector(selektory.tabelaHarmonogramu);
     let obserwatorTabeli = null;
@@ -598,8 +619,8 @@
       }
 
       dodajEtapDiagnostyki(diagnostyka, "OCZEKIWANIE_NA_WYNIK_IMPORTU");
-      const wynikOczekiwania = await poczekajNaWynikImportu(pozycje || [], liczbaPrzed);
-      const raport = wynikOczekiwania.raport || sprawdzHarmonogramPoWypelnieniu(pozycje || []);
+      const wynikOczekiwania = await poczekajNaWynikImportu(pozycje || [], liczbaPrzed, podsumowanie);
+      const raport = wynikOczekiwania.raport || sprawdzHarmonogramPoWypelnieniu(pozycje || [], podsumowanie);
 
       dodajEtapDiagnostyki(diagnostyka, "KONIEC_OCZEKIWANIA", {
         powodzenie: wynikOczekiwania.ok,
@@ -615,6 +636,9 @@
             + (raport.błędy || []).join(" "),
           liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
           liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+          raport: raport,
+          błędy: raport.błędy || [],
+          różnice: raport.różnice || [],
           nazwaPliku: plik.name,
           typPliku: plik.type,
           rozmiarPliku: plik.size
@@ -843,44 +867,18 @@
     };
   }
 
-  function sprawdzHarmonogramPoWypelnieniu(oczekiwanePozycje) {
+  function sprawdzHarmonogramPoWypelnieniu(oczekiwanePozycje, oczekiwanePodsumowanie) {
     const oczekiwane = Array.isArray(oczekiwanePozycje) ? oczekiwanePozycje : [];
     const wiersze = odczytajWierszeHarmonogramu();
-    const błędy = [];
-    const ostrzeżenia = [];
-    const ostatniDzień = oczekiwane.length ? oczekiwane[oczekiwane.length - 1].dzien_swiadczenia : "";
-
-    if (wiersze.length < oczekiwane.length) {
-      błędy.push("Tabela zawiera " + wiersze.length + " pozycji, oczekiwano co najmniej " + oczekiwane.length + ".");
-    }
-
-    oczekiwane.forEach(function sprawdźPozycję(pozycja, indeks) {
-      const aktualna = wiersze[indeks] || {};
-      const pola = [
-        ["Typ aktywności", "typAktywności", pozycja.typ_aktywnosci],
-        ["Data", "data", pozycja.dzien_swiadczenia],
-        ["Od", "od", pozycja.czas_rozpoczecia],
-        ["Do", "do", pozycja.czas_zakonczenia],
-        ["Przedmiot/temat", "przedmiot", pozycja.przedmiot],
-        ["Prowadzący", "prowadzący", pozycja.prowadzacy]
-      ];
-      pola.forEach(function porównajPole(pole) {
-        if (normalizujTekstTabeli(pole[2]) !== normalizujTekstTabeli(aktualna[pole[1]])) {
-          ostrzeżenia.push({ pozycja: indeks + 1, pole: pole[0], oczekiwane: pole[2] || "", aktualne: aktualna[pole[1]] || "" });
-        }
-      });
-
-    });
-
-    return {
-      ok: błędy.length === 0,
-      błędy: błędy,
-      ostrzeżenia: ostrzeżenia,
-      różnice: ostrzeżenia
-    };
+    return przestrzen.porównajHarmonogramPoImporcie(
+      oczekiwane,
+      wiersze,
+      oczekiwanePodsumowanie || przestrzen.obliczPodsumowanieHarmonogramu(oczekiwane),
+      odczytajPodsumowanieHarmonogramuBur()
+    );
   }
 
-  async function importujCsvBezFallbacku(pozycje) {
+  async function importujCsvBezFallbacku(pozycje, podsumowanie) {
     const tabela = document.querySelector(selektory.tabelaHarmonogramu);
     const obecneWiersze = odczytajWierszeHarmonogramu();
     const istniejącePozycje = przestrzen.czyTabelaHarmonogramuMaPozycje(obecneWiersze);
@@ -895,6 +893,7 @@
     }
 
     if (istniejącePozycje) {
+      const raportRóżnic = przestrzen.porównajHarmonogramPoImporcie(pozycje || [], obecneWiersze, podsumowanie || {}, odczytajPodsumowanieHarmonogramuBur());
       return {
         ok: false,
         metoda: "CSV",
@@ -903,11 +902,12 @@
         oczekiwanePozycje: pozycje || [],
         liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
         liczbaPozycjiWTabeli: obecneWiersze.length,
+        różnice: raportRóżnic.różnice,
         komunikat: "W BUR istnieje już harmonogram. Sprawdź różnice i potwierdź usunięcie obecnych pozycji przed ponownym wprowadzeniem."
       };
     }
 
-    const wynikImportu = await importujHarmonogramPrzezCsv(pozycje);
+    const wynikImportu = await importujHarmonogramPrzezCsv(pozycje, podsumowanie);
 
     if (wynikImportu.ok) {
       return wynikImportu;
@@ -921,6 +921,8 @@
       fallbackDostępny: pobierzLiczbęPozycjiWTabeli() === 0,
       liczbaOczekiwanychPozycji: Array.isArray(pozycje) ? pozycje.length : 0,
       liczbaPozycjiWTabeli: pobierzLiczbęPozycjiWTabeli(),
+      błędy: wynikImportu.raport && wynikImportu.raport.błędy || [],
+      różnice: wynikImportu.raport && wynikImportu.raport.różnice || [],
       nazwaPliku: wynikImportu.nazwaPliku || "harmonogram-bur.csv",
       typPliku: wynikImportu.typPliku || "text/csv;charset=utf-8",
       rozmiarPliku: wynikImportu.rozmiarPliku || 0,
@@ -968,16 +970,16 @@
     }
   }
 
-  async function zastąpHarmonogram(pozycje) {
+  async function zastąpHarmonogram(pozycje, podsumowanie) {
     const wynikUsuwania = await usuńIstniejącyHarmonogram();
     if (!wynikUsuwania.ok || pobierzLiczbęPozycjiWTabeli() !== 0) {
       return Object.assign({}, wynikUsuwania, { ok: false, nowyCsvZaimportowany: false, komunikat: wynikUsuwania.błąd || "Tabela harmonogramu nie jest pusta." });
     }
-    const wynikImportu = await importujCsvBezFallbacku(pozycje);
+    const wynikImportu = await importujCsvBezFallbacku(pozycje, podsumowanie);
     return Object.assign({}, wynikImportu, { usunięto: wynikUsuwania.usunięto, nowyCsvZaimportowany: Boolean(wynikImportu.ok) });
   }
 
-  async function wprowadźHarmonogramDoBur(pozycje) {
+  async function wprowadźHarmonogramDoBur(pozycje, podsumowanie) {
     const pozycjeHarmonogramu = Array.isArray(pozycje) ? pozycje : [];
 
     if (!pozycjeHarmonogramu.length) {
@@ -987,7 +989,7 @@
       };
     }
 
-    return importujCsvBezFallbacku(pozycjeHarmonogramu);
+    return importujCsvBezFallbacku(pozycjeHarmonogramu, podsumowanie);
   }
 
   async function wypełnijPrzygotowanyHarmonogramRęcznie(pozycje) {
@@ -1476,6 +1478,7 @@
   globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ = true;
 
   przestrzen.pobierzWierszeHarmonogramu = odczytajWierszeHarmonogramu;
+  przestrzen.odczytajPodsumowanieHarmonogramuBur = odczytajPodsumowanieHarmonogramuBur;
   przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;
   przestrzen.usuńIstniejącyHarmonogram = usuńIstniejącyHarmonogram;
   przestrzen.odczytajAktualnyTerminBur = odczytajAktualnyTerminBur;
@@ -1522,6 +1525,30 @@
 
   if (!chrome.runtime || !chrome.runtime.onMessage) {
     return;
+  }
+
+  function odczytajOsobyProwadząceDoKontroli() {
+    const tabela = document.querySelector("#osobyprowadzace-grid, #prowadzacy-grid, [id*='osobyprowadzace'][role='grid']");
+    return tabela ? String(tabela.textContent || "").replace(/\s+/g, " ").trim() : "";
+  }
+
+  function sprawdźKontekstHarmonogramuPrzedWprowadzeniem(wiadomosc) {
+    const kontrolaTerminu = sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc);
+    if (!kontrolaTerminu.ok) {
+      return kontrolaTerminu;
+    }
+    const metryka = wiadomosc && wiadomosc.metryka;
+    if (!metryka || metryka.profilId !== "iist") {
+      return kontrolaTerminu;
+    }
+    return przestrzen.walidujKontekstImportuHarmonogramu({
+      metryka: metryka,
+      aktywnyProfilId: wiadomosc.aktywnyProfilId,
+      wykryteKontoBur: wykryjKontoBur(),
+      aktualnyTerminBur: odczytajAktualnyTerminBur(),
+      pozycje: wiadomosc.pozycje || [],
+      osobyProwadząceTekst: odczytajOsobyProwadząceDoKontroli()
+    });
   }
 
   chrome.runtime.onMessage.addListener(function obsluzKomunikat(wiadomosc, nadawca, odpowiedz) {
@@ -1697,12 +1724,12 @@
     }
 
     if (wiadomosc.typ === komunikaty.ZASTĄP_HARMONOGRAM_BUR) {
-      const kontrolaTerminu = sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc);
+      const kontrolaTerminu = sprawdźKontekstHarmonogramuPrzedWprowadzeniem(wiadomosc);
       if (!kontrolaTerminu.ok) {
         odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: kontrolaTerminu });
         return true;
       }
-      zastąpHarmonogram(wiadomosc.pozycje || [])
+      zastąpHarmonogram(wiadomosc.pozycje || [], wiadomosc.podsumowanie)
         .then(function zwróćWynik(wynik) {
           odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: wynik });
         })
@@ -1713,12 +1740,12 @@
     }
 
     if (wiadomosc.typ === komunikaty.WPROWADŹ_HARMONOGRAM_DO_BUR || wiadomosc.typ === komunikaty.IMPORTUJ_HARMONOGRAM_XLSX_BUR) {
-      const kontrolaTerminu = sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc);
+      const kontrolaTerminu = sprawdźKontekstHarmonogramuPrzedWprowadzeniem(wiadomosc);
       if (!kontrolaTerminu.ok) {
         odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: kontrolaTerminu });
         return true;
       }
-      wprowadźHarmonogramDoBur(wiadomosc.pozycje || [])
+      wprowadźHarmonogramDoBur(wiadomosc.pozycje || [], wiadomosc.podsumowanie)
         .then(function zwróćWynik(wynik) {
           odpowiedz({
             typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR,
@@ -1739,7 +1766,7 @@
     }
 
     if (wiadomosc.typ === komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR) {
-      const kontrolaTerminu = sprawdźTerminHarmonogramuPrzedWprowadzeniem(wiadomosc);
+      const kontrolaTerminu = sprawdźKontekstHarmonogramuPrzedWprowadzeniem(wiadomosc);
       if (!kontrolaTerminu.ok) {
         odpowiedz({ typ: komunikaty.ODPOWIEDŹ_PROGRAM_I_HARMONOGRAM_BUR, wynik: kontrolaTerminu });
         return true;
