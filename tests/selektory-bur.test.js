@@ -51,6 +51,18 @@
     sprawdzRownosc(bur.pobierzStanPrzełącznika(dokument.body.firstElementChild), "");
   });
 
+  test("pobierzStanPrzełącznika ignoruje hidden value zero przy zaznaczonym checkboxie", function sprawdź() {
+    const dokument = utwórzDokument("<div><input type=\"hidden\" value=\"0\"><input type=\"checkbox\" value=\"1\" checked><span class=\"toggle-switch-label\">Pytanie 1. Treść pytania</span></div>");
+    sprawdzRownosc(bur.pobierzStanPrzełącznika(dokument.body.firstElementChild), "TAK");
+  });
+
+  test("pobierzStanPrzełącznika obsługuje lokalny wizualny fallback NIE", function sprawdź() {
+    const dokument = utwórzDokument("<div class=\"form-group\"><span>Usługa zamknięta</span><span class=\"toggle-switch-label\">NIE</span></div>");
+    const szczegóły = bur.pobierzStanPrzełącznikaZSzczegółami(dokument.body.firstElementChild);
+    sprawdzRownosc(szczegóły.stan, "NIE");
+    sprawdzRownosc(szczegóły.źródło, "wizualny fallback");
+  });
+
   test("normalizujTekstDoWalidacji zachowuje sens tekstu z polskimi znakami", function sprawdź() {
     sprawdzRownosc(
       bur.normalizujTekstDoWalidacji("<p>Zażółć&nbsp;&nbsp;gęślą jaźń</p>"),

@@ -1,37 +1,59 @@
-<section id="qualificationsZrk" class="form-section">
-  <h2>Główny cel usługi</h2>
-  <div class="row form-group field-glownyceluslugisekcja-czyceledukacyjny">
-    <div class="col-md-8">
-      <label class="control-label">Cel edukacyjny</label>
-    </div>
-    <div class="col-md-4 question-field">
-      <div class="toggle-switch">
-        <label><input type="checkbox" checked><span class="toggler"></span></label>
-      </div>
+<section class="form-section">
+  <h2>Formularz wstępny</h2>
+  <div class="form-group field-formularzwstepnysekcja-czyuslugadedykowana">
+    <span>Usługa zamknięta</span>
+    <div class="toggle-switch">
+      <label id="formularzwstepnysekcja-czyuslugadedykowanaLabel" for="formularzwstepnysekcja-czyuslugadedykowana">
+        <input type="hidden" value="0">
+        <input type="checkbox" id="formularzwstepnysekcja-czyuslugadedykowana" name="formularzWstepnySekcja.czyUslugaDedykowana" value="1">
+        <span class="toggle-switch-label">NIE</span>
+        <span class="toggler"></span>
+      </label>
     </div>
   </div>
-  <div class="row form-group">
+</section>
+<section id="qualificationsZrk" class="form-section">
+  <h2>Główny cel usługi</h2>
+  <div class="form-group field-glownyceluslugisekcja-czyceledukacyjny">
+    <div class="toggle-switch">
+      <label for="glownyceluslugisekcja-czyceledukacyjny">
+        <input type="hidden" value="0">
+        <input type="checkbox" id="glownyceluslugisekcja-czyceledukacyjny" name="glownyCelUslugiSekcja.czyCelEdukacyjny" value="1" checked>
+        <span class="toggle-switch-label">Cel edukacyjny</span>
+        <span class="toggler"></span>
+      </label>
+    </div>
+  </div>
+  <div class="form-group">
     <label for="glownyceluslugisekcja-celedukacyjnyopis">Cel edukacyjny - opis</label>
     <div id="glownyceluslugisekcja-celedukacyjnyopis-wysiwyg" class="ql-container">
       <div class="ql-editor">Opis celu edukacyjnego.</div>
     </div>
   </div>
-  <div id="leadToAcquisitionOfCompetences">
-    <div class="row form-group field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji">
-      <div class="details-label">Czy usługa prowadzi do nabycia kompetencji?</div>
-      <div class="question-field"><div class="toggle-switch"><label><input type="checkbox" checked><span class="toggler"></span></label></div></div>
+  <div id="leadsToAcquisitionOfCompetences">
+    <div class="question-field-section form-group-details-label">
+      <div class="question-field"><div class="form-group"><div class="toggle-switch"><label>
+        <input type="hidden" value="0">
+        <input type="checkbox" id="pytanieformularz-czydokumentzawieraopisefektowuczeniasie_v2-czyzaznaczono" name="pytanieFormularz.czyDokumentZawieraOpisEfektowUczeniaSie_v2.czyZaznaczono" value="1" checked>
+        <span class="toggle-switch-label">Pytanie 1. Czy dokument potwierdzający uzyskanie kompetencji lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem zawierają opis efektów uczenia się?</span>
+        <span class="toggler"></span>
+      </label></div></div></div>
     </div>
-    <div class="row form-group competence-question">
-      <div class="details-label">Pytanie 1. Czy dokument potwierdzający uzyskanie kompetencji lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem zawierają opis efektów uczenia się?</div>
-      <div class="question-field"><div class="toggle-switch"><label><input type="checkbox" checked><span class="toggler"></span></label></div></div>
+    <div class="question-field-section form-group-details-label">
+      <div class="question-field"><div class="form-group"><div class="toggle-switch"><label>
+        <input type="hidden" value="0">
+        <input type="checkbox" id="pytanieformularz-czydokumentpotwierdzazewalidacjabazujenakryteriachweryfikacji_v2-czyzaznaczono" name="pytanieFormularz.czyDokumentPotwierdzaZeWalidacjaBazujeNaKryteriachWeryfikacji_v2.czyZaznaczono" value="1" checked>
+        <span class="toggle-switch-label">Pytanie 2. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja została przeprowadzona w oparciu o zdefiniowane w efektach uczenia się kryteria ich weryfikacji i zgodnie z zaplanowanymi metodami walidacji?</span>
+        <span class="toggler"></span>
+      </label></div></div></div>
     </div>
-    <div class="row form-group competence-question">
-      <div class="details-label">Pytanie 2. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja została przeprowadzona w oparciu o zdefiniowane w efektach uczenia się kryteria ich weryfikacji i zgodnie z zaplanowanymi metodami walidacji?</div>
-      <div class="question-field"><div class="toggle-switch"><label><input type="checkbox" checked><span class="toggler"></span></label></div></div>
-    </div>
-    <div class="row form-group competence-question">
-      <div class="details-label">Pytanie 3. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań zapewniających rozdzielenie procesów kształcenia i szkolenia od walidacji?</div>
-      <div class="question-field"><div class="toggle-switch"><label><input type="checkbox" checked><span class="toggler"></span></label></div></div>
+    <div class="question-field-section form-group-details-label">
+      <div class="question-field"><div class="form-group"><div class="toggle-switch"><label>
+        <input type="hidden" value="0">
+        <input type="checkbox" id="pytanieformularz-czydokumentpotwierdzaseparacjeprocesowksztalceniaiszkolenia_v2-czyzaznaczono" name="pytanieFormularz.czyDokumentPotwierdzaSeparacjeProcesowKsztalceniaISzkolenia_v2.czyZaznaczono" value="1" checked>
+        <span class="toggle-switch-label">Pytanie 3. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań zapewniających rozdzielenie procesów kształcenia i szkolenia od walidacji?</span>
+        <span class="toggler"></span>
+      </label></div></div></div>
     </div>
   </div>
 </section>

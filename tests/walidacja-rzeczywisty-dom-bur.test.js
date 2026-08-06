@@ -26,11 +26,13 @@
 
   test("podświetlanie prawdziwych wierszy pytań i celu edukacyjnego używa odrębnych przełączników TAK", async function sprawdź() {
     const dokument = await wczytajFixture("bur-przelaczniki-walidacji.html");
+    sprawdzWarunek(Boolean(dokument.querySelector("#leadsToAcquisitionOfCompetences")), "Nie znaleziono prawdziwej sekcji kompetencji.");
     const wynikiPytań = [1, 2, 3].map(function znajdź(numer) {
       return bur.znajdźPrzełącznikPytaniaKompetencji(dokument, numer);
     });
     const wynikCelu = bur.znajdźPrzełącznikCeluEdukacyjnego(dokument);
     const kontenery = wynikiPytań.map(function pobierz(wynik) { return wynik.element; }).concat(wynikCelu.element);
+    const wynikWalidacji = bur.walidujFormularzBur(dokument, utwórzKontekstSemper());
 
     kontenery.forEach(function sprawdźKontener(kontener) {
       sprawdzWarunek(Boolean(kontener), "Brak kontenera przełącznika.");
@@ -41,27 +43,65 @@
     wynikiPytań.forEach(function sprawdźPytanie(wynik, indeks) {
       const numer = indeks + 1;
       const tekst = wynik.element.textContent;
+      const pozycja = znajdźPozycję(wynikWalidacji, "Pytanie " + numer + " w sekcji kompetencji");
+      sprawdzWarunek(wynik.checkbox.checked, "Checkbox pytania powinien być zaznaczony.");
+      sprawdzRownosc(pozycja.aktualnaWartość, "TAK");
+      sprawdzRownosc(pozycja.status, "poprawne");
+      sprawdzWarunek(pozycja.element === wynik.element, "Walidacja powinna przechowywać wiersz do podświetlenia.");
+      sprawdzWarunek(pozycja.element.classList.contains("question-field-section"));
       sprawdzWarunek(tekst.includes("Pytanie " + numer + "."), "Kontener nie zawiera właściwego pytania.");
       [1, 2, 3].filter(function inne(inny) { return inny !== numer; }).forEach(function sprawdźBrak(inny) {
         sprawdzWarunek(!tekst.includes("Pytanie " + inny + "."), "Kontener obejmuje sąsiednie pytanie.");
       });
       sprawdzRownosc(wynik.diagnostyka.liczbaKontrolek, 1);
       sprawdzRownosc(wynik.diagnostyka.stan, "TAK");
+      sprawdzRownosc(wynik.diagnostyka.źródłoOdczytu, "checkbox");
+      sprawdzRownosc(wynik.diagnostyka.checkboxId, wynik.checkbox.id);
     });
 
-    kontenery.forEach(function sprawdźPodświetlenie(kontener) {
-      bur.podświetlPole(kontener, "poprawne");
-      sprawdzWarunek(kontener.classList.contains("bur-asystent-pole-poprawne"), "Kontener nie został podświetlony.");
+    const pozycjaCelu = znajdźPozycję(wynikWalidacji, "Cel edukacyjny");
+    const pozycjaUsługiZamkniętej = znajdźPozycję(wynikWalidacji, "Usługa zamknięta");
+    sprawdzRownosc(pozycjaCelu.aktualnaWartość, "TAK");
+    sprawdzRownosc(pozycjaCelu.status, "poprawne");
+    sprawdzRownosc(pozycjaUsługiZamkniętej.aktualnaWartość, "NIE");
+    sprawdzRownosc(pozycjaUsługiZamkniętej.status, "poprawne");
+
+    bur.zastosujWynikWalidacjiNaStronie(dokument, wynikWalidacji);
+    wynikiPytań.forEach(function sprawdźPodświetlenie(wynik) {
+      sprawdzWarunek(wynik.element.classList.contains("bur-asystent-pole-poprawne"), "Wiersz pytania nie został podświetlony.");
     });
   });
 
-  test("niejednoznaczny wiersz pytania nie jest zgadywany", async function sprawdź() {
+  test("odznaczenie checkboxa zmienia wyłącznie właściwe pytanie", async function sprawdź() {
     const dokument = await wczytajFixture("bur-przelaczniki-walidacji.html");
-    const wiersz = dokument.querySelectorAll(".competence-question")[0];
-    wiersz.querySelector(".question-field").insertAdjacentHTML("beforeend", "<input type=\"checkbox\" checked>");
-    const wynik = bur.znajdźPrzełącznikPytaniaKompetencji(dokument, 1);
-    sprawdzRownosc(wynik.element, null);
-    sprawdzWarunek(wynik.diagnostyka.liczbaKontrolek > 1, "Diagnostyka powinna zgłosić wiele kontrolek.");
+    dokument.querySelector("#pytanieformularz-czydokumentpotwierdzazewalidacjabazujenakryteriachweryfikacji_v2-czyzaznaczono").checked = false;
+    const wynik = bur.walidujFormularzBur(dokument, utwórzKontekstSemper());
+    sprawdzRownosc(znajdźPozycję(wynik, "Pytanie 1 w sekcji kompetencji").aktualnaWartość, "TAK");
+    sprawdzRownosc(znajdźPozycję(wynik, "Pytanie 1 w sekcji kompetencji").status, "poprawne");
+    sprawdzRownosc(znajdźPozycję(wynik, "Pytanie 2 w sekcji kompetencji").aktualnaWartość, "NIE");
+    sprawdzRownosc(znajdźPozycję(wynik, "Pytanie 2 w sekcji kompetencji").status, "błąd");
+    sprawdzRownosc(znajdźPozycję(wynik, "Pytanie 3 w sekcji kompetencji").aktualnaWartość, "TAK");
+    sprawdzRownosc(znajdźPozycję(wynik, "Pytanie 3 w sekcji kompetencji").status, "poprawne");
+  });
+
+  test("brak checkboxa pytania nie używa sąsiedniego przełącznika", async function sprawdź() {
+    const dokument = await wczytajFixture("bur-przelaczniki-walidacji.html");
+    dokument.querySelector("#pytanieformularz-czydokumentzawieraopisefektowuczeniasie_v2-czyzaznaczono").remove();
+    const wynikPytania1 = bur.znajdźPrzełącznikPytaniaKompetencji(dokument, 1);
+    const wynikPytania2 = bur.znajdźPrzełącznikPytaniaKompetencji(dokument, 2);
+    sprawdzRownosc(wynikPytania1.checkbox, null);
+    sprawdzRownosc(wynikPytania1.element, null);
+    sprawdzWarunek(Boolean(wynikPytania2.checkbox));
+    sprawdzRownosc(bur.pobierzStanPrzełącznika(wynikPytania2.checkbox), "TAK");
+  });
+
+  test("Usługa zamknięta odczytuje lokalny wizualny stan NIE jako ostatni fallback", async function sprawdź() {
+    const dokument = await wczytajFixture("bur-przelaczniki-walidacji.html");
+    dokument.querySelector("#formularzwstepnysekcja-czyuslugadedykowana").remove();
+    const znalezione = bur.znajdźPrzełącznikUsługiZamkniętej(dokument);
+    sprawdzRownosc(bur.pobierzStanPrzełącznika(znalezione.elementDoOdczytu), "NIE");
+    sprawdzRownosc(znalezione.diagnostyka.źródłoOdczytu, "wizualny fallback");
+    sprawdzWarunek(znalezione.element.classList.contains("form-group"));
   });
 
   test("prawdziwa tabela osób zwraca czyste wartości i właściwe elementy DOM", async function sprawdź() {

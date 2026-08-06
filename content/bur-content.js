@@ -6,7 +6,7 @@
   let timerAutomatycznejWalidacjiBur = null;
   let automatycznaWalidacjaBurWToku = false;
   let ponówAutomatycznąWalidacjęBur = false;
-  const WERSJA_SKRYPTU_BUR = "naprawa-walidacji-bur-2026-08-06-v1";
+  const WERSJA_SKRYPTU_BUR = "naprawa-walidacji-przelacznikow-bur-2026-08-06-v3";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
     tabelaHarmonogramu: "#harmonogram-grid > div > table",
@@ -1334,7 +1334,7 @@
       return element.closest(".toggle-switch") || element;
     }
 
-    if (/(?:pytanie\s+[123]\.|cel edukacyjny)/i.test(element.textContent || "") && element.querySelector && element.querySelector(
+    if (/(?:pytanie\s+[123]\.|cel edukacyjny|usługa zamknięta)/i.test(element.textContent || "") && element.querySelector && element.querySelector(
       ".toggle-switch, [role='switch'], input[type='checkbox'], input[type='radio'], [aria-checked]"
     )) {
       return element;

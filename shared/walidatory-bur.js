@@ -85,6 +85,7 @@
     const dokument = ustawienia.dokument || document;
     const pole = przestrzeń.znajdźPoleBur(dokument, ustawienia.definicja || {});
     const elementDoOdczytu = ustawienia.element || pole;
+    const elementDoPodświetlenia = ustawienia.elementDoPodświetlenia || elementDoOdczytu || pole;
     const aktualnaWartość = ustawienia.pobierzWartość
       ? ustawienia.pobierzWartość(elementDoOdczytu)
       : przestrzeń.pobierzWartośćPola(elementDoOdczytu);
@@ -108,7 +109,7 @@
       aktualnaWartość: aktualnaWartość,
       opisPola: ustawienia.opisPola || ustawienia.pole,
       selektorPomocniczy: ustawienia.selektorPomocniczy || "",
-      element: elementDoOdczytu || pole,
+      element: elementDoPodświetlenia,
       diagnostyka: ustawienia.diagnostyka || null
     });
   }
@@ -125,8 +126,37 @@
       tagKontenera: "",
       klasyKontenera: "",
       liczbaKontrolek: 0,
-      stan: ""
+      stan: "",
+      użytySelektor: "",
+      checkboxId: "",
+      checkboxChecked: null,
+      wierszDoPodświetlenia: "",
+      źródłoOdczytu: ""
     };
+  }
+
+  function opiszElement(element) {
+    if (!element) {
+      return "";
+    }
+    const klasy = typeof element.className === "string" ? element.className.trim().replace(/\s+/g, ".") : "";
+    return (element.tagName || "").toLowerCase() + (element.id ? "#" + element.id : "") + (klasy ? "." + klasy : "");
+  }
+
+  function uzupełnijDiagnostykęPrzełącznika(diagnostyka, elementDoOdczytu, wiersz, użytySelektor) {
+    const checkbox = elementDoOdczytu && elementDoOdczytu.matches && elementDoOdczytu.matches("input[type='checkbox']")
+      ? elementDoOdczytu
+      : null;
+    const szczegółyStanu = typeof przestrzeń.pobierzStanPrzełącznikaZSzczegółami === "function"
+      ? przestrzeń.pobierzStanPrzełącznikaZSzczegółami(elementDoOdczytu)
+      : { stan: przestrzeń.pobierzStanPrzełącznika(elementDoOdczytu), źródło: "" };
+    diagnostyka.użytySelektor = użytySelektor || "";
+    diagnostyka.checkboxId = checkbox ? checkbox.id || "" : "";
+    diagnostyka.checkboxChecked = checkbox ? checkbox.checked : null;
+    diagnostyka.wierszDoPodświetlenia = opiszElement(wiersz);
+    diagnostyka.źródłoOdczytu = szczegółyStanu.źródło || "";
+    diagnostyka.stan = szczegółyStanu.stan || "";
+    return diagnostyka;
   }
 
   function znajdźNajmniejszyKontenerPrzełącznika(sekcja, czyPasujeTekst, czyPoprawnyKontener) {
@@ -173,15 +203,53 @@
       diagnostyka.tagKontenera = element.tagName || "";
       diagnostyka.klasyKontenera = element.className || "";
       diagnostyka.liczbaKontrolek = pobierzKontrolkiPrzełącznika(element).length;
-      diagnostyka.stan = przestrzeń.pobierzStanPrzełącznika(element);
+      uzupełnijDiagnostykęPrzełącznika(diagnostyka, element, element, "wyszukiwanie po tekście");
     }
     return { element: element, diagnostyka: diagnostyka };
   }
 
   function znajdźPrzełącznikPytaniaKompetencji(dokument, numerPytania) {
-    const sekcjaKompetencji = dokument.querySelector("#leadToAcquisitionOfCompetences");
+    const sekcjaKompetencji = dokument.querySelector("#leadsToAcquisitionOfCompetences, #leadToAcquisitionOfCompetences");
+    const konfiguracje = {
+      1: {
+        id: "#pytanieformularz-czydokumentzawieraopisefektowuczeniasie_v2-czyzaznaczono",
+        name: "input[type='checkbox'][name*='czyDokumentZawieraOpisEfektowUczeniaSie_v2']"
+      },
+      2: {
+        id: "#pytanieformularz-czydokumentpotwierdzazewalidacjabazujenakryteriachweryfikacji_v2-czyzaznaczono",
+        name: "input[type='checkbox'][name*='czyDokumentPotwierdzaZeWalidacjaBazujeNaKryteriachWeryfikacji_v2']"
+      },
+      3: {
+        id: "#pytanieformularz-czydokumentpotwierdzaseparacjeprocesowksztalceniaiszkolenia_v2-czyzaznaczono",
+        name: "input[type='checkbox'][name*='czyDokumentPotwierdzaSeparacjeProcesowKsztalceniaISzkolenia_v2']"
+      }
+    };
+    const konfiguracja = konfiguracje[numerPytania];
+    const diagnostyka = utwórzDiagnostykęPrzełącznika("");
+    if (!sekcjaKompetencji || !konfiguracja) {
+      return { checkbox: null, element: null, diagnostyka: diagnostyka };
+    }
+    const selektory = [konfiguracja.id, konfiguracja.name];
+    let checkbox = null;
+    let użytySelektor = "";
+    for (let indeks = 0; indeks < selektory.length; indeks += 1) {
+      checkbox = sekcjaKompetencji.querySelector(selektory[indeks]);
+      if (checkbox) {
+        użytySelektor = selektory[indeks];
+        break;
+      }
+    }
+    if (checkbox) {
+      const wiersz = checkbox.closest(".question-field-section");
+      diagnostyka.znalezionyTekst = przestrzeń.normalizujTekstDoWalidacji(wiersz ? wiersz.textContent || "" : "");
+      diagnostyka.tagKontenera = wiersz ? wiersz.tagName || "" : "";
+      diagnostyka.klasyKontenera = wiersz ? wiersz.className || "" : "";
+      diagnostyka.liczbaKontrolek = pobierzKontrolkiPrzełącznika(wiersz || checkbox).length;
+      uzupełnijDiagnostykęPrzełącznika(diagnostyka, checkbox, wiersz, użytySelektor);
+      return { checkbox: checkbox, element: wiersz, diagnostyka: diagnostyka };
+    }
     const początek = "pytanie " + numerPytania + ".";
-    return znajdźNajmniejszyKontenerPrzełącznika(
+    const wynikTekstowy = znajdźNajmniejszyKontenerPrzełącznika(
       sekcjaKompetencji,
       function pasujeTekst(tekst) { return tekst.startsWith(początek); },
       function zawieraTylkoJednoPytanie(kontener) {
@@ -190,17 +258,110 @@
         return numery.length > 0 && numery.every(function jestWłaściwe(numer) { return numer === numerPytania; });
       }
     );
+    checkbox = wynikTekstowy.element ? wynikTekstowy.element.querySelector("input[type='checkbox']") : null;
+    const wiersz = checkbox ? checkbox.closest(".question-field-section") : null;
+    if (!checkbox || !wiersz) {
+      return { checkbox: null, element: null, diagnostyka: wynikTekstowy.diagnostyka };
+    }
+    uzupełnijDiagnostykęPrzełącznika(wynikTekstowy.diagnostyka, checkbox, wiersz, "tekst: Pytanie " + numerPytania + ".");
+    return { checkbox: checkbox, element: wiersz, diagnostyka: wynikTekstowy.diagnostyka };
   }
 
   function znajdźPrzełącznikCeluEdukacyjnego(dokument) {
     const sekcjaCelu = dokument.querySelector("#qualificationsZrk");
-    return znajdźNajmniejszyKontenerPrzełącznika(
+    const diagnostyka = utwórzDiagnostykęPrzełącznika("Cel edukacyjny");
+    if (!sekcjaCelu) {
+      return { checkbox: null, elementDoOdczytu: null, element: null, diagnostyka: diagnostyka };
+    }
+    const selektory = [
+      "#glownyceluslugisekcja-czyceledukacyjny",
+      "input[type='checkbox'][name*='czyCelEdukacyjny' i]",
+      "input[type='checkbox'][id*='czyceledukacyjny' i]"
+    ];
+    let checkbox = null;
+    let użytySelektor = "";
+    for (let indeks = 0; indeks < selektory.length; indeks += 1) {
+      checkbox = sekcjaCelu.querySelector(selektory[indeks]);
+      if (checkbox) {
+        użytySelektor = selektory[indeks];
+        break;
+      }
+    }
+    if (!checkbox) {
+      const etykiety = Array.from(sekcjaCelu.querySelectorAll("label[for]"));
+      const etykieta = etykiety.find(function pasuje(element) {
+        const tekst = normalizujDoPorównaniaBur(element.textContent || "");
+        return (tekst === "cel edukacyjny" || tekst === "cel edukacyjny:") && !/opis/i.test(element.htmlFor || "");
+      });
+      const poleEtykiety = etykieta ? dokument.getElementById(etykieta.htmlFor) : null;
+      if (poleEtykiety && poleEtykiety.matches("input[type='checkbox']")) {
+        checkbox = poleEtykiety;
+        użytySelektor = "label[for='" + etykieta.htmlFor + "']";
+      }
+    }
+    if (checkbox) {
+      const wiersz = checkbox.closest(".form-group, .question-field-section");
+      diagnostyka.tagKontenera = wiersz ? wiersz.tagName || "" : "";
+      diagnostyka.klasyKontenera = wiersz ? wiersz.className || "" : "";
+      diagnostyka.liczbaKontrolek = pobierzKontrolkiPrzełącznika(wiersz || checkbox).length;
+      uzupełnijDiagnostykęPrzełącznika(diagnostyka, checkbox, wiersz, użytySelektor);
+      return { checkbox: checkbox, elementDoOdczytu: checkbox, element: wiersz, diagnostyka: diagnostyka };
+    }
+    const wynikTekstowy = znajdźNajmniejszyKontenerPrzełącznika(
       sekcjaCelu,
       function pasujeTekst(tekst) { return tekst === "cel edukacyjny" || tekst === "cel edukacyjny:"; },
       function wykluczOpis(kontener) {
         return !normalizujDoPorównaniaBur(kontener.textContent || "").includes("cel edukacyjny - opis");
       }
     );
+    checkbox = wynikTekstowy.element ? wynikTekstowy.element.querySelector("input[type='checkbox']") : null;
+    const elementDoOdczytu = checkbox || wynikTekstowy.element;
+    const wiersz = checkbox ? checkbox.closest(".form-group, .question-field-section") : wynikTekstowy.element;
+    uzupełnijDiagnostykęPrzełącznika(wynikTekstowy.diagnostyka, elementDoOdczytu, wiersz, "tekst: Cel edukacyjny");
+    return { checkbox: checkbox, elementDoOdczytu: elementDoOdczytu, element: wiersz, diagnostyka: wynikTekstowy.diagnostyka };
+  }
+
+  function znajdźPrzełącznikUsługiZamkniętej(dokument) {
+    const diagnostyka = utwórzDiagnostykęPrzełącznika("Usługa zamknięta");
+    const selektory = [
+      "#formularzwstepnysekcja-czyuslugadedykowana",
+      "input[type='checkbox'][id*='czyuslugadedykowana' i]",
+      "input[type='radio'][id*='czyuslugadedykowana' i]",
+      "input[type='checkbox'][name*='czyUslugaDedykowana' i]",
+      "input[type='radio'][name*='czyUslugaDedykowana' i]"
+    ];
+    let kontrolka = null;
+    let użytySelektor = "";
+    for (let indeks = 0; indeks < selektory.length; indeks += 1) {
+      kontrolka = dokument.querySelector(selektory[indeks]);
+      if (kontrolka) {
+        użytySelektor = selektory[indeks];
+        break;
+      }
+    }
+    const etykieta = dokument.querySelector("#formularzwstepnysekcja-czyuslugadedykowanaLabel");
+    const wierszEtykiety = etykieta ? etykieta.closest(".form-group") : null;
+    if (!kontrolka && etykieta && etykieta.htmlFor) {
+      const poleEtykiety = dokument.getElementById(etykieta.htmlFor);
+      if (poleEtykiety && poleEtykiety.matches("input[type='checkbox'], input[type='radio']")) {
+        kontrolka = poleEtykiety;
+        użytySelektor = "#formularzwstepnysekcja-czyuslugadedykowanaLabel[for]";
+      }
+    }
+    if (!kontrolka && etykieta) {
+      const lokalneKontrolki = Array.from((wierszEtykiety || etykieta).querySelectorAll("input[type='checkbox'], input[type='radio']"));
+      if (lokalneKontrolki.length === 1) {
+        kontrolka = lokalneKontrolki[0];
+        użytySelektor = "lokalny .form-group input";
+      }
+    }
+    const elementDoOdczytu = kontrolka || wierszEtykiety || etykieta;
+    const wiersz = kontrolka ? kontrolka.closest(".form-group") || wierszEtykiety : wierszEtykiety;
+    diagnostyka.tagKontenera = wiersz ? wiersz.tagName || "" : "";
+    diagnostyka.klasyKontenera = wiersz ? wiersz.className || "" : "";
+    diagnostyka.liczbaKontrolek = pobierzKontrolkiPrzełącznika(wiersz || elementDoOdczytu).length;
+    uzupełnijDiagnostykęPrzełącznika(diagnostyka, elementDoOdczytu, wiersz, użytySelektor || "lokalny stan wizualny");
+    return { elementDoOdczytu: elementDoOdczytu, element: wiersz, diagnostyka: diagnostyka };
   }
 
   function znajdźPoleWTabeli(dokument, tytułTabeli, nazwaKolumny) {
@@ -274,6 +435,7 @@
     const termin = kontekst.wybranyTermin || {};
     const czyTerminOnline = termin.forma === "online";
     const oczekiwanaForma = czyTerminOnline ? "zdalna w czasie rzeczywistym" : "stacjonarna";
+    const przełącznikUsługiZamkniętej = znajdźPrzełącznikUsługiZamkniętej(dokument);
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -319,7 +481,10 @@
         etykieta: "Usługa zamknięta",
         selektory: ["#formularzwstepnysekcja-czyuslugadedykowanaLabel"]
       },
+      element: przełącznikUsługiZamkniętej.elementDoOdczytu,
+      elementDoPodświetlenia: przełącznikUsługiZamkniętej.element,
       pobierzWartość: przestrzeń.pobierzStanPrzełącznika,
+      diagnostyka: przełącznikUsługiZamkniętej.diagnostyka,
       selektorPomocniczy: "#formularzwstepnysekcja-czyuslugadedykowanaLabel"
     });
   }
@@ -456,7 +621,8 @@
       pole: "Cel edukacyjny",
       oczekiwanaWartość: "TAK",
       definicja: { sekcja: "Główny cel usługi", etykieta: "Cel edukacyjny", selektory: [] },
-      element: przełącznikCeluEdukacyjnego.element,
+      element: przełącznikCeluEdukacyjnego.elementDoOdczytu,
+      elementDoPodświetlenia: przełącznikCeluEdukacyjnego.element,
       pobierzWartość: przestrzeń.pobierzStanPrzełącznika,
       diagnostyka: przełącznikCeluEdukacyjnego.diagnostyka
     });
@@ -528,7 +694,8 @@
           etykieta: ustawienie.etykieta,
           selektory: ustawienie.selektory || []
         },
-        element: znalezionePytanie ? znalezionePytanie.element : null,
+        element: znalezionePytanie ? znalezionePytanie.checkbox : null,
+        elementDoPodświetlenia: znalezionePytanie ? znalezionePytanie.element : null,
         pobierzWartość: przestrzeń.pobierzStanPrzełącznika,
         diagnostyka: znalezionePytanie ? znalezionePytanie.diagnostyka : null,
         statusNiezgodności: ustawienie.numerPytania ? "błąd" : "ostrzeżenie",
@@ -699,6 +866,7 @@
 
   przestrzeń.znajdźPrzełącznikPytaniaKompetencji = znajdźPrzełącznikPytaniaKompetencji;
   przestrzeń.znajdźPrzełącznikCeluEdukacyjnego = znajdźPrzełącznikCeluEdukacyjnego;
+  przestrzeń.znajdźPrzełącznikUsługiZamkniętej = znajdźPrzełącznikUsługiZamkniętej;
   przestrzeń.pobierzWartośćKomórkiOsoby = pobierzWartośćKomórkiOsoby;
 
   function walidujProfilDostawcy(dokument, kontekst, pozycje) {

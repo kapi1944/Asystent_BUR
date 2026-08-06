@@ -420,34 +420,54 @@
     return Array.from(new Set(kontrolkiAria));
   }
 
-  function pobierzStanPrzełącznika(elementLubKontener) {
+  function pobierzStanPrzełącznikaZSzczegółami(elementLubKontener) {
     if (!elementLubKontener) {
-      return "";
+      return { stan: "", źródło: "" };
     }
 
     if (elementLubKontener.matches && elementLubKontener.matches("input[type='checkbox'], input[type='radio']")) {
-      return elementLubKontener.checked ? "TAK" : "NIE";
+      return { stan: elementLubKontener.checked ? "TAK" : "NIE", źródło: "checkbox" };
     }
 
     const inputy = elementLubKontener.querySelectorAll
       ? Array.from(elementLubKontener.querySelectorAll("input[type='checkbox'], input[type='radio']"))
       : [];
     if (inputy.length === 1) {
-      return inputy[0].checked ? "TAK" : "NIE";
+      return { stan: inputy[0].checked ? "TAK" : "NIE", źródło: "checkbox" };
     }
 
     const kontrolki = pobierzKontrolkiPrzełącznika(elementLubKontener);
     if (kontrolki.length === 1) {
       const ariaChecked = kontrolki[0].getAttribute("aria-checked");
       if (ariaChecked === "true") {
-        return "TAK";
+        return { stan: "TAK", źródło: "aria" };
       }
       if (ariaChecked === "false") {
-        return "NIE";
+        return { stan: "NIE", źródło: "aria" };
       }
     }
 
-    return "";
+    const kandydaciWizualni = [];
+    if (elementLubKontener.matches && elementLubKontener.tagName !== "BUTTON" && elementLubKontener.matches(".toggle-switch-label, .active, .checked, .selected, .is-active")) {
+      kandydaciWizualni.push(elementLubKontener);
+    }
+    if (elementLubKontener.querySelectorAll) {
+      kandydaciWizualni.push.apply(kandydaciWizualni, Array.from(elementLubKontener.querySelectorAll(
+        ".toggle-switch-label, [aria-pressed='true'], .active, .checked, .selected, .is-active"
+      )).filter(function pomińZwykłyPrzycisk(element) { return element.tagName !== "BUTTON"; }));
+    }
+    const stanyWizualne = Array.from(new Set(kandydaciWizualni)).map(function pobierzStanWizualny(element) {
+      const tekst = normalizujKluczBur(element.textContent || element.value || element.getAttribute("aria-label") || "");
+      return tekst === "tak" ? "TAK" : (tekst === "nie" ? "NIE" : "");
+    }).filter(Boolean);
+    const unikalneStany = Array.from(new Set(stanyWizualne));
+    return unikalneStany.length === 1
+      ? { stan: unikalneStany[0], źródło: "wizualny fallback" }
+      : { stan: "", źródło: "" };
+  }
+
+  function pobierzStanPrzełącznika(elementLubKontener) {
+    return pobierzStanPrzełącznikaZSzczegółami(elementLubKontener).stan;
   }
 
   function pobierzWartośćPola(element) {
@@ -498,6 +518,7 @@
   przestrzeń.znajdźWidocznyElementSelect2 = znajdźWidocznyElementSelect2;
   przestrzeń.pobierzWartośćQuill = pobierzWartośćQuill;
   przestrzeń.pobierzKontrolkiPrzełącznika = pobierzKontrolkiPrzełącznika;
+  przestrzeń.pobierzStanPrzełącznikaZSzczegółami = pobierzStanPrzełącznikaZSzczegółami;
   przestrzeń.pobierzStanPrzełącznika = pobierzStanPrzełącznika;
   przestrzeń.normalizujTekstDoWalidacji = normalizujTekstDoWalidacji;
 
