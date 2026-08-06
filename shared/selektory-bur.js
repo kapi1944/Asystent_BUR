@@ -394,60 +394,57 @@
     return normalizujTekstDoWalidacji(element ? element.textContent || "" : "");
   }
 
+  function pobierzKontrolkiPrzełącznika(elementLubKontener) {
+    if (!elementLubKontener) {
+      return [];
+    }
+
+    if (elementLubKontener.matches && elementLubKontener.matches("input[type='checkbox'], input[type='radio']")) {
+      return [elementLubKontener];
+    }
+
+    const inputy = elementLubKontener.querySelectorAll
+      ? Array.from(elementLubKontener.querySelectorAll("input[type='checkbox'], input[type='radio']"))
+      : [];
+    if (inputy.length) {
+      return inputy;
+    }
+
+    const kontrolkiAria = [];
+    if (elementLubKontener.matches && elementLubKontener.matches("[role='switch'], [aria-checked]")) {
+      kontrolkiAria.push(elementLubKontener);
+    }
+    if (elementLubKontener.querySelectorAll) {
+      kontrolkiAria.push.apply(kontrolkiAria, Array.from(elementLubKontener.querySelectorAll("[role='switch'], [aria-checked]")));
+    }
+    return Array.from(new Set(kontrolkiAria));
+  }
+
   function pobierzStanPrzełącznika(elementLubKontener) {
     if (!elementLubKontener) {
       return "";
     }
 
-    const zawieraPrzełącznik = elementLubKontener.matches && elementLubKontener.matches(
-      ".toggle-switch, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
-    ) || elementLubKontener.querySelector && elementLubKontener.querySelector(
-      ".toggle-switch, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
-    );
-    const kontener = zawieraPrzełącznik
-      ? elementLubKontener
-      : (znajdźKontenerPola(elementLubKontener) || elementLubKontener);
-    const zaznaczonyInput = kontener.querySelector("input[type='radio']:checked, input[type='checkbox']:checked");
+    if (elementLubKontener.matches && elementLubKontener.matches("input[type='checkbox'], input[type='radio']")) {
+      return elementLubKontener.checked ? "TAK" : "NIE";
+    }
 
-    if (zaznaczonyInput) {
-      const wartość = normalizujKluczBur(zaznaczonyInput.value || zaznaczonyInput.getAttribute("aria-label") || "");
+    const inputy = elementLubKontener.querySelectorAll
+      ? Array.from(elementLubKontener.querySelectorAll("input[type='checkbox'], input[type='radio']"))
+      : [];
+    if (inputy.length === 1) {
+      return inputy[0].checked ? "TAK" : "NIE";
+    }
 
-      if (wartość.includes("tak") || wartość === "true" || wartość === "1") {
+    const kontrolki = pobierzKontrolkiPrzełącznika(elementLubKontener);
+    if (kontrolki.length === 1) {
+      const ariaChecked = kontrolki[0].getAttribute("aria-checked");
+      if (ariaChecked === "true") {
         return "TAK";
       }
-
-      if (wartość.includes("nie") || wartość === "false" || wartość === "0") {
+      if (ariaChecked === "false") {
         return "NIE";
       }
-    }
-
-    const aktywne = Array.from(kontener.querySelectorAll("[aria-pressed='true'], [aria-checked='true'], .active, .checked, .selected, .is-active"));
-    const aktywnyTekst = aktywne.map(function pobierzTekst(element) {
-      return normalizujKluczBur(element.textContent || element.value || element.getAttribute("aria-label") || "");
-    }).join(" ");
-
-    if (/\btak\b/.test(aktywnyTekst)) {
-      return "TAK";
-    }
-
-    if (/\bnie\b/.test(aktywnyTekst)) {
-      return "NIE";
-    }
-
-    const tekstKontenera = normalizujKluczBur(kontener.textContent || "");
-
-    if (/^\s*tak\s*$/.test(tekstKontenera)) {
-      return "TAK";
-    }
-
-    if (/^\s*nie\s*$/.test(tekstKontenera)) {
-      return "NIE";
-    }
-
-    const checkbox = kontener.querySelector("input[type='checkbox']");
-
-    if (checkbox) {
-      return checkbox.checked ? "TAK" : "NIE";
     }
 
     return "";
@@ -500,6 +497,7 @@
   przestrzeń.znajdźNatywnePoleWyboruBur = znajdźNatywnePoleWyboruBur;
   przestrzeń.znajdźWidocznyElementSelect2 = znajdźWidocznyElementSelect2;
   przestrzeń.pobierzWartośćQuill = pobierzWartośćQuill;
+  przestrzeń.pobierzKontrolkiPrzełącznika = pobierzKontrolkiPrzełącznika;
   przestrzeń.pobierzStanPrzełącznika = pobierzStanPrzełącznika;
   przestrzeń.normalizujTekstDoWalidacji = normalizujTekstDoWalidacji;
 

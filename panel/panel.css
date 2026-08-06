@@ -1122,6 +1122,12 @@ body[data-aktywna-zakladka="diagnostyka"] .karta[data-zakladki~="diagnostyka"] {
   overflow-wrap: anywhere;
 }
 
+.pozycja-walidacji .oczekiwana-wartość-walidacji {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ramka);
+}
+
 .walidacja-poprawne {
   border-left-color: var(--zielony);
 }

@@ -49,7 +49,7 @@
       "<div class=\"form-group\"><label>Forma świadczenia usługi</label><span id=\"select2-formularzwstepnysekcja-formaswiadczenia-container\" title=\"" + wartości.forma + "\">" + wartości.forma + "</span></div>",
       "<div class=\"form-group\"><label>Wariant zajęć</label><span id=\"select2-formularzwstepnysekcja-wariantzajec-container\" title=\"" + wartości.wariant + "\">" + wartości.wariant + "</span></div>",
       "<div class=\"form-group\"><label for=\"formularzwstepnysekcja-podstawauzyskaniawpisuid\">Podstawa uzyskania wpisu do BUR</label><select id=\"formularzwstepnysekcja-podstawauzyskaniawpisuid\">" + opcjePodstawy + "</select><span id=\"select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container\" title=\"" + podstawaWidoczna + "\">" + podstawaWidoczna + "</span></div>",
-      "<div class=\"form-group\"><span>Usługa zamknięta</span><label id=\"formularzwstepnysekcja-czyuslugadedykowanaLabel\"><span class=\"active\">" + wartości.usługaZamknięta + "</span></label></div>",
+      "<div class=\"form-group\"><span>Usługa zamknięta</span><label id=\"formularzwstepnysekcja-czyuslugadedykowanaLabel\"><input type=\"checkbox\"" + (wartości.usługaZamknięta === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div>",
       "</section>",
       "<section>",
       "<h2>Informacje podstawowe</h2>",
@@ -65,10 +65,10 @@
       "<h2>Główny cel usługi</h2>",
       "<div><span>Cel edukacyjny</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.celEdukacyjny === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div>",
       "<textarea id=\"glownyceluslugisekcja-celedukacyjnyopis\">" + wartości.celOpis + "</textarea>",
-      "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjezrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji włączonej do ZSK?</span><button class=\"active\">" + wartości.zsk + "</button></div>",
-      "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjeinnenizzrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji niewłączonych do ZSK?</span><button class=\"active\">" + wartości.kwalifikacjeInne + "</button></div>",
-      "<div class=\"field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji form-group\"><span>Czy usługa prowadzi do nabycia kompetencji?</span><button class=\"active\">" + wartości.kompetencje + "</button></div>",
-      "<div class=\"field-warunki-uznania-kompetencji\"><button class=\"active\">NIE</button>",
+      "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjezrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji włączonej do ZSK?</span><div class=\"toggle-switch\"><input type=\"checkbox\"" + (wartości.zsk === "TAK" ? " checked" : "") + "></div></div>",
+      "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjeinnenizzrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji niewłączonych do ZSK?</span><div class=\"toggle-switch\"><input type=\"checkbox\"" + (wartości.kwalifikacjeInne === "TAK" ? " checked" : "") + "></div></div>",
+      "<div class=\"field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji form-group\"><span>Czy usługa prowadzi do nabycia kompetencji?</span><div class=\"toggle-switch\"><input type=\"checkbox\"" + (wartości.kompetencje === "TAK" ? " checked" : "") + "></div></div>",
+      "<div id=\"leadToAcquisitionOfCompetences\" class=\"field-warunki-uznania-kompetencji\">",
       "<div><span>Pytanie 1. Czy dokument potwierdzający uzyskanie kompetencji lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem zawierają opis efektów uczenia się?</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.pytanie1 === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div>",
       "<div><span>Pytanie 2. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja została przeprowadzona w oparciu o zdefiniowane w efektach uczenia się kryteria ich weryfikacji i zgodnie z zaplanowanymi metodami walidacji?</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.pytanie2 === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div>",
       "<div><span>Pytanie 3. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań zapewniających rozdzielenie procesów kształcenia i szkolenia od walidacji?</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.pytanie3 === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div></div>",
@@ -122,14 +122,24 @@
 
   function dodajTabelęOsób(dokument, osoby) {
     const tabela = dokument.createElement("table");
-    tabela.id = "osobyprowadzace-grid";
+    tabela.id = "osoby-prowadzace-grid";
     const ciało = tabela.createTBody();
     osoby.forEach(function dodajOsobę(osoba) {
       const wiersz = ciało.insertRow();
-      [osoba.imięINazwisko, osoba.email, osoba.rola, osoba.opisDoświadczenia].forEach(function dodajPole(wartość) {
-        wiersz.insertCell().textContent = wartość;
+      wiersz.className = "trainers-row";
+      [osoba.imięINazwisko, osoba.email, osoba.rola, osoba.opisDoświadczenia].forEach(function dodajPole(wartość, indeksPola) {
+        const komórka = wiersz.insertCell();
+        const etykieta = dokument.createElement("div");
+        const token = dokument.createElement("input");
+        etykieta.className = "label-mobile";
+        etykieta.textContent = ["Imię i nazwisko", "Adres email", "Rola", "Opis doświadczenia"][indeksPola];
+        token.type = "hidden";
+        token.value = "TOKEN-" + indeksPola;
+        komórka.appendChild(etykieta);
+        komórka.appendChild(token);
+        komórka.appendChild(dokument.createTextNode(wartość));
       });
-      wiersz.insertCell().textContent = "Akcje";
+      wiersz.insertCell().innerHTML = "<div class=\"label-mobile\">Akcje</div><div class=\"options-content\">Akcje</div>";
     });
     dokument.body.appendChild(tabela);
     return tabela;
@@ -253,24 +263,6 @@
     sprawdźStatus("Pytanie 3 w sekcji kompetencji", { pytanie3: "NIE" }, "online", "błąd");
   });
 
-  test("pytania kompetencji są odczytywane z kolejnych pól aktualnego formularza BUR", function sprawdź() {
-    const dokument = utwórzDokumentWalidacji();
-    const staraSekcja = dokument.querySelector(".field-warunki-uznania-kompetencji");
-    const sekcja = dokument.createElement("div");
-    sekcja.id = "leadToAcquisitionOfCompetences";
-    sekcja.innerHTML = [1, 2, 3].map(function utwórzPytanie(numer) {
-      return "<div><div class=\"details-label\">Pytanie " + numer + ". Treść pytania</div>" +
-        "<div class=\"question-field\"><label><input type=\"checkbox\" checked><span class=\"toggler\"></span></label></div></div>";
-    }).join("");
-    staraSekcja.replaceWith(sekcja);
-
-    const wynik = bur.walidujFormularzBur(dokument, utwórzKontekst("online"));
-
-    [1, 2, 3].forEach(function sprawdźPytanie(numer) {
-      sprawdzRownosc(znajdźPozycję(wynik, "Pytanie " + numer + " w sekcji kompetencji").status, "poprawne");
-    });
-  });
-
   test("efekty uczenia się i kryteria weryfikacji wymagają myślnika", function sprawdź() {
     sprawdźStatus("Efekty uczenia się", { efekty: "Opis efektu" }, "online", "błąd");
     sprawdźStatus("Kryteria weryfikacji", { kryteria: "Opis kryterium" }, "online", "błąd");
@@ -341,7 +333,7 @@
     sprawdzRownosc(znajdźPozycję(wynik, "Rekord: " + profil.osobaProwadzącaWalidację.imięINazwisko).status, "ostrzeżenie");
     sprawdzRownosc(znajdźPozycję(wynik, profil.osobaProwadzącaWalidację.imięINazwisko + " — Imię i nazwisko").status, "błąd");
     sprawdzRownosc(znajdźPozycję(wynik, profil.osobaProwadzącaWalidację.imięINazwisko + " — Osoba prowadząca usługę/walidację").status, "błąd");
-    sprawdzWarunek(!wynik.pozycje.some(function maZielonePole(pozycja) { return pozycja.pole === profil.osobaProwadzącaWalidację.imięINazwisko + " — Adres email"; }));
+    sprawdzRownosc(znajdźPozycję(wynik, profil.osobaProwadzącaWalidację.imięINazwisko + " — Adres email").status, "poprawne");
   });
 
   test("brak wymaganej osoby prowadzącej jest błędem", function sprawdź() {

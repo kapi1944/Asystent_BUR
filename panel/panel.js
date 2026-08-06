@@ -2622,7 +2622,8 @@
         const element = document.createElement("button");
         const tytuł = document.createElement("strong");
         const komunikat = document.createElement("span");
-        const wartości = document.createElement("span");
+        const aktualnaWartość = document.createElement("span");
+        const oczekiwanaWartość = document.createElement("span");
 
         element.type = "button";
         element.className = "pozycja-walidacji walidacja-" + pozycja.status;
@@ -2631,10 +2632,13 @@
         element.setAttribute("aria-label", "Przejdź do pola: " + pozycja.pole);
         tytuł.textContent = pozycja.pole + " - " + pozycja.status;
         komunikat.textContent = pozycja.komunikat || "";
-        wartości.textContent = "Aktualnie: " + (pozycja.aktualnaWartość || "-") + " | Oczekiwane: " + (pozycja.oczekiwanaWartość || "-");
+        aktualnaWartość.textContent = "Aktualnie: " + (pozycja.aktualnaWartość || "-");
+        oczekiwanaWartość.className = "oczekiwana-wartość-walidacji";
+        oczekiwanaWartość.textContent = "Oczekiwane: " + (pozycja.oczekiwanaWartość || "-");
         element.appendChild(tytuł);
         element.appendChild(komunikat);
-        element.appendChild(wartości);
+        element.appendChild(aktualnaWartość);
+        element.appendChild(oczekiwanaWartość);
         element.addEventListener("click", function przejdźDoPola() {
           przejdźDoPolaWalidacji(pozycja.celFormularza);
         });

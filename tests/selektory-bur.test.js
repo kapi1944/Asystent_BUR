@@ -39,11 +39,16 @@
   });
 
   test("pobierzStanPrzełącznika rozpoznaje TAK i NIE", function sprawdź() {
-    const dokumentTak = utwórzDokument("<div class=\"form-group\"><span>Cel edukacyjny</span><button class=\"active\">TAK</button><button>NIE</button></div>");
-    const dokumentNie = utwórzDokument("<div class=\"form-group\"><span>Usługa zamknięta</span><button>TAK</button><button class=\"active\">NIE</button></div>");
+    const dokumentTak = utwórzDokument("<div class=\"form-group\"><span>Cel edukacyjny</span><div class=\"toggle-switch\"><label><input type=\"checkbox\" checked><span class=\"toggler\"></span></label></div></div>");
+    const dokumentNie = utwórzDokument("<div class=\"form-group\"><span>Usługa zamknięta</span><span role=\"switch\" aria-checked=\"false\"></span></div>");
 
     sprawdzRownosc(bur.pobierzStanPrzełącznika(dokumentTak.body.firstElementChild), "TAK");
     sprawdzRownosc(bur.pobierzStanPrzełącznika(dokumentNie.body.firstElementChild), "NIE");
+  });
+
+  test("pobierzStanPrzełącznika nie wybiera aktywnego zwykłego przycisku", function sprawdź() {
+    const dokument = utwórzDokument("<div><button class=\"active\">TAK</button><button>NIE</button></div>");
+    sprawdzRownosc(bur.pobierzStanPrzełącznika(dokument.body.firstElementChild), "");
   });
 
   test("normalizujTekstDoWalidacji zachowuje sens tekstu z polskimi znakami", function sprawdź() {

@@ -74,6 +74,9 @@
     if (dane.element) {
       pozycja.element = dane.element;
     }
+    if (dane.diagnostyka) {
+      pozycja.diagnostyka = dane.diagnostyka;
+    }
 
     pozycje.push(pozycja);
   }
@@ -105,77 +108,99 @@
       aktualnaWartość: aktualnaWartość,
       opisPola: ustawienia.opisPola || ustawienia.pole,
       selektorPomocniczy: ustawienia.selektorPomocniczy || "",
-      element: elementDoOdczytu || pole
+      element: elementDoOdczytu || pole,
+      diagnostyka: ustawienia.diagnostyka || null
     });
   }
 
-  function znajdźPrzełącznikPoTekście(dokument, szukanyTekst) {
-    const szukanyKlucz = bezZnakówDiakrytycznych(szukanyTekst);
-    const kandydaci = Array.from(dokument.querySelectorAll("label, span, div, p"))
+  function pobierzKontrolkiPrzełącznika(kontener) {
+    return typeof przestrzeń.pobierzKontrolkiPrzełącznika === "function"
+      ? przestrzeń.pobierzKontrolkiPrzełącznika(kontener)
+      : [];
+  }
+
+  function utwórzDiagnostykęPrzełącznika(tekst) {
+    return {
+      znalezionyTekst: tekst || "",
+      tagKontenera: "",
+      klasyKontenera: "",
+      liczbaKontrolek: 0,
+      stan: ""
+    };
+  }
+
+  function znajdźNajmniejszyKontenerPrzełącznika(sekcja, czyPasujeTekst, czyPoprawnyKontener) {
+    const diagnostyka = utwórzDiagnostykęPrzełącznika("");
+    if (!sekcja) {
+      return { element: null, diagnostyka: diagnostyka };
+    }
+
+    const kandydaci = Array.from(sekcja.querySelectorAll("label, span, div, p, strong"))
       .filter(function pasuje(element) {
-        const tekst = bezZnakówDiakrytycznych(element.textContent || "");
-        return tekst.includes(szukanyKlucz) && tekst.length <= 600;
+        return czyPasujeTekst(normalizujDoPorównaniaBur(element.textContent || ""));
       })
-      .sort(function odNajkrótszego(pierwszy, drugi) {
-        return String(pierwszy.textContent || "").length - String(drugi.textContent || "").length;
-      });
-
-    const przełączniki = Array.from(dokument.querySelectorAll(
-      ".toggle-switch, [role='switch'], input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
-    )).filter(function tylkoGłównePrzełączniki(element) {
-      return !element.closest(".toggle-switch") || element.matches(".toggle-switch");
-    });
-
-    for (let indeks = 0; indeks < kandydaci.length; indeks += 1) {
-      let kontener = kandydaci[indeks].parentElement;
-
-      while (kontener && kontener !== dokument.body) {
-        const lokalnePrzełączniki = przełączniki.filter(function należyDoKontenera(element) {
-          return kontener.contains(element);
+      .filter(function tylkoNajmniejszyElementTekstowy(element) {
+        return !Array.from(element.querySelectorAll("label, span, div, p, strong")).some(function maMniejszyTekst(potomek) {
+          return potomek !== element && czyPasujeTekst(normalizujDoPorównaniaBur(potomek.textContent || ""));
         });
+      });
+    const znalezioneKontenery = [];
 
-        if (lokalnePrzełączniki.length === 1) {
-          return lokalnePrzełączniki[0];
+    kandydaci.forEach(function znajdźKontener(kandydat) {
+      diagnostyka.znalezionyTekst = przestrzeń.normalizujTekstDoWalidacji(kandydat.textContent || "");
+      let kontener = kandydat;
+      while (kontener && sekcja.contains(kontener)) {
+        const kontrolki = pobierzKontrolkiPrzełącznika(kontener);
+        if (kontrolki.length) {
+          diagnostyka.tagKontenera = kontener.tagName || "";
+          diagnostyka.klasyKontenera = kontener.className || "";
+          diagnostyka.liczbaKontrolek = kontrolki.length;
+        }
+        if (kontrolki.length === 1 && czyPoprawnyKontener(kontener)) {
+          znalezioneKontenery.push(kontener);
+          break;
+        }
+        if (kontener === sekcja) {
+          break;
         }
         kontener = kontener.parentElement;
       }
-    }
+    });
 
-    if (kandydaci[0] && typeof kandydaci[0].getBoundingClientRect === "function") {
-      const prostokątEtykiety = kandydaci[0].getBoundingClientRect();
-      const środekEtykiety = prostokątEtykiety.top + prostokątEtykiety.height / 2;
-      const najbliższy = przełączniki.map(function zmierz(element) {
-        const prostokąt = element.getBoundingClientRect();
-        const środek = prostokąt.top + prostokąt.height / 2;
-        return { element: element, odległość: Math.abs(środek - środekEtykiety) };
-      }).filter(function tylkoWidoczne(wynik) {
-        const prostokąt = wynik.element.getBoundingClientRect();
-        return prostokąt.width > 0 && prostokąt.height > 0;
-      }).sort(function odNajbliższego(pierwszy, drugi) {
-        return pierwszy.odległość - drugi.odległość;
-      })[0];
-
-      if (najbliższy && najbliższy.odległość <= Math.max(50, prostokątEtykiety.height)) {
-        return najbliższy.element;
-      }
+    const unikalneKontenery = Array.from(new Set(znalezioneKontenery));
+    const element = unikalneKontenery.length === 1 ? unikalneKontenery[0] : null;
+    if (element) {
+      diagnostyka.tagKontenera = element.tagName || "";
+      diagnostyka.klasyKontenera = element.className || "";
+      diagnostyka.liczbaKontrolek = pobierzKontrolkiPrzełącznika(element).length;
+      diagnostyka.stan = przestrzeń.pobierzStanPrzełącznika(element);
     }
-    return null;
+    return { element: element, diagnostyka: diagnostyka };
   }
 
   function znajdźPrzełącznikPytaniaKompetencji(dokument, numerPytania) {
     const sekcjaKompetencji = dokument.querySelector("#leadToAcquisitionOfCompetences");
-    const polaPytań = sekcjaKompetencji
-      ? Array.from(sekcjaKompetencji.querySelectorAll(":scope > div > .question-field, :scope > .question-field"))
-      : [];
-    const polePytania = polaPytań[numerPytania - 1];
+    const początek = "pytanie " + numerPytania + ".";
+    return znajdźNajmniejszyKontenerPrzełącznika(
+      sekcjaKompetencji,
+      function pasujeTekst(tekst) { return tekst.startsWith(początek); },
+      function zawieraTylkoJednoPytanie(kontener) {
+        const numery = Array.from(normalizujDoPorównaniaBur(kontener.textContent || "").matchAll(/pytanie\s+([123])\./g))
+          .map(function pobierzNumer(wynik) { return Number(wynik[1]); });
+        return numery.length > 0 && numery.every(function jestWłaściwe(numer) { return numer === numerPytania; });
+      }
+    );
+  }
 
-    if (polePytania) {
-      return polePytania.querySelector(
-        ".toggle-switch, [role='switch'], input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
-      ) || polePytania;
-    }
-
-    return znajdźPrzełącznikPoTekście(dokument, "pytanie " + numerPytania);
+  function znajdźPrzełącznikCeluEdukacyjnego(dokument) {
+    const sekcjaCelu = dokument.querySelector("#qualificationsZrk");
+    return znajdźNajmniejszyKontenerPrzełącznika(
+      sekcjaCelu,
+      function pasujeTekst(tekst) { return tekst === "cel edukacyjny" || tekst === "cel edukacyjny:"; },
+      function wykluczOpis(kontener) {
+        return !normalizujDoPorównaniaBur(kontener.textContent || "").includes("cel edukacyjny - opis");
+      }
+    );
   }
 
   function znajdźPoleWTabeli(dokument, tytułTabeli, nazwaKolumny) {
@@ -423,6 +448,7 @@
   function walidujGłównyCelUsługi(dokument, kontekst, pozycje) {
     const szkolenieSemper = kontekst.szkolenieSemper || {};
     const tytułTabeli = "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji";
+    const przełącznikCeluEdukacyjnego = znajdźPrzełącznikCeluEdukacyjnego(dokument);
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -430,8 +456,9 @@
       pole: "Cel edukacyjny",
       oczekiwanaWartość: "TAK",
       definicja: { sekcja: "Główny cel usługi", etykieta: "Cel edukacyjny", selektory: [] },
-      element: znajdźPrzełącznikPoTekście(dokument, "cel edukacyjny"),
-      pobierzWartość: przestrzeń.pobierzStanPrzełącznika
+      element: przełącznikCeluEdukacyjnego.element,
+      pobierzWartość: przestrzeń.pobierzStanPrzełącznika,
+      diagnostyka: przełącznikCeluEdukacyjnego.diagnostyka
     });
 
     sprawdźWartość(pozycje, {
@@ -488,6 +515,9 @@
         oczekiwanaWartość: "TAK"
       }
     ].forEach(function walidujPrzełącznik(ustawienie) {
+      const znalezionePytanie = ustawienie.numerPytania
+        ? znajdźPrzełącznikPytaniaKompetencji(dokument, ustawienie.numerPytania)
+        : null;
       sprawdźWartość(pozycje, {
         dokument: dokument,
         sekcja: "Główny cel usługi",
@@ -498,8 +528,9 @@
           etykieta: ustawienie.etykieta,
           selektory: ustawienie.selektory || []
         },
-        element: ustawienie.numerPytania ? znajdźPrzełącznikPytaniaKompetencji(dokument, ustawienie.numerPytania) : null,
+        element: znalezionePytanie ? znalezionePytanie.element : null,
         pobierzWartość: przestrzeń.pobierzStanPrzełącznika,
+        diagnostyka: znalezionePytanie ? znalezionePytanie.diagnostyka : null,
         statusNiezgodności: ustawienie.numerPytania ? "błąd" : "ostrzeżenie",
         selektorPomocniczy: ustawienie.selektory ? ustawienie.selektory[0] : ""
       });
@@ -569,15 +600,29 @@
     dodajPozycję(pozycje, { sekcja: sekcja, pole: pole, status: poprawne ? "poprawne" : (statusBraku || "błąd"), komunikat: poprawne ? "Wartość jest zgodna z profilem dostawcy." : komunikatBłędu, oczekiwanaWartość: oczekiwana, aktualnaWartość: aktualna || "Nie odczytano wartości", element: element });
   }
 
-  function normalizujPoleOsoby(wartość, czyEmail) {
+  function normalizujPoleOsoby(wartość, typ) {
     const tekst = normalizujDoPorównaniaBur(wartość);
-    return czyEmail ? tekst.replace(/\s+/g, "") : tekst;
+    if (typ === "email") {
+      return tekst.replace(/\s+/g, "");
+    }
+    return typ === "rola" ? bezZnakówDiakrytycznych(tekst) : tekst;
   }
 
   function pobierzKomórkiOsoby(wiersz) {
     return Array.from(wiersz && wiersz.children || []).filter(function tylkoKomórki(element) {
       return element.tagName === "TD";
     }).slice(0, 4);
+  }
+
+  function pobierzWartośćKomórkiOsoby(komórka) {
+    if (!komórka || typeof komórka.cloneNode !== "function") {
+      return "";
+    }
+    const kopia = komórka.cloneNode(true);
+    kopia.querySelectorAll(".label-mobile, input[type='hidden'], .options-content, .show-options-btn, script, style").forEach(function usuń(element) {
+      element.remove();
+    });
+    return przestrzeń.normalizujTekstDoWalidacji(kopia.textContent || "");
   }
 
   function walidujOsobyProwadzące(dokument, profil, pozycje) {
@@ -589,10 +634,10 @@
       return osoba && osoba.imięINazwisko && osoba.email && osoba.rola && osoba.opisDoświadczenia;
     });
     const pola = [
-      { klucz: "imięINazwisko", nazwa: "Imię i nazwisko", czyEmail: false },
-      { klucz: "email", nazwa: "Adres email", czyEmail: true },
-      { klucz: "rola", nazwa: "Osoba prowadząca usługę/walidację", czyEmail: false },
-      { klucz: "opisDoświadczenia", nazwa: "Opis doświadczenia", czyEmail: false }
+      { klucz: "imięINazwisko", nazwa: "Imię i nazwisko", typ: "tekst" },
+      { klucz: "email", nazwa: "Adres email", typ: "email" },
+      { klucz: "rola", nazwa: "Osoba prowadząca usługę/walidację", typ: "rola" },
+      { klucz: "opisDoświadczenia", nazwa: "Opis doświadczenia", typ: "tekst" }
     ];
 
     if (!tabela.element || !oczekiwaneOsoby.length) {
@@ -604,28 +649,45 @@
     wiersze.forEach(function sprawdźWiersz(wiersz, indeksWiersza) {
       const komórki = pobierzKomórkiOsoby(wiersz);
       const wartości = pola.map(function odczytaj(pole, indeksPola) {
-        return przestrzeń.pobierzWartośćPola(komórki[indeksPola]);
+        return pobierzWartośćKomórkiOsoby(komórki[indeksPola]);
       });
       let osoba = null;
-      let najwyższyWynik = -1;
-      niedopasowaneOsoby.forEach(function oceń(kandydat) {
-        const wynik = pola.reduce(function policz(suma, pole, indeksPola) {
-          return suma + (normalizujPoleOsoby(wartości[indeksPola], pole.czyEmail) === normalizujPoleOsoby(kandydat[pole.klucz], pole.czyEmail) ? 1 : 0);
-        }, 0);
-        if (wynik > najwyższyWynik) { osoba = kandydat; najwyższyWynik = wynik; }
+      const diagnostykaDopasowania = { metoda: "brak", wynikPozostałychPól: 0 };
+      const emailWiersza = normalizujPoleOsoby(wartości[1], "email");
+      const dopasowanePoEmailu = niedopasowaneOsoby.filter(function maEmail(kandydat) {
+        return emailWiersza && emailWiersza === normalizujPoleOsoby(kandydat.email, "email");
       });
-      if (!osoba && niedopasowaneOsoby.length) { osoba = niedopasowaneOsoby[Math.min(indeksWiersza, niedopasowaneOsoby.length - 1)]; }
+      if (dopasowanePoEmailu.length === 1) {
+        osoba = dopasowanePoEmailu[0];
+        diagnostykaDopasowania.metoda = "email";
+      } else {
+        const wynikiKandydatów = niedopasowaneOsoby.map(function oceń(kandydat) {
+          const wynik = [0, 2, 3].reduce(function policz(suma, indeksPola) {
+            const pole = pola[indeksPola];
+            return suma + (normalizujPoleOsoby(wartości[indeksPola], pole.typ) === normalizujPoleOsoby(kandydat[pole.klucz], pole.typ) ? 1 : 0);
+          }, 0);
+          return { osoba: kandydat, wynik: wynik };
+        }).sort(function odNajwyższego(pierwszy, drugi) { return drugi.wynik - pierwszy.wynik; });
+        const najlepszy = wynikiKandydatów[0];
+        const remis = najlepszy && wynikiKandydatów.filter(function tenSamWynik(wynik) { return wynik.wynik === najlepszy.wynik; }).length > 1;
+        diagnostykaDopasowania.wynikPozostałychPól = najlepszy ? najlepszy.wynik : 0;
+        if (najlepszy && najlepszy.wynik > 0 && !remis) {
+          osoba = najlepszy.osoba;
+          diagnostykaDopasowania.metoda = "pozostałe pola";
+        } else {
+          diagnostykaDopasowania.metoda = remis ? "brak - remis" : "brak - wynik 0";
+        }
+      }
       if (osoba) { niedopasowaneOsoby.splice(niedopasowaneOsoby.indexOf(osoba), 1); }
 
       const zgodnośćPól = pola.map(function sprawdźPole(pole, indeksPola) {
-        return Boolean(osoba) && normalizujPoleOsoby(wartości[indeksPola], pole.czyEmail) === normalizujPoleOsoby(osoba[pole.klucz], pole.czyEmail);
+        return Boolean(osoba) && normalizujPoleOsoby(wartości[indeksPola], pole.typ) === normalizujPoleOsoby(osoba[pole.klucz], pole.typ);
       });
       const rekordPoprawny = zgodnośćPól.every(Boolean);
       const nazwaRekordu = osoba ? osoba.imięINazwisko : "dodatkowy rekord " + (indeksWiersza + 1);
-      dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: "Rekord: " + nazwaRekordu, status: rekordPoprawny ? "poprawne" : "ostrzeżenie", komunikat: rekordPoprawny ? "Cały rekord osoby prowadzącej jest poprawny." : "Rekord zawiera dane wymagające sprawdzenia.", oczekiwanaWartość: osoba ? "Kompletny rekord " + osoba.imięINazwisko : "Brak dodatkowego rekordu", aktualnaWartość: wartości.join(" | "), element: wiersz, celFormularza: "osobyProwadzace" });
+      dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: "Rekord: " + nazwaRekordu, status: rekordPoprawny ? "poprawne" : "ostrzeżenie", komunikat: rekordPoprawny ? "Cały rekord osoby prowadzącej jest poprawny." : "Rekord zawiera dane wymagające sprawdzenia.", oczekiwanaWartość: osoba ? "Kompletny rekord " + osoba.imięINazwisko : "Brak dodatkowego rekordu", aktualnaWartość: wartości.join(" | "), element: wiersz, celFormularza: "osobyProwadzace", diagnostyka: diagnostykaDopasowania });
 
       pola.forEach(function dodajWynikPola(pole, indeksPola) {
-        if (!rekordPoprawny && zgodnośćPól[indeksPola]) { return; }
         dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: nazwaRekordu + " — " + pole.nazwa, status: zgodnośćPól[indeksPola] ? "poprawne" : "błąd", komunikat: zgodnośćPól[indeksPola] ? "Pole rekordu jest poprawne." : "Pole rekordu zawiera niezgodne dane lub literówkę.", oczekiwanaWartość: osoba ? osoba[pole.klucz] : "Brak dodatkowego rekordu", aktualnaWartość: wartości[indeksPola], element: komórki[indeksPola] || null, celFormularza: "osobyProwadzace" });
       });
     });
@@ -634,6 +696,10 @@
       dodajPozycję(pozycje, { sekcja: "Osoby prowadzące", pole: "Brak rekordu: " + osoba.imięINazwisko, status: "błąd", komunikat: "Brakuje wymaganej osoby prowadzącej.", oczekiwanaWartość: [osoba.imięINazwisko, osoba.email, osoba.rola, osoba.opisDoświadczenia].join(" | "), aktualnaWartość: "Brak rekordu", element: tabela.element, celFormularza: "osobyProwadzace" });
     });
   }
+
+  przestrzeń.znajdźPrzełącznikPytaniaKompetencji = znajdźPrzełącznikPytaniaKompetencji;
+  przestrzeń.znajdźPrzełącznikCeluEdukacyjnego = znajdźPrzełącznikCeluEdukacyjnego;
+  przestrzeń.pobierzWartośćKomórkiOsoby = pobierzWartośćKomórkiOsoby;
 
   function walidujProfilDostawcy(dokument, kontekst, pozycje) {
     const profilId = kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId || "semper";

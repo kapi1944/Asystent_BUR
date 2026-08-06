@@ -6,7 +6,7 @@
   let timerAutomatycznejWalidacjiBur = null;
   let automatycznaWalidacjaBurWToku = false;
   let ponówAutomatycznąWalidacjęBur = false;
-  const WERSJA_SKRYPTU_BUR = "hotfix-diagnostyka-import-csv-2026-07-17-v2";
+  const WERSJA_SKRYPTU_BUR = "naprawa-walidacji-bur-2026-08-06-v1";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
     tabelaHarmonogramu: "#harmonogram-grid > div > table",
@@ -1309,7 +1309,8 @@
           oczekiwanaWartość: pozycja.oczekiwanaWartość,
           aktualnaWartość: pozycja.aktualnaWartość,
           opisPola: pozycja.opisPola,
-          selektorPomocniczy: pozycja.selektorPomocniczy
+          selektorPomocniczy: pozycja.selektorPomocniczy,
+          diagnostyka: pozycja.diagnostyka || null
         };
       })
     };
@@ -1333,8 +1334,8 @@
       return element.closest(".toggle-switch") || element;
     }
 
-    if (/pytanie\s+[123]/i.test(element.textContent || "") && element.querySelector && element.querySelector(
-      ".toggle-switch, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
+    if (/(?:pytanie\s+[123]\.|cel edukacyjny)/i.test(element.textContent || "") && element.querySelector && element.querySelector(
+      ".toggle-switch, [role='switch'], input[type='checkbox'], input[type='radio'], [aria-checked]"
     )) {
       return element;
     }
@@ -1579,6 +1580,9 @@
   globalny.__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__ = true;
 
   przestrzen.pobierzWierszeHarmonogramu = odczytajWierszeHarmonogramu;
+  przestrzen.znajdźElementDoPodświetlenia = znajdźElementDoPodświetlenia;
+  przestrzen.podświetlPole = podświetlPole;
+  przestrzen.zastosujWynikWalidacjiNaStronie = zastosujWynikWalidacjiNaStronie;
   przestrzen.odczytajPodsumowanieHarmonogramuBur = odczytajPodsumowanieHarmonogramuBur;
   przestrzen.sprawdzHarmonogramPoWypelnieniu = sprawdzHarmonogramPoWypelnieniu;
   przestrzen.wprowadźHarmonogramDoBur = wprowadźHarmonogramDoBur;

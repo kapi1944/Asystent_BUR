@@ -963,7 +963,7 @@
     for (let indeks = początkowe.length - 1; indeks >= 0; indeks -= 1) {
       const wiersz = początkowe[indeks];
       const usunięto = obsługa.usuńWiersz ? await obsługa.usuńWiersz(wiersz, indeks) : (function usuńNatywnie() {
-        const przycisk = wiersz.querySelector("button[title*='Usuń' i], button[aria-label*='Usuń' i], [data-action*='delete' i], .delete, .usun");
+        const przycisk = wiersz.querySelector("a.delete-trainer, [title*='Usuń osobę prowadzącą' i], button[title*='Usuń' i], button[aria-label*='Usuń' i], [data-action*='delete' i], .delete, .usun");
         if (!przycisk) { return false; }
         przycisk.click();
         const potwierdzenie = dokument.querySelector("[role='dialog'] button[data-confirm], [role='dialog'] button.btn-danger");
