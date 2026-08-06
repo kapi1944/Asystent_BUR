@@ -30,7 +30,7 @@
       liczbaUczestnikówBur: { onlineMinimum: "2", stacjonarneMinimum: "5", maksimum: "15" },
       osobaProwadzącaUsługę: { imięINazwisko: "Trener SEMPER", email: "trener@szkolenia-semper.pl", rola: "Osoba prowadząca usługę", opisDoświadczenia: "Trener SEMPER" },
       osobaProwadzącaWalidację: { imięINazwisko: "Koordynator SEMPER", email: "koordynator@szkolenia-semper.pl", rola: "Osoba prowadząca walidację", opisDoświadczenia: "Koordynator SEMPER" },
-      daneKontaktowe: {},
+      daneKontaktowe: { imięINazwisko: "Angelika Poznańska", email: "a.poznanska@szkolenia-semper.pl", telefon: "(+48) 570 590 060" },
       tekstNadProgramem: "",
       tekstPodProgramem: "",
       sposóbProgramuBur: "semper",

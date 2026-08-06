@@ -24,7 +24,6 @@
   ];
   const styleContentBur = ["content/bur-highlighter.css"];
   const elementy = {
-    statusStrony: document.getElementById("status-strony"),
     statusAkcji: document.getElementById("status-akcji"),
     statusSemper: document.getElementById("status-semper"),
     statusOperacjiBur: document.getElementById("status-operacji-bur"),
@@ -99,7 +98,6 @@
     diagnostykaImportuHarmonogramu: document.getElementById("diagnostyka-importu-harmonogramu"),
     przyciskWypełnijHarmonogramRęcznie: document.getElementById("przycisk-wypelnij-harmonogram-recznie")
     ,etykietaWykrytegoKontaBur: document.getElementById("etykieta-wykrytego-konta-bur")
-    ,nazwaWykrytegoKontaBur: document.getElementById("nazwa-wykrytego-konta-bur")
     ,przyciskPrzełączNaWykrytyProfil: document.getElementById("przycisk-przelacz-na-wykryty-profil")
     ,listaTerminówSerii: document.getElementById("lista-terminow-serii")
     ,seriaLiczbaWszystkich: document.getElementById("seria-liczba-wszystkich")
@@ -188,7 +186,6 @@
     elementy.listaTerminówSemper.setAttribute("aria-label", "Terminy " + profil.nazwa);
     document.querySelector("[data-filtr-terminow]").parentElement.setAttribute("aria-label", "Filtr terminów " + profil.nazwa);
     elementy.etykietaWykrytegoKontaBur.textContent = "WYKRYTE KONTO BUR: " + (wykryteKontoBur && wykryteKontoBur.nazwaProfilu || "NIE ROZPOZNANO");
-    elementy.nazwaWykrytegoKontaBur.textContent = wykryteKontoBur && wykryteKontoBur.nazwaOrganizacji || "Brak odczytanej nazwy organizacji.";
     const konflikt = czyKonfliktProfiluZKontem();
     elementy.przyciskWypełnijFormularz.disabled = konflikt;
     elementy.przyciskZastosujZmianyBur.disabled = konflikt || !podglądWypełnieniaBur;
@@ -238,7 +235,7 @@
 
   function ustawStatus(element, tekst, klasa) {
     element.textContent = tekst;
-    element.className = (element === elementy.statusStrony ? "status " : "komunikat ") + klasa;
+    element.className = "komunikat " + klasa;
   }
 
   function ustawStatusProgramuHarmonogramu(tekst, klasa) {
@@ -2549,12 +2546,16 @@
     });
   }
 
-  function dodajLicznikWalidacji(kontener, etykieta, wartość, klasa) {
-    const licznik = document.createElement("div");
+  function dodajLicznikWalidacji(kontener, etykieta, wartość, klasa, status) {
+    const licznik = document.createElement("button");
     const liczba = document.createElement("strong");
     const opis = document.createElement("span");
 
+    licznik.type = "button";
     licznik.className = "licznik-walidacji " + klasa;
+    licznik.dataset.statusWalidacji = status;
+    licznik.setAttribute("aria-pressed", "false");
+    licznik.setAttribute("aria-label", "Filtruj wyniki: " + etykieta);
     liczba.textContent = String(wartość);
     opis.textContent = etykieta;
     licznik.appendChild(liczba);
@@ -2594,9 +2595,9 @@
 
     wyczyśćWynikWalidacjiBur(false);
     podsumowanie.className = "podsumowanie-walidacji";
-    dodajLicznikWalidacji(podsumowanie, "błędy", liczniki.błędy, "walidacja-błąd");
-    dodajLicznikWalidacji(podsumowanie, "ostrzeżenia", liczniki.ostrzeżenia, "walidacja-ostrzeżenie");
-    dodajLicznikWalidacji(podsumowanie, "poprawne", liczniki.poprawne, "walidacja-poprawne");
+    dodajLicznikWalidacji(podsumowanie, "błędy", liczniki.błędy, "walidacja-błąd", "błąd");
+    dodajLicznikWalidacji(podsumowanie, "ostrzeżenia", liczniki.ostrzeżenia, "walidacja-ostrzeżenie", "ostrzeżenie");
+    dodajLicznikWalidacji(podsumowanie, "poprawne", liczniki.poprawne, "walidacja-poprawne", "poprawne");
     elementy.wynikWalidacjiBur.appendChild(podsumowanie);
 
     pozycje.forEach(function pogrupuj(pozycja) {
@@ -2625,6 +2626,7 @@
 
         element.type = "button";
         element.className = "pozycja-walidacji walidacja-" + pozycja.status;
+        element.dataset.statusWalidacji = pozycja.status;
         element.dataset.celFormularza = pozycja.celFormularza || "";
         element.setAttribute("aria-label", "Przejdź do pola: " + pozycja.pole);
         tytuł.textContent = pozycja.pole + " - " + pozycja.status;
@@ -2640,6 +2642,32 @@
       });
 
       elementy.wynikWalidacjiBur.appendChild(sekcja);
+    });
+
+    podsumowanie.addEventListener("click", function filtrujWynikiWalidacji(zdarzenie) {
+      const licznik = zdarzenie.target.closest(".licznik-walidacji");
+      if (!licznik) {
+        return;
+      }
+
+      const byłAktywny = licznik.classList.contains("aktywny");
+      const wybranyStatus = byłAktywny ? "" : licznik.dataset.statusWalidacji;
+
+      podsumowanie.querySelectorAll(".licznik-walidacji").forEach(function ustawStanLicznika(element) {
+        const aktywny = element === licznik && !byłAktywny;
+        element.classList.toggle("aktywny", aktywny);
+        element.setAttribute("aria-pressed", String(aktywny));
+      });
+
+      elementy.wynikWalidacjiBur.querySelectorAll(".sekcja-walidacji").forEach(function filtrujSekcję(sekcja) {
+        let maWidocznePozycje = false;
+        sekcja.querySelectorAll(".pozycja-walidacji").forEach(function filtrujPozycję(element) {
+          const widoczny = !wybranyStatus || element.dataset.statusWalidacji === wybranyStatus;
+          element.classList.toggle("ukryty", !widoczny);
+          maWidocznePozycje = maWidocznePozycje || widoczny;
+        });
+        sekcja.classList.toggle("ukryty", !maWidocznePozycje);
+      });
     });
 
     ustawStatus(
@@ -2690,6 +2718,9 @@
         if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") {
           throw new Error("Otwórz formularz BUR, aby wykonać walidację.");
         }
+        if (new URL(karta.url).pathname.startsWith("/usluga/usluga/lista")) {
+          throw new Error("Lista usług BUR nie jest formularzem edycji ogłoszenia.");
+        }
 
         return wyślijDoKarty(karta, { typ: komunikaty.WALIDUJ_FORMULARZ_BUR });
       })
@@ -2734,7 +2765,6 @@
     }
 
     if (typ === "Nieobsługiwana strona") {
-      ustawStatus(elementy.statusStrony, typ, "status-ostrzezenie");
       elementy.przyciskPobierz.disabled = true;
       ustawDostępnośćWalidacji(false);
       return Promise.resolve();
@@ -2743,8 +2773,6 @@
     return zapewnijSkryptStrony(karta)
       .then(function pokażPong(odpowiedź) {
         const typStrony = odpowiedź && odpowiedź.typStrony ? odpowiedź.typStrony : typ;
-        const wersja = odpowiedź && odpowiedź.wersjaSkryptu ? " · " + odpowiedź.wersjaSkryptu : "";
-        ustawStatus(elementy.statusStrony, typStrony + wersja, "status-odczytano");
         elementy.przyciskPobierz.disabled = false;
         ustawDostępnośćWalidacji(typStrony === "BUR");
         odświeżStanProgramuHarmonogramu();
@@ -2755,8 +2783,6 @@
         }
       })
       .catch(function pokażŁagodnyBłąd(błąd) {
-        const szczegóły = błąd && błąd.message ? " " + błąd.message : "";
-        ustawStatus(elementy.statusStrony, "Nie udało się połączyć z formularzem BUR. Odśwież stronę i spróbuj ponownie." + szczegóły, "status-ostrzezenie");
         elementy.przyciskPobierz.disabled = false;
         ustawDostępnośćWalidacji(false);
         pokażStanProgramuHarmonogramu({});
@@ -3550,7 +3576,6 @@
     })
     .then(function zastosujKonto(odpowiedź) { if (odpowiedź && odpowiedź.typ === komunikaty.ODPOWIEDŹ_WYKRYTE_KONTO_BUR) { return zastosujWykryteKontoBur(odpowiedź.wynik); } return null; })
     .catch(function pokażBłądStartowy() {
-      ustawStatus(elementy.statusStrony, "Nieobsługiwana strona", "status-ostrzezenie");
       elementy.przyciskPobierz.disabled = true;
       ustawDostępnośćWalidacji(false);
     });

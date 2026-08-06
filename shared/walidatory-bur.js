@@ -109,23 +109,73 @@
     });
   }
 
-  function znajdźPrzełącznikPytaniaKompetencji(dokument, numerPytania) {
-    const szukanyTekst = "pytanie " + numerPytania;
+  function znajdźPrzełącznikPoTekście(dokument, szukanyTekst) {
+    const szukanyKlucz = bezZnakówDiakrytycznych(szukanyTekst);
     const kandydaci = Array.from(dokument.querySelectorAll("label, span, div, p"))
       .filter(function pasuje(element) {
         const tekst = bezZnakówDiakrytycznych(element.textContent || "");
-        return tekst.includes(szukanyTekst) && tekst.length <= 600;
+        return tekst.includes(szukanyKlucz) && tekst.length <= 600;
       })
       .sort(function odNajkrótszego(pierwszy, drugi) {
         return String(pierwszy.textContent || "").length - String(drugi.textContent || "").length;
       });
 
+    const przełączniki = Array.from(dokument.querySelectorAll(
+      ".toggle-switch, [role='switch'], input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
+    )).filter(function tylkoGłównePrzełączniki(element) {
+      return !element.closest(".toggle-switch") || element.matches(".toggle-switch");
+    });
+
     for (let indeks = 0; indeks < kandydaci.length; indeks += 1) {
-      const kontener = kandydaci[indeks].closest(".question-field, .form-group, [class*='field-'], li, tr") || kandydaci[indeks].parentElement;
-      const przełącznik = kontener && kontener.querySelector(".toggle-switch, .toggler, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button");
-      if (przełącznik) { return przełącznik; }
+      let kontener = kandydaci[indeks].parentElement;
+
+      while (kontener && kontener !== dokument.body) {
+        const lokalnePrzełączniki = przełączniki.filter(function należyDoKontenera(element) {
+          return kontener.contains(element);
+        });
+
+        if (lokalnePrzełączniki.length === 1) {
+          return lokalnePrzełączniki[0];
+        }
+        kontener = kontener.parentElement;
+      }
+    }
+
+    if (kandydaci[0] && typeof kandydaci[0].getBoundingClientRect === "function") {
+      const prostokątEtykiety = kandydaci[0].getBoundingClientRect();
+      const środekEtykiety = prostokątEtykiety.top + prostokątEtykiety.height / 2;
+      const najbliższy = przełączniki.map(function zmierz(element) {
+        const prostokąt = element.getBoundingClientRect();
+        const środek = prostokąt.top + prostokąt.height / 2;
+        return { element: element, odległość: Math.abs(środek - środekEtykiety) };
+      }).filter(function tylkoWidoczne(wynik) {
+        const prostokąt = wynik.element.getBoundingClientRect();
+        return prostokąt.width > 0 && prostokąt.height > 0;
+      }).sort(function odNajbliższego(pierwszy, drugi) {
+        return pierwszy.odległość - drugi.odległość;
+      })[0];
+
+      if (najbliższy && najbliższy.odległość <= Math.max(50, prostokątEtykiety.height)) {
+        return najbliższy.element;
+      }
     }
     return null;
+  }
+
+  function znajdźPrzełącznikPytaniaKompetencji(dokument, numerPytania) {
+    const sekcjaKompetencji = dokument.querySelector("#leadToAcquisitionOfCompetences");
+    const polaPytań = sekcjaKompetencji
+      ? Array.from(sekcjaKompetencji.querySelectorAll(":scope > div > .question-field, :scope > .question-field"))
+      : [];
+    const polePytania = polaPytań[numerPytania - 1];
+
+    if (polePytania) {
+      return polePytania.querySelector(
+        ".toggle-switch, [role='switch'], input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
+      ) || polePytania;
+    }
+
+    return znajdźPrzełącznikPoTekście(dokument, "pytanie " + numerPytania);
   }
 
   function znajdźPoleWTabeli(dokument, tytułTabeli, nazwaKolumny) {
@@ -379,11 +429,8 @@
       sekcja: "Główny cel usługi",
       pole: "Cel edukacyjny",
       oczekiwanaWartość: "TAK",
-      definicja: {
-        sekcja: "Główny cel usługi",
-        etykieta: "Cel edukacyjny",
-        selektory: ["#\\36 a4b781ee27a3 > div.card-body > div:nth-child(1) > div.question-field > div > div.toggle-switch > label > span.toggler"]
-      },
+      definicja: { sekcja: "Główny cel usługi", etykieta: "Cel edukacyjny", selektory: [] },
+      element: znajdźPrzełącznikPoTekście(dokument, "cel edukacyjny"),
       pobierzWartość: przestrzeń.pobierzStanPrzełącznika
     });
 

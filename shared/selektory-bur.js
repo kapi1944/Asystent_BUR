@@ -184,6 +184,17 @@
         continue;
       }
 
+      if (kluczKolumny.includes("metody walidacji")) {
+        const metodaWalidacji = tabela.querySelector(
+          "tbody select, tbody [id^='select2-'][id$='-container'], tbody .select2-selection__rendered, "
+          + "select, [id^='select2-'][id$='-container'], .select2-selection__rendered"
+        );
+
+        if (metodaWalidacji) {
+          return metodaWalidacji;
+        }
+      }
+
       const wiersze = Array.from(tabela.querySelectorAll("tbody tr, tr")).filter(function zostawWiersz(wiersz) {
         const komórki = Array.from(wiersz.children || []).filter(function tylkoKomórki(element) {
           return element.tagName === "TD";
@@ -388,7 +399,14 @@
       return "";
     }
 
-    const kontener = znajdźKontenerPola(elementLubKontener) || elementLubKontener;
+    const zawieraPrzełącznik = elementLubKontener.matches && elementLubKontener.matches(
+      ".toggle-switch, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
+    ) || elementLubKontener.querySelector && elementLubKontener.querySelector(
+      ".toggle-switch, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
+    );
+    const kontener = zawieraPrzełącznik
+      ? elementLubKontener
+      : (znajdźKontenerPola(elementLubKontener) || elementLubKontener);
     const zaznaczonyInput = kontener.querySelector("input[type='radio']:checked, input[type='checkbox']:checked");
 
     if (zaznaczonyInput) {

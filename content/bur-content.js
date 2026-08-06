@@ -3,6 +3,9 @@
   const komunikaty = przestrzen.KOMUNIKATY;
   let ostatnieWykryteKontoBur = null;
   let timerWykrywaniaKontaBur = null;
+  let timerAutomatycznejWalidacjiBur = null;
+  let automatycznaWalidacjaBurWToku = false;
+  let ponówAutomatycznąWalidacjęBur = false;
   const WERSJA_SKRYPTU_BUR = "hotfix-diagnostyka-import-csv-2026-07-17-v2";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
@@ -1317,6 +1320,25 @@
       return null;
     }
 
+    if (element.matches && element.matches(".toggle-switch, [role='switch'], input[type='checkbox'], input[type='radio']")) {
+      let kontenerPrzełącznika = element.parentElement;
+      while (kontenerPrzełącznika && kontenerPrzełącznika !== document.body) {
+        const tekst = kontenerPrzełącznika.textContent || "";
+        const prostokąt = kontenerPrzełącznika.getBoundingClientRect();
+        if ((/pytanie\s+[123]/i.test(tekst) || /cel edukacyjny/i.test(tekst)) && prostokąt.height <= 120) {
+          return kontenerPrzełącznika;
+        }
+        kontenerPrzełącznika = kontenerPrzełącznika.parentElement;
+      }
+      return element.closest(".toggle-switch") || element;
+    }
+
+    if (/pytanie\s+[123]/i.test(element.textContent || "") && element.querySelector && element.querySelector(
+      ".toggle-switch, input[type='checkbox'], input[type='radio'], [aria-pressed], [aria-checked], button"
+    )) {
+      return element;
+    }
+
     if (element.matches && element.matches(".ql-editor")) {
       return element.closest(".ql-container") || element;
     }
@@ -1458,6 +1480,69 @@
       });
   }
 
+  function czyListaUsługBur(adres) {
+    try {
+      return new URL(String(adres || ""), location.origin).pathname.startsWith("/usluga/usluga/lista");
+    } catch (błąd) {
+      return false;
+    }
+  }
+
+  function wykonajAutomatycznąWalidacjęBur() {
+    if (czyListaUsługBur(location.href)) { return; }
+    if (automatycznaWalidacjaBurWToku) {
+      ponówAutomatycznąWalidacjęBur = true;
+      return;
+    }
+
+    automatycznaWalidacjaBurWToku = true;
+    odczytajStorageWalidacjiBur()
+      .then(function walidujJeśliGotowe(dane) {
+        const szkolenie = dane.ostatnieSzkolenieSemper;
+        if (!szkolenie) { return; }
+        const wybórTerminu = wybierzTerminSemper(szkolenie, dane.wybranyTerminSemperIndex);
+        if (!wybórTerminu.ok) { return; }
+        const wynik = przestrzen.walidujFormularzBur(document, {
+          szkolenieSemper: szkolenie,
+          wybranyTermin: wybórTerminu.termin,
+          profilId: szkolenie.profilId || "semper",
+          wykryteKontoBur: wykryjKontoBur()
+        });
+        zastosujWynikWalidacjiNaStronie(document, wynik);
+      })
+      .catch(function pomińBrakGotowegoKontekstu() {})
+      .finally(function zakończAutomatycznąWalidację() {
+        automatycznaWalidacjaBurWToku = false;
+        if (ponówAutomatycznąWalidacjęBur) {
+          ponówAutomatycznąWalidacjęBur = false;
+          zaplanujAutomatycznąWalidacjęBur();
+        }
+      });
+  }
+
+  function zaplanujAutomatycznąWalidacjęBur() {
+    if (czyListaUsługBur(location.href)) { return; }
+    if (timerAutomatycznejWalidacjiBur) { globalny.clearTimeout(timerAutomatycznejWalidacjiBur); }
+    timerAutomatycznejWalidacjiBur = globalny.setTimeout(function uruchom() {
+      timerAutomatycznejWalidacjiBur = null;
+      wykonajAutomatycznąWalidacjęBur();
+    }, 60);
+  }
+
+  function zaplanujWalidacjęPoKliknięciu(zdarzenie) {
+    const element = zdarzenie && zdarzenie.target && zdarzenie.target.closest
+      ? zdarzenie.target.closest("button, [role='button'], input[type='radio'], input[type='checkbox'], .select2-selection")
+      : null;
+    if (element) { zaplanujAutomatycznąWalidacjęBur(); }
+  }
+
+  function obsłużZmianęKontekstuWalidacjiBur(zmiany, obszar) {
+    if (obszar !== "local") { return; }
+    if (zmiany.ostatnieSzkolenieSemper || zmiany.wybranyTerminSemperIndex) {
+      zaplanujAutomatycznąWalidacjęBur();
+    }
+  }
+
   function obsłużWypełnianieFormularzaBur(wiadomosc, odpowiedz) {
     try {
       const wynik = przestrzen.wypełnijFormularzBur(document, {
@@ -1506,8 +1591,15 @@
 
   document.addEventListener("input", zaplanujPowiadomienieOTerminieBur, true);
   document.addEventListener("change", zaplanujPowiadomienieOTerminieBur, true);
+  document.addEventListener("input", zaplanujAutomatycznąWalidacjęBur, true);
+  document.addEventListener("change", zaplanujAutomatycznąWalidacjęBur, true);
+  document.addEventListener("click", zaplanujWalidacjęPoKliknięciu, true);
+  if (chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener(obsłużZmianęKontekstuWalidacjiBur);
+  }
   wykryjKontoBur();
   obserwujZmianyKontaBur();
+  zaplanujAutomatycznąWalidacjęBur();
 
   function kluczDziennegoLicznikaKolejkiBur() {
     const data = new Date();

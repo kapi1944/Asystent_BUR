@@ -946,11 +946,32 @@ li + li {
 }
 
 .licznik-walidacji {
+  min-height: 0;
   padding: 8px;
   border: 1px solid var(--ramka);
   border-radius: 6px;
   background: var(--panel-drugi);
+  color: inherit;
+  font: inherit;
   text-align: center;
+  cursor: pointer;
+}
+
+.licznik-walidacji.walidacja-błąd.aktywny {
+  background: var(--czerwony);
+}
+
+.licznik-walidacji.walidacja-ostrzeżenie.aktywny {
+  background: var(--pomaranczowy);
+}
+
+.licznik-walidacji.walidacja-poprawne.aktywny {
+  background: var(--zielony);
+}
+
+.licznik-walidacji:focus-visible {
+  outline: 3px solid #7c3aed;
+  outline-offset: 2px;
 }
 
 .licznik-walidacji strong {

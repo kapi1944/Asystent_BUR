@@ -24,7 +24,10 @@
       pytanie3: "TAK",
       efekty: "-",
       kryteria: "-",
-      metoda: "Wywiad swobodny"
+      metoda: "Wywiad swobodny",
+      kontaktImięINazwisko: "Angelika Poznańska",
+      kontaktEmail: "a.poznanska@szkolenia-semper.pl",
+      kontaktTelefon: "(+48) 570 590 060"
     }, zmiany || {});
     const dokument = document.implementation.createHTMLDocument("BUR walidacja");
     const aktualnaPodstawa = "Znak Jakości TGLS Quality Alliance";
@@ -60,18 +63,24 @@
       "</section>",
       "<section id=\"qualificationsZrk\">",
       "<h2>Główny cel usługi</h2>",
-      "<div class=\"form-group\"><span>Cel edukacyjny</span><button class=\"active\">" + wartości.celEdukacyjny + "</button></div>",
+      "<div><span>Cel edukacyjny</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.celEdukacyjny === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div>",
       "<textarea id=\"glownyceluslugisekcja-celedukacyjnyopis\">" + wartości.celOpis + "</textarea>",
       "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjezrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji włączonej do ZSK?</span><button class=\"active\">" + wartości.zsk + "</button></div>",
       "<div class=\"field-glownyceluslugisekcja-czyuslugadajekwalifikacjeinnenizzrk form-group\"><span>Czy usługa pozwala na uzyskanie kwalifikacji niewłączonych do ZSK?</span><button class=\"active\">" + wartości.kwalifikacjeInne + "</button></div>",
       "<div class=\"field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji form-group\"><span>Czy usługa prowadzi do nabycia kompetencji?</span><button class=\"active\">" + wartości.kompetencje + "</button></div>",
-      "<div class=\"form-group\"><span>Pytanie 1. Czy dokument potwierdzający uzyskanie kompetencji lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem zawierają opis efektów uczenia się?</span><button class=\"active\">" + wartości.pytanie1 + "</button></div>",
-      "<div class=\"form-group\"><span>Pytanie 2. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja została przeprowadzona w oparciu o zdefiniowane w efektach uczenia się kryteria ich weryfikacji i zgodnie z zaplanowanymi metodami walidacji?</span><button class=\"active\">" + wartości.pytanie2 + "</button></div>",
-      "<div class=\"form-group\"><span>Pytanie 3. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań zapewniających rozdzielenie procesów kształcenia i szkolenia od walidacji?</span><button class=\"active\">" + wartości.pytanie3 + "</button></div>",
+      "<div class=\"field-warunki-uznania-kompetencji\"><button class=\"active\">NIE</button>",
+      "<div><span>Pytanie 1. Czy dokument potwierdzający uzyskanie kompetencji lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem zawierają opis efektów uczenia się?</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.pytanie1 === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div>",
+      "<div><span>Pytanie 2. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja została przeprowadzona w oparciu o zdefiniowane w efektach uczenia się kryteria ich weryfikacji i zgodnie z zaplanowanymi metodami walidacji?</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.pytanie2 === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div>",
+      "<div><span>Pytanie 3. Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań zapewniających rozdzielenie procesów kształcenia i szkolenia od walidacji?</span><div class=\"toggle-switch\"><label><input type=\"checkbox\"" + (wartości.pytanie3 === "TAK" ? " checked" : "") + "><span class=\"toggler\"></span></label></div></div></div>",
       "<h3>Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji</h3><table>",
       "<tr><th>Efekty uczenia się</th><th>Kryteria weryfikacji</th><th>Metody walidacji</th></tr>",
-      "<tr><td><input value=\"" + wartości.efekty + "\"></td><td><input value=\"" + wartości.kryteria + "\"></td><td><span id=\"select2-metoda-container\" title=\"" + wartości.metoda + "\">" + wartości.metoda + "</span></td></tr>",
+      "<tr><td><input value=\"" + wartości.efekty + "\"></td><td><input value=\"" + wartości.kryteria + "\"></td><td><input value=\"-\"></td><td><span id=\"select2-metoda-container\" title=\"" + wartości.metoda + "\">" + wartości.metoda + "</span></td></tr>",
       "</table>",
+      "</section>",
+      "<section><h2>Dane kontaktowe</h2>",
+      "<input id=\"danekontaktowesekcja-osobakontaktowaimieinazwisko\" value=\"" + wartości.kontaktImięINazwisko + "\">",
+      "<input id=\"danekontaktowesekcja-adresemail\" type=\"email\" value=\"" + wartości.kontaktEmail + "\">",
+      "<input id=\"danekontaktowesekcja-numertelefonu\" type=\"tel\" value=\"" + wartości.kontaktTelefon + "\">",
       "</section>"
     ].join("");
 
@@ -244,6 +253,24 @@
     sprawdźStatus("Pytanie 3 w sekcji kompetencji", { pytanie3: "NIE" }, "online", "błąd");
   });
 
+  test("pytania kompetencji są odczytywane z kolejnych pól aktualnego formularza BUR", function sprawdź() {
+    const dokument = utwórzDokumentWalidacji();
+    const staraSekcja = dokument.querySelector(".field-warunki-uznania-kompetencji");
+    const sekcja = dokument.createElement("div");
+    sekcja.id = "leadToAcquisitionOfCompetences";
+    sekcja.innerHTML = [1, 2, 3].map(function utwórzPytanie(numer) {
+      return "<div><div class=\"details-label\">Pytanie " + numer + ". Treść pytania</div>" +
+        "<div class=\"question-field\"><label><input type=\"checkbox\" checked><span class=\"toggler\"></span></label></div></div>";
+    }).join("");
+    staraSekcja.replaceWith(sekcja);
+
+    const wynik = bur.walidujFormularzBur(dokument, utwórzKontekst("online"));
+
+    [1, 2, 3].forEach(function sprawdźPytanie(numer) {
+      sprawdzRownosc(znajdźPozycję(wynik, "Pytanie " + numer + " w sekcji kompetencji").status, "poprawne");
+    });
+  });
+
   test("efekty uczenia się i kryteria weryfikacji wymagają myślnika", function sprawdź() {
     sprawdźStatus("Efekty uczenia się", { efekty: "Opis efektu" }, "online", "błąd");
     sprawdźStatus("Kryteria weryfikacji", { kryteria: "Opis kryterium" }, "online", "błąd");
@@ -269,6 +296,24 @@
         sprawdzWarunek(Boolean(pozycja.element), "Brak elementu do podświetlenia: " + profilId + ": " + pole);
       });
     });
+  });
+
+  test("dane kontaktowe są walidowane według profilu SEMPER i IIST", function sprawdź() {
+    [
+      { profilId: "semper", wartości: {} },
+      { profilId: "iist", wartości: { kontaktImięINazwisko: "Ewa Nizioł", kontaktEmail: "bur@iist.pl", kontaktTelefon: "(+48) 530 409 030" } }
+    ].forEach(function sprawdźProfil(ustawienia) {
+      const kontekst = utwórzKontekst("online");
+      kontekst.profilId = ustawienia.profilId;
+      kontekst.szkolenieSemper.profilId = ustawienia.profilId;
+      const wynik = bur.walidujFormularzBur(utwórzDokumentWalidacji(ustawienia.wartości), kontekst);
+      ["Imię i nazwisko", "E-mail", "Telefon"].forEach(function sprawdźPoleKontaktu(pole) {
+        sprawdzRownosc(znajdźPozycję(wynik, pole).status, "poprawne", ustawienia.profilId + ": " + pole);
+      });
+    });
+
+    const wynikBłędny = bur.walidujFormularzBur(utwórzDokumentWalidacji({ kontaktEmail: "inny@example.com" }), utwórzKontekst("online"));
+    sprawdzRownosc(znajdźPozycję(wynikBłędny, "E-mail").status, "błąd");
   });
 
   test("poprawne rekordy osób SEMPER i IIST mają zielony status wiersza i pól", function sprawdź() {
