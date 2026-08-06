@@ -24,6 +24,22 @@
     return aktualna === oczekiwana || bezZnakówDiakrytycznych(aktualna) === bezZnakówDiakrytycznych(oczekiwana);
   }
 
+  const NAGŁÓWKI_WARUNKÓW_UCZESTNICTWA = {
+    semper: "ZGŁOSZENIE NA USŁUGĘ",
+    iist: "INFORMACJE DOTYCZĄCE ZGŁOSZEŃ"
+  };
+  const FORMUŁY_WARUNKÓW_UCZESTNICTWA = {
+    semper: [
+      "Rezerwacji miejsca szkoleniowego można dokonać za pośrednictwem BUR.",
+      "Dla jednostek budżetowych finansujących udział w szkoleniu w minimum 70% lub w całości ze środków publicznych stawka podatku VAT = zw."
+    ],
+    iist: [
+      "Dla uczestników finansujących udział w szkoleniu w minimum 70% lub w całości ze środków publicznych następuje zwolnienie z obowiązku opłaty podatku VAT. Zwolnienie z podatku VAT na podstawie § 3 ust. 1 pkt 14 Rozporządzenia Ministra Finansów z dnia 20 grudnia 2013 r. w sprawie zwolnień od podatku od towarów i usług oraz warunków stosowania tych zwolnień (tekst jednolity DzU. 2025 poz. 832).",
+      "Walidacja usługi odbędzie się poprzez PRE i POST TESTY przekazane dla uczestników na początku szkolenia oraz ponownie weryfikowane przed jego zakończeniem."
+    ]
+  };
+  const FORMUŁA_WARUNKÓW_ONLINE_IIST = "Usługa będzie rejestrowana w celu kontroli i audytu. Wizerunek uczestników będzie rejestrowany. Uczestnik zobowiązany jest to posiadania i używania sprawnej kamerki internetowej.";
+
   function pobierzTytułBur(szkolenieSemper) {
     return szkolenieSemper.tytułPoNormalizacjiBur || szkolenieSemper.tytułBur || szkolenieSemper.tytulBur || "";
   }
@@ -268,11 +284,8 @@
   }
 
   function znajdźPrzełącznikCeluEdukacyjnego(dokument) {
-    const sekcjaCelu = dokument.querySelector("#qualificationsZrk");
+    const sekcjaCelu = dokument.querySelector(".field-glownyceluslugisekcja-czyceledukacyjny") || dokument.querySelector("#qualificationsZrk") || dokument;
     const diagnostyka = utwórzDiagnostykęPrzełącznika("Cel edukacyjny");
-    if (!sekcjaCelu) {
-      return { checkbox: null, elementDoOdczytu: null, element: null, diagnostyka: diagnostyka };
-    }
     const selektory = [
       "#glownyceluslugisekcja-czyceledukacyjny",
       "input[type='checkbox'][name*='czyCelEdukacyjny' i]",
@@ -281,14 +294,14 @@
     let checkbox = null;
     let użytySelektor = "";
     for (let indeks = 0; indeks < selektory.length; indeks += 1) {
-      checkbox = sekcjaCelu.querySelector(selektory[indeks]);
+      checkbox = dokument.querySelector(selektory[indeks]);
       if (checkbox) {
         użytySelektor = selektory[indeks];
         break;
       }
     }
     if (!checkbox) {
-      const etykiety = Array.from(sekcjaCelu.querySelectorAll("label[for]"));
+      const etykiety = Array.from(dokument.querySelectorAll("label[for]"));
       const etykieta = etykiety.find(function pasuje(element) {
         const tekst = normalizujDoPorównaniaBur(element.textContent || "");
         return (tekst === "cel edukacyjny" || tekst === "cel edukacyjny:") && !/opis/i.test(element.htmlFor || "");
@@ -614,6 +627,7 @@
     const szkolenieSemper = kontekst.szkolenieSemper || {};
     const tytułTabeli = "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji";
     const przełącznikCeluEdukacyjnego = znajdźPrzełącznikCeluEdukacyjnego(dokument);
+    const oczekiwanyOpisCelu = przestrzeń.skróćCelEdukacyjnyDoLimituBur(pobierzSekcjęSemper(szkolenieSemper, ["celSzkolenia", "celSzkoleniaHtml", "goalHtml"]));
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -631,13 +645,13 @@
       dokument: dokument,
       sekcja: "Główny cel usługi",
       pole: "Cel edukacyjny - opis",
-      oczekiwanaWartość: pobierzSekcjęSemper(szkolenieSemper, ["celSzkolenia", "celSzkoleniaHtml", "goalHtml"]),
+      oczekiwanaWartość: oczekiwanyOpisCelu,
       definicja: {
         sekcja: "Główny cel usługi",
         selektory: ["#glownyceluslugisekcja-celedukacyjnyopis"]
       },
       czyOstrzeżenie: function sprawdźCel(aktualnaWartość) {
-        return !czyTekstPodobny(aktualnaWartość, pobierzSekcjęSemper(szkolenieSemper, ["celSzkolenia", "celSzkoleniaHtml", "goalHtml"]));
+        return !czyTekstPodobny(aktualnaWartość, oczekiwanyOpisCelu);
       },
       komunikatOstrzeżenia: "Opis celu edukacyjnego różni się od sekcji Cel szkolenia z SEMPER.",
       selektorPomocniczy: "#glownyceluslugisekcja-celedukacyjnyopis"
@@ -767,6 +781,30 @@
     dodajPozycję(pozycje, { sekcja: sekcja, pole: pole, status: poprawne ? "poprawne" : (statusBraku || "błąd"), komunikat: poprawne ? "Wartość jest zgodna z profilem dostawcy." : komunikatBłędu, oczekiwanaWartość: oczekiwana, aktualnaWartość: aktualna || "Nie odczytano wartości", element: element });
   }
 
+  function walidujWarunkiUczestnictwa(pozycje, profilId, czyOnline, pole) {
+    const nagłówek = NAGŁÓWKI_WARUNKÓW_UCZESTNICTWA[profilId];
+    const formuły = (FORMUŁY_WARUNKÓW_UCZESTNICTWA[profilId] || []).slice();
+    if (profilId === "iist" && czyOnline) { formuły.push(FORMUŁA_WARUNKÓW_ONLINE_IIST); }
+    const aktualnaWartość = normalizujDoPorównaniaBur(pole.wartość);
+    const brakująceFormuły = formuły.filter(function znajdźBrak(formuła) {
+      return !aktualnaWartość.includes(normalizujDoPorównaniaBur(formuła));
+    });
+    const brakujeNagłówka = !aktualnaWartość.includes(normalizujDoPorównaniaBur(nagłówek));
+    const status = brakująceFormuły.length ? "błąd" : (brakujeNagłówka ? "ostrzeżenie" : "poprawne");
+    const komunikat = brakująceFormuły.length
+      ? "Brakuje wymaganej formuły w warunkach uczestnictwa."
+      : (brakujeNagłówka ? "Brakuje nagłówka „" + nagłówek + "”." : "Warunki uczestnictwa zawierają wszystkie wymagane fragmenty.");
+    dodajPozycję(pozycje, {
+      sekcja: "Informacje dodatkowe",
+      pole: "Warunki uczestnictwa",
+      status: status,
+      komunikat: komunikat,
+      oczekiwanaWartość: [nagłówek].concat(formuły).join("\n"),
+      aktualnaWartość: pole.wartość || "Nie odczytano wartości",
+      element: pole.element
+    });
+  }
+
   function normalizujPoleOsoby(wartość, typ) {
     const tekst = normalizujDoPorównaniaBur(wartość);
     if (typ === "email") {
@@ -881,10 +919,25 @@
     dodajSprawdzenieProfilu(pozycje, "Kontekst operacji", "Konto BUR", przestrzeń.czyProfilZgodnyZKontemBur(profilId, konto), profil.pełnaNazwa, konto && konto.nazwaOrganizacji || "", null, "Konto BUR nie odpowiada profilowi " + profil.nazwa + ".");
     [["kontaktImieNazwisko", "Imię i nazwisko", profil.daneKontaktowe.imięINazwisko], ["kontaktEmail", "E-mail", profil.daneKontaktowe.email], ["kontaktTelefon", "Telefon", profil.daneKontaktowe.telefon]].forEach(function sprawdźKontakt(dane) {
       const pole = odczytajCel(dokument, dane[0]);
+      if (profilId === "semper" && dane[0] === "kontaktEmail") {
+        const aktualnyEmail = normalizujDoPorównaniaBur(pole.wartość);
+        const czyPreferowany = aktualnyEmail === normalizujDoPorównaniaBur(dane[2]);
+        const czyDopuszczalny = aktualnyEmail === "info@szkolenia-semper.pl";
+        dodajPozycję(pozycje, {
+          sekcja: "Dane kontaktowe",
+          pole: dane[1],
+          status: czyPreferowany ? "poprawne" : (czyDopuszczalny ? "ostrzeżenie" : "błąd"),
+          komunikat: czyPreferowany ? "Wartość jest zgodna z profilem dostawcy." : (czyDopuszczalny ? "Adres e-mail jest dopuszczalny dla profilu SEMPER, ale preferowany jest adres osoby kontaktowej." : "Dane kontaktowe nie odpowiadają profilowi " + profil.nazwa + "."),
+          oczekiwanaWartość: dane[2],
+          aktualnaWartość: pole.wartość,
+          element: pole.element
+        });
+        return;
+      }
       dodajSprawdzenieProfilu(pozycje, "Dane kontaktowe", dane[1], normalizujDoPorównaniaBur(pole.wartość) === normalizujDoPorównaniaBur(dane[2]), dane[2], pole.wartość, pole.element, "Dane kontaktowe nie odpowiadają profilowi " + profil.nazwa + ".");
     });
     const cel = odczytajCel(dokument, "opisCeluEdukacyjnego");
-    const opis = szkolenie.sekcje && (szkolenie.sekcje.celEdukacyjnyOpis || szkolenie.sekcje.celSzkolenia) || "";
+    const opis = przestrzeń.skróćCelEdukacyjnyDoLimituBur(szkolenie.sekcje && (szkolenie.sekcje.celEdukacyjnyOpis || szkolenie.sekcje.celSzkolenia) || "");
     dodajSprawdzenieProfilu(pozycje, "Główny cel usługi", "Cel edukacyjny - opis", Boolean(opis) && normalizujDoPorównaniaBur(cel.wartość).includes(normalizujDoPorównaniaBur(opis)), opis, cel.wartość, cel.element, "Brakuje pierwszej części celu edukacyjnego " + profil.nazwa + ".", opis ? "błąd" : "ostrzeżenie");
     const program = odczytajCel(dokument, "program");
     const tekstNad = szkolenie.sekcje && (szkolenie.sekcje.tekstNadProgramem || szkolenie.sekcje.efektyPoSzkoleniu) || "";
@@ -894,7 +947,8 @@
     const harmonogramPoprawny = [profil.osobaProwadzącaUsługę.email, profil.osobaProwadzącaWalidację.email].every(function maEmail(email) { return normalizujDoPorównaniaBur(harmonogram.wartość).includes(normalizujDoPorównaniaBur(email)); }) && !/szkolenia-semper\.pl/i.test(harmonogram.wartość);
     dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", "Adresy prowadzących w harmonogramie", harmonogramPoprawny, profil.osobaProwadzącaUsługę.email + ", " + profil.osobaProwadzącaWalidację.email, harmonogram.wartość, harmonogram.element, "Harmonogram nie używa wyłącznie adresów profilu " + profil.nazwa + ".");
     const online = /online/i.test([termin.forma, termin.miejsce].join(" "));
-    [["informacjaOMaterialach", "Informacja o materiałach", profil.materiałyOnline], ["warunkiUczestnictwa", "Warunki uczestnictwa", profil.warunkiUczestnictwaOnline], ["informacjeDodatkowe", "Informacje dodatkowe", profil.informacjeDodatkoweOnline], ["warunkiTechniczne", "Warunki techniczne", profil.warunkiTechniczneOnline], ["kodyDostepowe", "Kody dostępowe", profil.kodyDostępoweOnline]].forEach(function sprawdźOnline(dane) {
+    walidujWarunkiUczestnictwa(pozycje, profilId, online, odczytajCel(dokument, "warunkiUczestnictwa"));
+    [["informacjaOMaterialach", "Informacja o materiałach", profil.materiałyOnline], ["informacjeDodatkowe", "Informacje dodatkowe", profil.informacjeDodatkoweOnline], ["warunkiTechniczne", "Warunki techniczne", profil.warunkiTechniczneOnline], ["kodyDostepowe", "Kody dostępowe", profil.kodyDostępoweOnline]].forEach(function sprawdźOnline(dane) {
       const pole = odczytajCel(dokument, dane[0]);
       if (!online) { dodajPozycję(pozycje, { sekcja: "Informacje dodatkowe", pole: dane[1], status: "poprawne", komunikat: "Reguła dotyczy tylko online; pole nie jest wymuszane.", oczekiwanaWartość: "Reguła dotyczy tylko online", aktualnaWartość: pole.wartość, element: pole.element }); return; }
       dodajSprawdzenieProfilu(pozycje, "Informacje dodatkowe", dane[1], normalizujDoPorównaniaBur(pole.wartość) === normalizujDoPorównaniaBur(dane[2]), dane[2], pole.wartość, pole.element, "Pole online jest niezgodne z profilem " + profil.nazwa + ".");

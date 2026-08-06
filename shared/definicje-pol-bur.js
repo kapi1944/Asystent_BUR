@@ -31,7 +31,7 @@
       definicja("kompetencje-dokument", "kompetencjeDokument", "TAK", "reguła BUR", { typPola: "przełącznik" }),
       definicja("kompetencje-walidacja", "kompetencjeWalidacja", "TAK", "reguła BUR", { typPola: "przełącznik" }),
       definicja("kompetencje-rozwiazania", "kompetencjeRozwiazania", "TAK", "reguła BUR", { typPola: "przełącznik" }),
-      definicja("opis-celu", "opisCeluEdukacyjnego", sekcja(szkolenie, ["celEdukacyjnyOpis", "celSzkolenia", "celSzkoleniaHtml", "goalHtml"]), źródło),
+      definicja("opis-celu", "opisCeluEdukacyjnego", przestrzeń.skróćCelEdukacyjnyDoLimituBur(sekcja(szkolenie, ["celEdukacyjnyOpis", "celSzkolenia", "celSzkoleniaHtml", "goalHtml"])), źródło),
       definicja("efekty-uczenia", "efektyUczenia", "-", "reguła BUR", { typPola: "pole_tabeli" }),
       definicja("kryteria-weryfikacji", "kryteriaWeryfikacji", "-", "reguła BUR", { typPola: "pole_tabeli" }),
       definicja("metoda-walidacji", "metodaWalidacji", "Wywiad swobodny", "reguła BUR")

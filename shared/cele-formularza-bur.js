@@ -13,6 +13,24 @@
     }, dane || {});
   }
 
+  function skróćCelEdukacyjnyDoLimituBur(wartość, limit) {
+    const tekst = String(wartość || "").trim();
+    const maksymalnaDługość = Number(limit) || 500;
+    if (tekst.length <= maksymalnaDługość) {
+      return tekst;
+    }
+
+    const fragment = tekst.slice(0, maksymalnaDługość);
+    const zakończeniaZdań = Array.from(fragment.matchAll(/[.!?](?:["”')\]]+)?(?=\s|$)/g));
+    if (zakończeniaZdań.length) {
+      const ostatnieZakończenie = zakończeniaZdań[zakończeniaZdań.length - 1];
+      return fragment.slice(0, ostatnieZakończenie.index + ostatnieZakończenie[0].length).trim();
+    }
+
+    const ostatniaSpacja = fragment.lastIndexOf(" ");
+    return fragment.slice(0, ostatniaSpacja > 0 ? ostatniaSpacja : maksymalnaDługość).trim();
+  }
+
   const cele = {
     formaSwiadczenia: definicjaCelu("formaSwiadczenia", { selektory: ["#select2-formularzwstepnysekcja-formaswiadczenia-container"], selektoryAwaryjne: ["#formularzwstepnysekcja-formaswiadczenia"], sekcja: "Formularz wstępny", etykieta: "Forma świadczenia usługi", typKontrolki: "select2" }),
     wariantZajec: definicjaCelu("wariantZajec", { selektory: ["#select2-formularzwstepnysekcja-wariantzajec-container"], selektoryAwaryjne: ["#formularzwstepnysekcja-wariantzajec"], sekcja: "Formularz wstępny", etykieta: "Wariant zajęć", typKontrolki: "select2" }),
@@ -28,9 +46,9 @@
     lokalizacjaAdres: definicjaCelu("lokalizacjaAdres", { selektory: ["#lokalizacjauslugisekcja-adres"], selektoryAwaryjne: ["#lokalizacjauslugisekcja-miasto"], sekcja: "Lokalizacja usługi", etykieta: "Lokalizacja i adres", typKontrolki: "input" }),
     osobyProwadzace: definicjaCelu("osobyProwadzace", { selektory: ["#osoby-prowadzace-grid"], selektoryAwaryjne: ["#osobyprowadzace-grid", "#osoby-prowadzace-grid table"], sekcja: "Osoby prowadzące", etykieta: "Osoby prowadzące", typKontrolki: "tabela" }),
     program: definicjaCelu("program", { selektory: ["#programiharmonogramuslugisekcja-programuslugi-wysiwyg .ql-editor"], selektoryAwaryjne: ["#programiharmonogramuslugisekcja-programuslugi-wysiwyg"], sekcja: "Program i harmonogram usługi", etykieta: "Program usługi", typKontrolki: "edytorTekstowy" }),
-    kontaktImieNazwisko: definicjaCelu("kontaktImieNazwisko", { selektory: ["#danekontaktowesekcja-imieinazwisko", "input[id*='danekontaktowe' i][id*='imie' i]", "input[name*='danekontaktowe' i][name*='imie' i]"], sekcja: "Dane kontaktowe", etykieta: "Imię i nazwisko", typKontrolki: "input" }),
-    kontaktEmail: definicjaCelu("kontaktEmail", { selektory: ["#danekontaktowesekcja-email", "input[id*='danekontaktowe' i][type='email']", "input[id*='danekontaktowe' i][id*='email' i]", "input[name*='danekontaktowe' i][name*='email' i]"], selektoryAwaryjne: ["#danekontaktowesekcja-adrese-mail"], sekcja: "Dane kontaktowe", etykieta: "E-mail", typKontrolki: "input" }),
-    kontaktTelefon: definicjaCelu("kontaktTelefon", { selektory: ["#danekontaktowesekcja-telefon", "input[id*='danekontaktowe' i][type='tel']", "input[id*='danekontaktowe' i][id*='telefon' i]", "input[name*='danekontaktowe' i][name*='telefon' i]"], sekcja: "Dane kontaktowe", etykieta: "Telefon", typKontrolki: "input" }),
+    kontaktImieNazwisko: definicjaCelu("kontaktImieNazwisko", { selektory: ["#osobadokontaktusekcja-godnosc", "input[name='OsobaDoKontaktuSekcja[godnosc]']", "#danekontaktowesekcja-imieinazwisko", "input[id*='danekontaktowe' i][id*='imie' i]", "input[name*='danekontaktowe' i][name*='imie' i]"], sekcja: "Dane kontaktowe", etykieta: "Imię i nazwisko", typKontrolki: "input" }),
+    kontaktEmail: definicjaCelu("kontaktEmail", { selektory: ["#osobadokontaktusekcja-email", "input[name='OsobaDoKontaktuSekcja[email]']", "#danekontaktowesekcja-email", "input[id*='danekontaktowe' i][type='email']", "input[id*='danekontaktowe' i][id*='email' i]", "input[name*='danekontaktowe' i][name*='email' i]"], selektoryAwaryjne: ["#danekontaktowesekcja-adrese-mail"], sekcja: "Dane kontaktowe", etykieta: "E-mail", typKontrolki: "input" }),
+    kontaktTelefon: definicjaCelu("kontaktTelefon", { selektory: ["#osobadokontaktusekcja-telefon", "input[name='OsobaDoKontaktuSekcja[telefon]']", "#danekontaktowesekcja-telefon", "input[id*='danekontaktowe' i][type='tel']", "input[id*='danekontaktowe' i][id*='telefon' i]", "input[name*='danekontaktowe' i][name*='telefon' i]"], sekcja: "Dane kontaktowe", etykieta: "Telefon", typKontrolki: "input" }),
     daneKontaktowe: definicjaCelu("daneKontaktowe", { selektoryAwaryjne: ["#daneKontaktowe", "#danekontaktowesekcja"], sekcja: "Dane kontaktowe", etykieta: "Dane kontaktowe", typKontrolki: "input" }),
     informacjaOMaterialach: definicjaCelu("informacjaOMaterialach", { selektory: ["#informacjedodatkowesekcja-informacjaomaterialachdlaosobuczestniczacychwusludze-wysiwyg .ql-editor"], sekcja: "Informacje dodatkowe", etykieta: "Informacja o materiałach dla uczestników usługi", typKontrolki: "edytorTekstowy" }),
     warunkiUczestnictwa: definicjaCelu("warunkiUczestnictwa", { selektory: ["#informacjedodatkowesekcja-warunkiuczestnictwa-wysiwyg .ql-editor"], sekcja: "Informacje dodatkowe", etykieta: "Warunki uczestnictwa", typKontrolki: "edytorTekstowy" }),
@@ -154,6 +172,7 @@
   }
 
   przestrzeń.REJESTR_CELÓW_FORMULARZA_BUR = cele;
+  przestrzeń.skróćCelEdukacyjnyDoLimituBur = skróćCelEdukacyjnyDoLimituBur;
   przestrzeń.pobierzCelFormularzaBur = pobierzCelFormularzaBur;
   przestrzeń.pobierzCelDlaPozycjiWalidacji = pobierzCelDlaPozycjiWalidacji;
   przestrzeń.znajdźCelFormularzaBur = znajdźCelFormularzaBur;

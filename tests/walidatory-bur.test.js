@@ -78,9 +78,9 @@
       "</table>",
       "</section>",
       "<section><h2>Dane kontaktowe</h2>",
-      "<input id=\"danekontaktowesekcja-osobakontaktowaimieinazwisko\" value=\"" + wartości.kontaktImięINazwisko + "\">",
-      "<input id=\"danekontaktowesekcja-adresemail\" type=\"email\" value=\"" + wartości.kontaktEmail + "\">",
-      "<input id=\"danekontaktowesekcja-numertelefonu\" type=\"tel\" value=\"" + wartości.kontaktTelefon + "\">",
+      "<input id=\"osobadokontaktusekcja-godnosc\" name=\"OsobaDoKontaktuSekcja[godnosc]\" type=\"text\" value=\"" + wartości.kontaktImięINazwisko + "\">",
+      "<input id=\"osobadokontaktusekcja-email\" name=\"OsobaDoKontaktuSekcja[email]\" type=\"text\" value=\"" + wartości.kontaktEmail + "\">",
+      "<input id=\"osobadokontaktusekcja-telefon\" name=\"OsobaDoKontaktuSekcja[telefon]\" type=\"text\" value=\"" + wartości.kontaktTelefon + "\">",
       "</section>"
     ].join("");
 
@@ -153,6 +153,57 @@
     kontekst.szkolenieSemper.profilId = profilId;
     return bur.walidujFormularzBur(dokument, kontekst);
   }
+
+  function walidujWarunkiUczestnictwa(profilId, forma, tekst) {
+    const profil = bur.pobierzProfilDostawcy(profilId);
+    const dokument = utwórzDokumentWalidacji({
+      kontaktImięINazwisko: profil.daneKontaktowe.imięINazwisko,
+      kontaktEmail: profil.daneKontaktowe.email,
+      kontaktTelefon: profil.daneKontaktowe.telefon
+    });
+    const kontener = dokument.createElement("div");
+    const edytor = dokument.createElement("div");
+    kontener.id = "informacjedodatkowesekcja-warunkiuczestnictwa-wysiwyg";
+    edytor.className = "ql-editor";
+    edytor.textContent = tekst;
+    kontener.appendChild(edytor);
+    dokument.body.appendChild(kontener);
+    const kontekst = utwórzKontekst(forma);
+    kontekst.profilId = profilId;
+    kontekst.szkolenieSemper.profilId = profilId;
+    return znajdźPozycję(bur.walidujFormularzBur(dokument, kontekst), "Warunki uczestnictwa");
+  }
+
+  const WARUNKI_SEMPER = "ZGŁOSZENIE NA USŁUGĘ\nRezerwacji miejsca szkoleniowego można dokonać za pośrednictwem BUR.\nDla jednostek budżetowych finansujących udział w szkoleniu w minimum 70% lub w całości ze środków publicznych stawka podatku VAT = zw.";
+
+  test("warunki SEMPER są wymagane online i stacjonarnie", function sprawdź() {
+    ["online", "stacjonarna"].forEach(function sprawdźFormę(forma) {
+      sprawdzRownosc(walidujWarunkiUczestnictwa("semper", forma, WARUNKI_SEMPER).status, "poprawne");
+    });
+  });
+
+  test("brak nagłówka warunków SEMPER daje ostrzeżenie, a brak formuły błąd", function sprawdź() {
+    const bezNagłówka = WARUNKI_SEMPER.replace("ZGŁOSZENIE NA USŁUGĘ\n", "");
+    const bezFormuły = WARUNKI_SEMPER.replace("Rezerwacji miejsca szkoleniowego można dokonać za pośrednictwem BUR.", "");
+    sprawdzRownosc(walidujWarunkiUczestnictwa("semper", "online", bezNagłówka).status, "ostrzeżenie");
+    sprawdzRownosc(walidujWarunkiUczestnictwa("semper", "stacjonarna", bezFormuły).status, "błąd");
+  });
+
+  test("warunki IIST rozróżniają formę online i stacjonarną", function sprawdź() {
+    const warunkiOnline = bur.pobierzProfilDostawcy("iist").warunkiUczestnictwaOnline;
+    const warunkiStacjonarne = warunkiOnline.split("\n").slice(0, 3).join("\n");
+    sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "online", warunkiOnline).status, "poprawne");
+    sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "stacjonarna", warunkiStacjonarne).status, "poprawne");
+    sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "online", warunkiStacjonarne).status, "błąd");
+  });
+
+  test("brak nagłówka warunków IIST daje ostrzeżenie, a brak formuły błąd", function sprawdź() {
+    const warunkiOnline = bur.pobierzProfilDostawcy("iist").warunkiUczestnictwaOnline;
+    const bezNagłówka = warunkiOnline.replace("INFORMACJE DOTYCZĄCE ZGŁOSZEŃ\n", "");
+    const bezFormuły = warunkiOnline.replace("Walidacja usługi odbędzie się poprzez PRE i POST TESTY przekazane dla uczestników na początku szkolenia oraz ponownie weryfikowane przed jego zakończeniem.", "");
+    sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "online", bezNagłówka).status, "ostrzeżenie");
+    sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "stacjonarna", bezFormuły).status, "błąd");
+  });
 
   test("pusty tytuł daje błąd", function sprawdź() {
     sprawdźStatus("Tytuł", { tytuł: "" }, "online", "błąd");
@@ -249,6 +300,35 @@
     sprawdźStatus("Cel edukacyjny", { celEdukacyjny: "TAK" }, "online", "poprawne");
   });
 
+  test("cel edukacyjny TAK jest odczytywany poza kontenerem qualificationsZrk", function sprawdź() {
+    const dokument = utwórzDokumentWalidacji({ celEdukacyjny: "TAK" });
+    const sekcjaKwalifikacji = dokument.querySelector("#qualificationsZrk");
+    const wierszCelu = sekcjaKwalifikacji.querySelector("#glownyceluslugisekcja-czyceledukacyjny").closest(".form-group");
+    sekcjaKwalifikacji.parentElement.insertBefore(wierszCelu, sekcjaKwalifikacji);
+    const pozycja = znajdźPozycję(bur.walidujFormularzBur(dokument, utwórzKontekst("online")), "Cel edukacyjny");
+
+    sprawdzRownosc(pozycja.aktualnaWartość, "TAK");
+    sprawdzRownosc(pozycja.status, "poprawne");
+  });
+
+  test("walidacja celu edukacyjnego usuwa zdanie przycięte przez limit 500 znaków", function sprawdź() {
+    const pierwszeZdanie = "Pierwsze zdanie " + "a".repeat(230) + ".";
+    const drugieZdanie = "Drugie zdanie " + "b".repeat(220) + ".";
+    const oczekiwanyOpis = pierwszeZdanie + " " + drugieZdanie;
+    const pełnyOpis = oczekiwanyOpis + " Trzecie zdanie " + "c".repeat(200) + ".";
+    const dokument = utwórzDokumentWalidacji({ celOpis: oczekiwanyOpis });
+    const kontekst = utwórzKontekst("online");
+    kontekst.szkolenieSemper.sekcje.celSzkolenia = pełnyOpis;
+    const pozycjeCelu = bur.walidujFormularzBur(dokument, kontekst).pozycje.filter(function tylkoCel(pozycja) {
+      return pozycja.pole === "Cel edukacyjny - opis";
+    });
+
+    pozycjeCelu.forEach(function sprawdźPozycję(pozycja) {
+      sprawdzRownosc(pozycja.oczekiwanaWartość, oczekiwanyOpis);
+      sprawdzRownosc(pozycja.status, "poprawne");
+    });
+  });
+
   test("ZSK TAK przy oczekiwanym NIE daje ostrzeżenie", function sprawdź() {
     sprawdźStatus("Czy usługa pozwala na uzyskanie kwalifikacji włączonej do ZSK?", { zsk: "TAK" }, "online", "ostrzeżenie");
   });
@@ -306,6 +386,11 @@
 
     const wynikBłędny = bur.walidujFormularzBur(utwórzDokumentWalidacji({ kontaktEmail: "inny@example.com" }), utwórzKontekst("online"));
     sprawdzRownosc(znajdźPozycję(wynikBłędny, "E-mail").status, "błąd");
+
+    const wynikDopuszczalny = bur.walidujFormularzBur(utwórzDokumentWalidacji({ kontaktEmail: "info@szkolenia-semper.pl" }), utwórzKontekst("online"));
+    const pozycjaDopuszczalna = znajdźPozycję(wynikDopuszczalny, "E-mail");
+    sprawdzRownosc(pozycjaDopuszczalna.status, "ostrzeżenie");
+    sprawdzWarunek(pozycjaDopuszczalna.komunikat.includes("dopuszczalny"));
   });
 
   test("poprawne rekordy osób SEMPER i IIST mają zielony status wiersza i pól", function sprawdź() {
