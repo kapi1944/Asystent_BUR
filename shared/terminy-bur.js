@@ -223,10 +223,10 @@
   }
 
   function opiszTerminSemper(termin, indeks) {
-    if (czyTerminOnline(termin)) {
-      return "Termin " + (indeks + 1) + " · Online";
-    }
-    return ["Termin " + (indeks + 1), termin && termin.miejsce, "stacjonarna"].filter(Boolean).join(" · ");
+    const daty = pobierzDatyTerminuSemper(termin);
+    const zakres = formatujZakresDatPrezentacyjny(daty.dataRozpoczęcia, daty.dataZakończenia);
+    const miejsce = czyTerminOnline(termin) ? "Online" : termin && termin.miejsce;
+    return ["Termin " + (indeks + 1), zakres, miejsce].filter(Boolean).join(" · ");
   }
 
   function opiszWariantTerminuSemper(termin) {

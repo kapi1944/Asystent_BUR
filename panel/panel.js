@@ -781,8 +781,8 @@
       return;
     }
     kontener.textContent = "";
-    const grupy = przestrzeń.grupujTerminySemper(ostatnieTerminySemper, filtrTerminówHarmonogramu);
-    if (!grupy.length) {
+    const pozycje = przestrzeń.filtrujTerminySemper(ostatnieTerminySemper, filtrTerminówHarmonogramu);
+    if (!pozycje.length) {
       const pusty = document.createElement("p");
       pusty.className = "pusta-lista-terminow";
       pusty.textContent = ostatnieTerminySemper.length
@@ -792,24 +792,14 @@
       return;
     }
 
-    grupy.forEach(function dodajGrupę(grupa) {
-      const sekcja = document.createElement("section");
-      const nagłówek = document.createElement("h3");
-      sekcja.className = "grupa-terminow-harmonogramu";
-      nagłówek.className = "naglowek-grupy-terminow-harmonogramu";
-      nagłówek.textContent = grupa.etykieta;
-      sekcja.appendChild(nagłówek);
-
-      grupa.pozycje.forEach(function dodajTermin(pozycja) {
-        const terminHarmonogramu = Object.assign(przestrzeń.utwórzTerminHarmonogramuZeSemper(pozycja.termin, pozycja.indeks), { źródło: aktywnyProfilDostawcy, profilId: aktywnyProfilDostawcy });
-        sekcja.appendChild(
-          utwórzPrzyciskTerminuHarmonogramu(
-            terminHarmonogramu,
-            przestrzeń.opiszTerminSemper(pozycja.termin, pozycja.indeks)
-          )
-        );
-      });
-      kontener.appendChild(sekcja);
+    pozycje.forEach(function dodajTermin(pozycja) {
+      const terminHarmonogramu = Object.assign(przestrzeń.utwórzTerminHarmonogramuZeSemper(pozycja.termin, pozycja.indeks), { źródło: aktywnyProfilDostawcy, profilId: aktywnyProfilDostawcy });
+      kontener.appendChild(
+        utwórzPrzyciskTerminuHarmonogramu(
+          terminHarmonogramu,
+          przestrzeń.opiszTerminSemper(pozycja.termin, pozycja.indeks)
+        )
+      );
     });
   }
 
@@ -1011,10 +1001,10 @@
   }
 
   function renderujListęTerminówSemper() {
-    const grupy = przestrzeń.grupujTerminySemper(ostatnieTerminySemper, filtrTerminówSemper);
+    const pozycje = przestrzeń.filtrujTerminySemper(ostatnieTerminySemper, filtrTerminówSemper);
     elementy.listaTerminówSemper.textContent = "";
 
-    if (!grupy.length) {
+    if (!pozycje.length) {
       const pustaLista = document.createElement("p");
       pustaLista.className = "pusta-lista-terminow";
       pustaLista.textContent = ostatnieTerminySemper.length ? "Brak terminów dla wybranego filtra." : "Brak zaimportowanych terminów.";
@@ -1023,38 +1013,28 @@
       return;
     }
 
-    grupy.forEach(function dodajGrupę(grupa) {
-      const sekcja = document.createElement("section");
-      const nagłówek = document.createElement("h3");
-      sekcja.className = "grupa-terminow";
-      nagłówek.className = "naglowek-grupy-terminow";
-      nagłówek.textContent = grupa.etykieta;
-      sekcja.appendChild(nagłówek);
-
-      grupa.pozycje.forEach(function dodajTermin(pozycja) {
-        const przycisk = document.createElement("button");
-        const opis = document.createElement("span");
-        const zgodnyZBur = aktualnyTerminBur && przestrzeń.czyDatyTerminówZgodne(pozycja.termin, aktualnyTerminBur);
-        const wybranyJakoWłaściwy = pozycja.indeks === ostatniWybranyTerminSemperIndex && czyWybranyTerminJestWłaściwyDlaBur();
-        przycisk.type = "button";
-        przycisk.className = "pozycja-terminu-semper" + (pozycja.indeks === ostatniWybranyTerminSemperIndex ? " wybrany" : "");
-        przycisk.dataset.indeksTerminu = String(pozycja.indeks);
-        przycisk.setAttribute("aria-pressed", pozycja.indeks === ostatniWybranyTerminSemperIndex ? "true" : "false");
-        opis.textContent = przestrzeń.opiszTerminSemper(pozycja.termin, pozycja.indeks);
-        przycisk.appendChild(opis);
-        if (wybranyJakoWłaściwy || zgodnyZBur) {
-          const oznaczenie = document.createElement("span");
-          oznaczenie.className = wybranyJakoWłaściwy ? "oznaczenie-bur" : "oznaczenie-zgodnej-daty";
-          oznaczenie.textContent = wybranyJakoWłaściwy ? "✓ BUR" : "zgodna data";
-          przycisk.appendChild(oznaczenie);
-        }
-        przycisk.addEventListener("click", function wybierzRęcznie() {
-          elementy.wybórTerminuSemper.value = String(pozycja.indeks);
-          zapiszWybórTerminuSemper("ręczny");
-        });
-        sekcja.appendChild(przycisk);
+    pozycje.forEach(function dodajTermin(pozycja) {
+      const przycisk = document.createElement("button");
+      const opis = document.createElement("span");
+      const zgodnyZBur = aktualnyTerminBur && przestrzeń.czyDatyTerminówZgodne(pozycja.termin, aktualnyTerminBur);
+      const wybranyJakoWłaściwy = pozycja.indeks === ostatniWybranyTerminSemperIndex && czyWybranyTerminJestWłaściwyDlaBur();
+      przycisk.type = "button";
+      przycisk.className = "pozycja-terminu-semper" + (pozycja.indeks === ostatniWybranyTerminSemperIndex ? " wybrany" : "");
+      przycisk.dataset.indeksTerminu = String(pozycja.indeks);
+      przycisk.setAttribute("aria-pressed", pozycja.indeks === ostatniWybranyTerminSemperIndex ? "true" : "false");
+      opis.textContent = przestrzeń.opiszTerminSemper(pozycja.termin, pozycja.indeks);
+      przycisk.appendChild(opis);
+      if (wybranyJakoWłaściwy || zgodnyZBur) {
+        const oznaczenie = document.createElement("span");
+        oznaczenie.className = wybranyJakoWłaściwy ? "oznaczenie-bur" : "oznaczenie-zgodnej-daty";
+        oznaczenie.textContent = wybranyJakoWłaściwy ? "✓ BUR" : "zgodna data";
+        przycisk.appendChild(oznaczenie);
+      }
+      przycisk.addEventListener("click", function wybierzRęcznie() {
+        elementy.wybórTerminuSemper.value = String(pozycja.indeks);
+        zapiszWybórTerminuSemper("ręczny");
       });
-      elementy.listaTerminówSemper.appendChild(sekcja);
+      elementy.listaTerminówSemper.appendChild(przycisk);
     });
     renderujWybórNiejednoznacznegoTerminu();
   }

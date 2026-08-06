@@ -385,6 +385,14 @@ textarea:focus {
   color: var(--tekst);
 }
 
+.pozycja-terminu-semper > span:first-child,
+.pozycja-terminu-harmonogramu > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .oznaczenie-bur {
   flex: 0 0 auto;
   color: var(--zielony);

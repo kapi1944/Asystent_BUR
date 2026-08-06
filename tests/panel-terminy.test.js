@@ -55,11 +55,10 @@
     });
   }
 
-  test("panel grupuje terminy i automatycznie dopasowuje wariant BUR", function sprawdź() {
+  test("panel pokazuje jednoliniowe terminy i automatycznie dopasowuje wariant BUR", function sprawdź() {
     return utwórzPanelTerminów().then(function zweryfikuj(ramka) {
       const dokument = ramka.contentWindow.document;
-      const nagłówki = Array.from(dokument.querySelectorAll(".naglowek-grupy-terminow")).map(function tekst(element) { return element.textContent; });
-      sprawdzRownosc(nagłówki.join("|"), "21–22.06.2027|15–16.10.2027");
+      sprawdzRownosc(dokument.querySelectorAll(".naglowek-grupy-terminow").length, 0);
       sprawdzRownosc(dokument.querySelectorAll(".pozycja-terminu-semper").length, 5);
       sprawdzWarunek(dokument.querySelector('.pozycja-terminu-semper[data-indeks-terminu="1"]').classList.contains("wybrany"));
       sprawdzWarunek(dokument.querySelector("#aktualny-zakres-bur").textContent.includes("21–22.06.2027"));
@@ -68,7 +67,10 @@
       sprawdzWarunek(dokument.querySelector("#aktualne-szczegoly-bur").textContent.includes("Warszawa"));
       sprawdzWarunek(!dokument.querySelector("#aktualne-szczegoly-bur").textContent.includes("Gdańsk"));
       sprawdzWarunek(!dokument.querySelector("#lista-terminow-semper").textContent.includes("Szkolenie online · online"));
-      sprawdzWarunek(dokument.querySelector("#lista-terminow-semper").textContent.includes("Termin 3 · Online"));
+      sprawdzWarunek(dokument.querySelector("#lista-terminow-semper").textContent.includes("Termin 3 · 21–22.06.2027 · Online"));
+      sprawdzWarunek(dokument.querySelector("#lista-terminow-harmonogramu-semper").textContent.includes("Termin 1 · 21–22.06.2027 · Gdańsk"));
+      sprawdzRownosc(ramka.contentWindow.getComputedStyle(dokument.querySelector(".pozycja-terminu-semper > span")).whiteSpace, "nowrap");
+      sprawdzRownosc(ramka.contentWindow.getComputedStyle(dokument.querySelector(".pozycja-terminu-harmonogramu > span")).whiteSpace, "nowrap");
       ramka.remove();
     });
   });
@@ -153,7 +155,7 @@
       const dokument = ramka.contentWindow.document;
       dokument.querySelector('[data-filtr-terminow="online"]').click();
       sprawdzRownosc(dokument.querySelectorAll(".pozycja-terminu-semper").length, 2);
-      sprawdzRownosc(dokument.querySelectorAll(".grupa-terminow").length, 2);
+      sprawdzRownosc(dokument.querySelectorAll(".grupa-terminow").length, 0);
       sprawdzRownosc(ramka.contentWindow.__daneTestowe.wybranyTerminSemperIndex, 1);
       ramka.remove();
     });

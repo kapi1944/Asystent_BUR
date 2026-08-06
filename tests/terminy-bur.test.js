@@ -33,8 +33,9 @@
     sprawdzWarunek(pierwsza.pozycje.some(function stacjonarny(pozycja) { return !bur.czyTerminOnlineBur(pozycja.termin); }));
   });
 
-  test("upraszcza opis terminu online", function sprawdź() {
-    sprawdzRownosc(bur.opiszTerminSemper(terminy[2], 2), "Termin 3 · Online");
+  test("opisuje termin w jednej linii w kolejności numer data miejsce", function sprawdź() {
+    sprawdzRownosc(bur.opiszTerminSemper(terminy[2], 2), "Termin 3 · 21–22.06.2027 · Online");
+    sprawdzRownosc(bur.opiszTerminSemper(terminy[0], 0), "Termin 1 · 21–22.06.2027 · Gdańsk");
   });
 
   test("filtr Wszystkie zachowuje wszystkie terminy", function sprawdź() {
