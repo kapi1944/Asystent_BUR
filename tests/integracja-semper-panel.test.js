@@ -66,6 +66,20 @@
     }
   });
 
+  test("wyszukiwanie IIST używa linków instytutu i weryfikuje tytuł strony", async function sprawdź() {
+    const staryFetch = window.fetch;
+    window.fetch = async function mockFetch(url) {
+      const adres = String(url);
+      if (adres.endsWith("sitemap.xml")) { return { ok: true, text: async function tekst() { return "<urlset><url><loc>https://szkoleniaiist.com.pl/jak-zwiekszyc-efektywnosc-zespolu,300.html</loc></url></urlset>"; } }; }
+      if (adres.includes(",300.html")) { return { ok: true, text: async function tekst() { return "<html><h1>Jak zwiększyć efektywność zespołu</h1></html>"; } }; }
+      return { ok: true, text: async function tekst() { return ""; } };
+    };
+    try {
+      const wynik = await bur.szukajŁączaIist("Jak zwiększyć efektywność zespołu");
+      sprawdzWarunek(wynik.ok && wynik.wynik.url.includes(",300.html"), "Wyszukiwarka IIST powinna zwrócić zweryfikowany link szkolenia.");
+    } finally { window.fetch = staryFetch; }
+  });
+
   test("renderujDaneSzkolenia pokazuje tytuł i terminy po imporcie", function sprawdź() {
     const dokument = document.implementation.createHTMLDocument("Panel");
 

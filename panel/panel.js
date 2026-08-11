@@ -175,10 +175,10 @@
     document.documentElement.style.setProperty("--akcent-ciemny", aktywnyProfilDostawcy === "iist" ? "#1f668f" : "#9f1f1c");
     document.querySelectorAll("[data-profil-dostawcy]").forEach(function ustawPrzycisk(przycisk) { przycisk.setAttribute("aria-pressed", String(przycisk.dataset.profilDostawcy === aktywnyProfilDostawcy)); });
     document.querySelectorAll("[data-nazwa-zrodla]").forEach(function ustawNazwę(element) { element.textContent = profil.nazwa; });
-    document.querySelectorAll("[data-etykieta-linku]").forEach(function ustawEtykietę(element) { element.textContent = aktywnyProfilDostawcy === "iist" ? "Link do szkolenia IIST" : "Link lub fraza " + profil.nazwa; });
-    elementy.linkLubFrazaSemper.placeholder = aktywnyProfilDostawcy === "iist" ? "https://szkoleniaiist.com.pl/nazwa-szkolenia/" : "Wklej link albo wpisz frazę";
-    elementy.przyciskSzukajLinku.textContent = aktywnyProfilDostawcy === "iist" ? "Wyszukiwanie po tytule niedostępne" : "Szukaj linku";
-    elementy.przyciskSzukajLinku.disabled = aktywnyProfilDostawcy === "iist";
+    document.querySelectorAll("[data-etykieta-linku]").forEach(function ustawEtykietę(element) { element.textContent = aktywnyProfilDostawcy === "iist" ? "Link lub tytuł szkolenia IIST" : "Link lub fraza " + profil.nazwa; });
+    elementy.linkLubFrazaSemper.placeholder = aktywnyProfilDostawcy === "iist" ? "Wklej link albo wpisz tytuł szkolenia IIST" : "Wklej link albo wpisz frazę";
+    elementy.przyciskSzukajLinku.textContent = "Szukaj linku";
+    elementy.przyciskSzukajLinku.disabled = false;
     elementy.przyciskUzupełnijZLinku.textContent = "Uzupełnij z linku";
     document.getElementById("naglowek-terminow-semper-harmonogramu").textContent = "Terminy " + profil.nazwa;
     const podsumowanieDiagnostyki = document.querySelector("#diagnostyka-semper summary");
@@ -2903,7 +2903,7 @@
     const nagłówek = document.createElement("strong");
 
     nagłówek.className = "nagłówek-wyników-semper";
-    nagłówek.textContent = "Wybierz szkolenie SEMPER";
+    nagłówek.textContent = "Wybierz szkolenie " + pobierzNazwęAktywnegoProfilu();
     elementy.wynikiSemper.appendChild(nagłówek);
 
     wybory.slice(0, 8).forEach(function dodajWynik(wynik) {
@@ -2913,13 +2913,13 @@
 
       przycisk.type = "button";
       przycisk.className = "wynik-semper";
-      tytuł.textContent = wynik.tytuł || wynik.title || "Wynik SEMPER";
+      tytuł.textContent = wynik.tytuł || wynik.title || "Wynik " + pobierzNazwęAktywnegoProfilu();
       url.textContent = wynik.url;
       przycisk.appendChild(tytuł);
       przycisk.appendChild(url);
       przycisk.addEventListener("click", function wybierzWynik() {
         elementy.linkLubFrazaSemper.value = wynik.url;
-        ustawStatus(elementy.statusSemper, "Wybrano link SEMPER.", "status-odczytano");
+        ustawStatus(elementy.statusSemper, "Wybrano link " + pobierzNazwęAktywnegoProfilu() + ".", "status-odczytano");
         pokażWybraneŁącze(wynik);
       });
 
@@ -2970,10 +2970,7 @@
   }
 
   function szukajLinkuSemper() {
-    if (aktywnyProfilDostawcy === "iist") {
-      ustawStatus(elementy.statusSemper, "IIST obsługuje import z bezpośredniego linku; wyszukiwanie po tytule nie jest dostępne.", "status-neutralny");
-      return;
-    }
+    const czyIist = aktywnyProfilDostawcy === "iist";
     wyczyśćWynikiSemper();
     ustawStatus(elementy.statusSemper, "Szukam...", "status-neutralny");
 
@@ -2981,9 +2978,9 @@
       .then(function sprawdźFrazę(fraza) {
         const wartość = przestrzeń.oczyśćLinię(fraza);
 
-        if (przestrzeń.czyŁączeSzczegółówSzkolenia(wartość)) {
-          elementy.linkLubFrazaSemper.value = przestrzeń.normalizujŁączeSemper(wartość);
-          ustawStatus(elementy.statusSemper, "Wykryto link SEMPER. Kliknij »Uzupełnij z linku«.", "status-ostrzezenie");
+        if (czyIist ? przestrzeń.czyLinkSzkoleniaIist(wartość) : przestrzeń.czyŁączeSzczegółówSzkolenia(wartość)) {
+          elementy.linkLubFrazaSemper.value = czyIist ? przestrzeń.normalizujLinkIist(wartość) : przestrzeń.normalizujŁączeSemper(wartość);
+          ustawStatus(elementy.statusSemper, "Wykryto link " + pobierzNazwęAktywnegoProfilu() + ". Kliknij »Uzupełnij z linku«.", "status-ostrzezenie");
           return null;
         }
 
@@ -2991,9 +2988,9 @@
           throw new Error("Najpierw pobierz dane z formularza BUR albo wpisz frazę szkolenia.");
         }
 
-        ustawStatus(elementy.statusSemper, "Szukam szkolenia na SEMPER...", "status-neutralny");
+        ustawStatus(elementy.statusSemper, "Szukam szkolenia na " + pobierzNazwęAktywnegoProfilu() + "...", "status-neutralny");
         return wyślijDoServiceWorkera({
-          typ: komunikaty.SZUKAJ_ŁĄCZA_SEMPER,
+          typ: czyIist ? komunikaty.SZUKAJ_ŁĄCZA_IIST : komunikaty.SZUKAJ_ŁĄCZA_SEMPER,
           fraza: wartość
         });
       })
@@ -3017,11 +3014,11 @@
         pokażDiagnostykęSemper();
 
         if (!wynik.ok) {
-          const czyBłądSieci = /Nie udało się wyszukać szkolenia na SEMPER/i.test(wynik.błąd || "");
+          const czyBłądSieci = /Nie udało się wyszukać szkolenia/i.test(wynik.błąd || "");
 
           ustawStatus(
             elementy.statusSemper,
-            czyBłądSieci ? "Nie udało się wyszukać szkolenia na SEMPER." : "Nie znaleziono pewnego linku SEMPER.",
+            czyBłądSieci ? "Nie udało się wyszukać szkolenia na " + pobierzNazwęAktywnegoProfilu() + "." : "Nie znaleziono pewnego linku " + pobierzNazwęAktywnegoProfilu() + ".",
             "status-blad"
           );
           return;
@@ -3030,7 +3027,7 @@
         if (wynik.wynik && wynik.wynik.url) {
           elementy.linkLubFrazaSemper.value = wynik.wynik.url;
           pokażWybraneŁącze(wynik.wynik);
-          ustawStatus(elementy.statusSemper, "Znaleziono link SEMPER.", "status-odczytano");
+          ustawStatus(elementy.statusSemper, "Znaleziono link " + pobierzNazwęAktywnegoProfilu() + ".", "status-odczytano");
           return;
         }
 
@@ -3040,12 +3037,12 @@
           return;
         }
 
-        ustawStatus(elementy.statusSemper, "Nie znaleziono pewnego linku. Wklej link SEMPER ręcznie.", "status-blad");
+        ustawStatus(elementy.statusSemper, "Nie znaleziono pewnego linku. Wklej link " + pobierzNazwęAktywnegoProfilu() + " ręcznie.", "status-blad");
       })
       .catch(function pokażBłąd(błąd) {
-        diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku SEMPER.";
+        diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku " + pobierzNazwęAktywnegoProfilu() + ".";
         pokażDiagnostykęSemper();
-        ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wyszukać szkolenia na SEMPER.", "status-blad");
+        ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wyszukać szkolenia na " + pobierzNazwęAktywnegoProfilu() + ".", "status-blad");
       });
   }
 

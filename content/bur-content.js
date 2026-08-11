@@ -1431,7 +1431,7 @@
         if (!szkolenieSemper) {
           odpowiedz({
             typ: komunikaty.BRAK_DANYCH_SEMPER,
-            komunikat: "Najpierw pobierz dane szkolenia ze strony SEMPER albo użyj funkcji »Uzupełnij z linku«."
+            komunikat: "Najpierw pobierz dane szkolenia ze strony aktywnego dostawcy albo użyj funkcji »Uzupełnij z linku«."
           });
           return;
         }

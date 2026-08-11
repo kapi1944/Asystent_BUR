@@ -42,6 +42,9 @@
   function tekstZFormatowaniem(element) {
     const kopia = sanityzujElementIist(element);
     if (!kopia) { return ""; }
+    if (typeof kopia.querySelectorAll !== "function") {
+      return String(kopia.textContent || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
+    }
     kopia.querySelectorAll("br").forEach(function zamień(br) { br.replaceWith("\n"); });
     kopia.querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, dt, dd, tr").forEach(function oddziel(węzeł) {
       węzeł.insertAdjacentText("afterend", "\n");

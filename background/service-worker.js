@@ -41,6 +41,20 @@ chrome.runtime.onMessage.addListener(function obsłużKomunikatTła(wiadomość,
     return true;
   }
 
+  if (wiadomość.typ === komunikaty.SZUKAJ_ŁĄCZA_IIST) {
+    globalThis.BurAsystent.szukajŁączaIist(wiadomość.fraza || "")
+      .then(function zwróćWynikIist(wynik) {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_SZUKAJ_ŁĄCZA_IIST, wynik: wynik });
+      })
+      .catch(function zwróćBłądIist(błąd) {
+        odpowiedz({
+          typ: komunikaty.ODPOWIEDŹ_SZUKAJ_ŁĄCZA_IIST,
+          wynik: { ok: false, błąd: błąd && błąd.message ? błąd.message : "Nie udało się wyszukać szkolenia IIST." }
+        });
+      });
+    return true;
+  }
+
   if (wiadomość.typ === komunikaty.IMPORTUJ_SEMPER_Z_ŁĄCZA || wiadomość.typ === komunikaty.POBIERZ_HTML_SEMPER) {
     globalThis.BurAsystent.importujSzkolenieZŁączaSemper(wiadomość.url || "")
       .then(function zwróćHtml(wynik) {
