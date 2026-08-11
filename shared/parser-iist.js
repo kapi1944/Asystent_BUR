@@ -1,7 +1,7 @@
 (function zarejestrujParserIist(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
   const nagłówkiSekcji = [
-    "grupa docelowa", "dla kogo", "adresaci", "cel edukacyjny", "cele szkolenia",
+    "grupa docelowa", "dla kogo", "adresaci", "cel szkolenia", "cel edukacyjny", "cele szkolenia", "korzyści dla uczestników", "korzysci dla uczestnikow",
     "program", "program szkolenia", "harmonogram", "terminy", "terminy szkolenia",
     "informacje organizacyjne", "cena", "koszt", "lokalizacja", "miejsce"
   ];
@@ -82,17 +82,6 @@
     return części.join("\n").trim();
   }
 
-  function rozdzielCelEdukacyjny(treść, ostrzeżenia) {
-    const tekst = String(treść || "").trim();
-    const wzorzec = /(?:po\s+(?:zakończeniu|ukończeniu)\s+(?:szkolenia|kursu|usługi)\s+(?:uczestnicy?|uczestnik)\s+(?:będą|będzie)\s+(?:potrafi(?:li|ł)|umie(?:li|ć)|w stanie)|(?:uczestnicy?|uczestnik)\s+po\s+(?:zakończeniu|ukończeniu)\s+(?:szkolenia|kursu|usługi)\s+(?:będą|będzie)\s+(?:potrafi(?:li|ł)|umie(?:li|ć)|w stanie))/i;
-    const trafienie = wzorzec.exec(tekst);
-    if (trafienie && trafienie.index > 0) {
-      return { opis: tekst.slice(0, trafienie.index).trim(), efekty: tekst.slice(trafienie.index).trim(), czyPewne: true };
-    }
-    if (tekst) { ostrzeżenia.push("Nie udało się pewnie rozdzielić celu edukacyjnego — wymaga sprawdzenia w panelu."); }
-    return { opis: tekst, efekty: "", czyPewne: false };
-  }
-
   function pobierzTytuł(dokument) {
     const h1 = dokument.querySelector("main h1, article h1, h1");
     if (h1 && normalizuj(h1.textContent)) { return String(h1.textContent).replace(/\s+/g, " ").trim(); }
@@ -128,8 +117,8 @@
   function wyciągnijZakresDat(tekst) {
     const wartość = String(tekst || "");
     const wzorce = [
-      /\d{4}-\d{2}-\d{2}\s*(?:-|–|—|do)\s*\d{4}-\d{2}-\d{2}/i,
-      /\d{1,2}[.-]\d{1,2}[.-]\d{4}\s*(?:-|–|—|do)\s*\d{1,2}[.-]\d{1,2}[.-]\d{4}/i,
+      /\d{4}-\d{2}-\d{2}\s*(?:-|–|—|do\s*:?)\s*\d{4}-\d{2}-\d{2}/i,
+      /\d{1,2}[.-]\d{1,2}[.-]\d{4}\s*(?:-|–|—|do\s*:?)\s*\d{1,2}[.-]\d{1,2}[.-]\d{4}/i,
       /\d{4}-\d{2}-\d{2}/,
       /\d{1,2}[.-]\d{1,2}[.-]\d{4}/
     ];
@@ -142,6 +131,13 @@
     const wzorzec = new RegExp("(?:^|\\n|\\b)(?:" + nazwy + ")\\s*[:–-]\\s*([^\\n]+)", "i");
     const wynik = String(tekst || "").match(wzorzec);
     return wynik ? wynik[1].trim() : "";
+  }
+
+  function pobierzCzasTrwaniaZeStrony(dokument) {
+    const tekst = String(dokument.body ? dokument.body.textContent : "").replace(/\s+/g, " ");
+    const czas = tekst.match(/szkolenie\s+trwa\s+(\d+\s*dni?)(?:\s*\(\s*łącznie\s*(\d+(?:[.,]\d+)?)\s*h(?:odzin)?\s*\))?/i);
+    if (!czas) { return ""; }
+    return czas[2] ? czas[2].replace(",", ".") + " godzin" : czas[1];
   }
 
   function utwórzTerminIist(dane, ostrzeżenia) {
@@ -167,6 +163,7 @@
 
   function parsujTerminyIist(dokument, ostrzeżenia) {
     const terminy = [];
+    const czasTrwaniaZeStrony = pobierzCzasTrwaniaZeStrony(dokument);
     pobierzObiektyDanychStrukturalnych(dokument).filter(function wybierz(obiekt) {
       return obiekt && obiekt.startDate && /Event|CourseInstance/i.test(String(obiekt["@type"] || ""));
     }).forEach(function parsujDane(obiekt) {
@@ -180,6 +177,20 @@
         miejsce: /Online/i.test(String(obiekt.eventAttendanceMode || "")) ? "Online" : miejsce,
         cena: oferta.price ? String(oferta.price) + " " + (oferta.priceCurrency || "PLN") : "",
         czasTrwania: obiekt.duration || ""
+      }, ostrzeżenia);
+      if (termin) { terminy.push(termin); }
+    });
+    Array.from(dokument.querySelectorAll("div.szko_over table.szko tr")).forEach(function parsujWierszIist(wiersz) {
+      const komórkaTerminu = wiersz.querySelector('td[class*="tab_term"]');
+      if (!komórkaTerminu) { return; }
+      const komórkaMiejsca = wiersz.querySelector('td[class*="tab_mia"]');
+      const komórkaCeny = wiersz.querySelector('td[class*="tab_cena"]');
+      const termin = utwórzTerminIist({
+        tekst: wiersz.textContent || "",
+        zakresTekst: komórkaTerminu.textContent || "",
+        miejsce: komórkaMiejsca ? komórkaMiejsca.textContent || "" : "",
+        cena: komórkaCeny ? komórkaCeny.textContent || "" : "",
+        czasTrwania: czasTrwaniaZeStrony
       }, ostrzeżenia);
       if (termin) { terminy.push(termin); }
     });
@@ -217,21 +228,22 @@
   function parsujStronęIist(dokument, url) {
     const ostrzeżenia = [];
     const tytułOryginalny = pobierzTytuł(dokument);
-    const pełnyCel = pobierzSekcjęPoNagłówku(dokument, ["cel edukacyjny", "cele szkolenia"]);
-    const rozdzielonyCel = rozdzielCelEdukacyjny(pełnyCel, ostrzeżenia);
+    const celSzkolenia = pobierzSekcjęPoNagłówku(dokument, ["cel szkolenia", "cel edukacyjny", "cele szkolenia"]);
+    const korzyści = pobierzSekcjęPoNagłówku(dokument, ["korzysci dla uczestnikow", "korzyści dla uczestników"]);
     const grupaDocelowa = pobierzSekcjęPoNagłówku(dokument, ["grupa docelowa", "dla kogo", "adresaci"]);
     const program = pobierzSekcjęPoNagłówku(dokument, ["program", "program szkolenia", "harmonogram"]);
     const terminy = parsujTerminyIist(dokument, ostrzeżenia);
     if (!tytułOryginalny) { ostrzeżenia.push("Nie rozpoznano tytułu szkolenia IIST."); }
     if (!grupaDocelowa) { ostrzeżenia.push("Nie rozpoznano grupy docelowej IIST."); }
-    if (!pełnyCel) { ostrzeżenia.push("Nie rozpoznano sekcji celu edukacyjnego IIST."); }
+    if (!celSzkolenia) { ostrzeżenia.push("Nie rozpoznano sekcji „Cel szkolenia” IIST."); }
+    if (!korzyści) { ostrzeżenia.push("Nie rozpoznano sekcji „Korzyści dla uczestników” IIST."); }
     if (!program) { ostrzeżenia.push("Nie rozpoznano programu IIST."); }
     if (!terminy.length) { ostrzeżenia.push("Nie rozpoznano terminów IIST."); }
     const tytułBur = przestrzeń.normalizujTytułBur ? przestrzeń.normalizujTytułBur(tytułOryginalny) : tytułOryginalny;
     const szkolenie = przestrzeń.utworzSzkolenie({
       profilId: "iist", urlŹródła: url || "", tytułOryginalny: tytułOryginalny, tytułBur: tytułBur,
       tytułPoNormalizacjiBur: tytułBur, terminy: terminy, ostrzeżenia: ostrzeżenia,
-      sekcje: { grupaDocelowa: grupaDocelowa, celEdukacyjnyOpis: rozdzielonyCel.opis, celSzkolenia: rozdzielonyCel.opis, efektyPoSzkoleniu: rozdzielonyCel.efekty, tekstNadProgramem: rozdzielonyCel.efekty, program: program }
+      sekcje: { grupaDocelowa: grupaDocelowa, celEdukacyjnyOpis: celSzkolenia, celSzkolenia: celSzkolenia, korzysci: korzyści, program: program }
     });
     return { profilId: "iist", url: url || "", szkolenie: szkolenie, ostrzeżenia: ostrzeżenia, ostrzezenia: ostrzeżenia };
   }
@@ -242,7 +254,6 @@
   }
 
   przestrzeń.sanityzujHtmlIist = sanityzujHtmlIist;
-  przestrzeń.rozdzielCelEdukacyjnyIist = rozdzielCelEdukacyjny;
   przestrzeń.parsujTerminyIist = parsujTerminyIist;
   przestrzeń.parsujStronęIist = parsujStronęIist;
   przestrzeń.parsujHtmlIist = parsujHtmlIist;

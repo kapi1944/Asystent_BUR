@@ -184,10 +184,10 @@
     sprawdzWarunek(!wzorzec.kopiowanieLancuchoweDozwolone);
   });
 
-  test("nieobsługiwany termin IIST pozostaje niezaznaczalny", function sprawdź() {
+  test("nieobsługiwany harmonogram IIST nie blokuje przygotowania niezależnych pól", function sprawdź() {
     const ocena = asystent.oceńTerminSeriiBur({ dataStartBur: "10-09-2027", dataKoniecBur: "13-09-2027", forma: "online" }, 0);
-    sprawdzWarunek(!ocena.możnaPrzygotowaćAutomatycznie);
-    sprawdzWarunek(ocena.powodyBlokady.some(function powód(tekst) { return tekst.includes("więcej niż 3 dni"); }));
+    sprawdzWarunek(ocena.możnaPrzygotowaćAutomatycznie);
+    sprawdzWarunek(ocena.harmonogramWymagaDecyzji);
   });
 
   test("panel serii ma wybór terminów, preflight i tabelę zadań", async function sprawdź() {

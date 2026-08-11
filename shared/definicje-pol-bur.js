@@ -5,6 +5,10 @@
     const cel = przestrzeń.pobierzCelFormularzaBur(celId) || {};
     return Object.assign({ id: id, sekcja: cel.sekcja || "", pole: cel.etykieta || id, typPola: cel.typKontrolki === "edytorTekstowy" ? "quill" : cel.typKontrolki || "input", wartośćProponowana: wartość, źródło: źródło || "reguła BUR", wymagalność: "wymagane", blokująca: false, definicjaPola: { sekcja: cel.sekcja, etykieta: cel.etykieta, selektory: (cel.selektory || []).concat(cel.selektoryAwaryjne || []), typ: cel.typKontrolki === "edytorTekstowy" ? "quill" : cel.typKontrolki, tabela: cel.tabela, kolumna: cel.kolumna }, sposóbLokalizacji: cel.tabela ? "tabela" : (cel.selektory && cel.selektory.length ? "selektor" : "etykieta") }, opcje || {});
   }
+  function pobierzLiczbęDoPola(wartość) {
+    const trafienie = String(wartość || "").replace(/\s+/g, "").match(/\d+(?:[.,]\d+)?/);
+    return trafienie ? trafienie[0].replace(",", ".") : "";
+  }
   function pobierzDefinicjePólWypełnieniaBur(kontekst) {
     const szkolenie = kontekst && (kontekst.szkolenieŹródłowe || kontekst.szkolenieSemper) || {};
     const termin = kontekst && kontekst.wybranyTermin || {};
@@ -14,6 +18,8 @@
     const źródło = profil.nazwa;
     const dataRekrutacji = termin.dataZakończeniaRekrutacjiBur || termin.dataZakonczeniaRekrutacjiBur || (przestrzeń.wyliczDateZakonczeniaRekrutacjiBur ? przestrzeń.wyliczDateZakonczeniaRekrutacjiBur(termin.dataStartBur) : "");
     const wynik = [
+      definicja("rodzaj-uslugi", "rodzajUslugi", profil.rodzajUsługiBur || "", "profil " + źródło, { dokładnySelect2: true }),
+      definicja("podrodzaj-uslugi", "podrodzajUslugi", profil.podrodzajUsługiBur || "", "profil " + źródło, { dokładnySelect2: true }),
       definicja("forma-swiadczenia", "formaSwiadczenia", online ? "online" : "stacjonarna", "reguła BUR"),
       definicja("wariant-zajec", "wariantZajec", profil.wariantZajęćBur, "profil " + źródło),
       definicja("podstawa-wpisu", "podstawaWpisu", profil.podstawaWpisuBur || przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR, "profil " + źródło, { dokładnySelect2: true }),
@@ -22,6 +28,8 @@
       definicja("data-rozpoczecia", "dataRozpoczecia", termin.dataStartBur || "", źródło, { typPola: "data" }),
       definicja("data-zakonczenia", "dataZakonczenia", termin.dataKoniecBur || "", źródło, { typPola: "data" }),
       definicja("data-rekrutacji", "dataZakonczeniaRekrutacji", dataRekrutacji, "reguła BUR", { typPola: "data" }),
+      definicja("cena-netto", "cenaNetto", pobierzLiczbęDoPola(termin.cena), źródło),
+      definicja("liczba-godzin", "liczbaGodzin", pobierzLiczbęDoPola(termin.liczbaGodzin || termin.czasTrwania), źródło),
       definicja("grupa-docelowa", "grupaDocelowa", sekcja(szkolenie, ["grupaDocelowa", "grupaDocelowaHtml", "groupHtml"]), źródło),
       definicja("lokalizacja-adres", "lokalizacjaAdres", online ? "Online" : termin.miejsce || termin.lokalizacja || "", źródło),
       definicja("cel-edukacyjny", "celEdukacyjny", "TAK", "reguła BUR", { typPola: "przełącznik" }),
@@ -50,8 +58,10 @@
       wynik.push(definicja("kontakt-telefon", "kontaktTelefon", profil.daneKontaktowe.telefon, "profil " + źródło));
       wynik.push(definicja("osoby-prowadzace", "osobyProwadzace", [profil.osobaProwadzącaUsługę, profil.osobaProwadzącaWalidację], "profil " + źródło, { typPola: "osoby_prowadzace" }));
     }
-    [["materialy-online", "informacjaOMaterialach", profil.materiałyOnline], ["warunki-online", "warunkiUczestnictwa", profil.warunkiUczestnictwaOnline], ["dodatkowe-online", "informacjeDodatkowe", profil.informacjeDodatkoweOnline], ["techniczne-online", "warunkiTechniczne", profil.warunkiTechniczneOnline], ["kody-online", "kodyDostepowe", profil.kodyDostępoweOnline]].forEach(function dodajOnline(dane) {
-      if (dane[2]) { wynik.push(definicja(dane[0], dane[1], online ? dane[2] : "", "profil " + źródło, { tylkoOnline: true, regułaNieDotyczy: !online })); }
+    const kluczFormy = online ? "online" : "stacjonarna";
+    [["materialy", "informacjaOMaterialach", profil.materiały], ["warunki", "warunkiUczestnictwa", profil.warunkiUczestnictwa], ["dodatkowe", "informacjeDodatkowe", profil.informacjeDodatkowe], ["techniczne", "warunkiTechniczne", profil.warunkiTechniczne], ["kody", "kodyDostepowe", profil.kodyDostępowe]].forEach(function dodajWedługFormy(dane) {
+      const wartość = dane[2] && dane[2][kluczFormy];
+      if (wartość) { wynik.push(definicja(dane[0] + "-" + kluczFormy, dane[1], wartość, "profil " + źródło)); }
     });
     return wynik;
   }

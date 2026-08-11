@@ -62,7 +62,6 @@
     const url = pobierzUrl(dokument, opcje);
     const konto = pobierzKonto(dokument);
     const termin = kontekst.wybranyTermin || {};
-    const szablon = przestrzeń.pobierzSzablonHarmonogramu("iist", termin.forma, kontekst.liczbaDni);
     const przypisanie = sprawdźPrzypisanieKarty(kontekst);
     if (!przypisanie.ok) { return przypisanie; }
     if (!czyUrlBur(url)) { błędy.push("URL karty nie należy do BUR."); }
@@ -73,8 +72,6 @@
       return { ok: false, globalnyBłąd: true, status: "wymaga_decyzji", błąd: "Zmienił się odcisk szkolenia IIST." };
     }
     if (!termin.dataStartBur || !termin.dataKoniecBur || !termin.dataZakończeniaRekrutacjiBur && !termin.dataZakonczeniaRekrutacjiBur) { błędy.push("Termin zadania nie ma kompletu dat."); }
-    if (termin.forma !== "online") { błędy.push("Seria obsługuje wyłącznie terminy online."); }
-    if (!szablon || String(szablon.wersja) !== String(kontekst.wersjaSzablonu || "")) { błędy.push("Brak zgodnego szablonu harmonogramu 1/2/3 dni."); }
     const odciskInstancji = przestrzeń.pobierzOdciskInstancjiFormularza(dokument);
     if (kontekst.odciskInstancjiFormularza && odciskInstancji !== kontekst.odciskInstancjiFormularza) {
       return { ok: false, globalnyBłąd: true, status: "wymaga_decyzji", błąd: "Odcisk instancji formularza nie odpowiada jobId. Wykryto ryzyko mieszania kart." };
@@ -118,6 +115,10 @@
       return { ok: false, status: "wymaga_decyzji", błąd: "Niepuste pola stałe profilu IIST różnią się od oczekiwanych wartości.", konflikty: konflikty, propozycje: wybrane };
     }
     return { ok: true, propozycje: wybrane, liczbaWybranych: wybrane.filter(function wybrana(pozycja) { return pozycja.zaznaczona; }).length };
+  }
+
+  async function inicjalizujFormularzWstępny(dokument, kontekst) {
+    return przestrzeń.inicjalizujFormularzWstępnyIist(dokument, Object.assign({}, kontekst, { wykryteKontoBur: pobierzKonto(dokument), pobierzKontoBur: function pobierzAktualneKonto() { return pobierzKonto(dokument); } }));
   }
 
   async function wypełnijPola(dokument, kontekst) {
@@ -174,6 +175,11 @@
   }
 
   function generujHarmonogram(kontekst) {
+    const liczbaDni = kontekst.liczbaDni || przestrzeń.obliczLiczbęDniSerii(kontekst.wybranyTermin.dataStartBur, kontekst.wybranyTermin.dataKoniecBur);
+    const szablon = przestrzeń.pobierzSzablonHarmonogramu("iist", kontekst.wybranyTermin.forma, liczbaDni);
+    if (!szablon) {
+      return { ok: false, status: "wymaga_decyzji", statusHarmonogramu: "wymaga_osobnej_obsługi", błąd: "Wybrany wariant IIST nie ma zatwierdzonego generatora harmonogramu. Pozostałe pola formularza zostały przygotowane niezależnie." };
+    }
     return przestrzeń.generujHarmonogramDlaTerminu({
       profilId: "iist", forma: kontekst.wybranyTermin.forma,
       dataStartBur: kontekst.wybranyTermin.dataStartBur, dataKoniecBur: kontekst.wybranyTermin.dataKoniecBur
@@ -261,6 +267,7 @@
       let wynik;
       if (etap === "kontrola_kontekstu") { wynik = kontrolujKontekst(dokument, kontekst, ustawienia); }
       else if (etap === "kontrola_stanu_formularza") { wynik = kontrolujStanFormularza(dokument, kontekst); }
+      else if (etap === "inicjalizacja_formularza_wstepnego") { wynik = await inicjalizujFormularzWstępny(dokument, kontekst); }
       else if (etap === "przygotowanie_propozycji") { wynik = przygotujPropozycje(dokument, kontekst); }
       else if (etap === "wypelnianie_pol") { wynik = await wypełnijPola(dokument, kontekst); }
       else if (etap === "kontrola_pol") { wynik = kontrolujPola(dokument, kontekst); }

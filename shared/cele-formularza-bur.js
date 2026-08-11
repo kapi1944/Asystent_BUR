@@ -32,6 +32,8 @@
   }
 
   const cele = {
+    rodzajUslugi: definicjaCelu("rodzajUslugi", { selektory: ["#formularzwstepnysekcja-rodzajuslugiid"], sekcja: "Formularz wstępny", etykieta: "Rodzaj świadczonej usługi", typKontrolki: "select2" }),
+    podrodzajUslugi: definicjaCelu("podrodzajUslugi", { selektory: ["#formularzwstepnysekcja-podrodzajuslugiid"], sekcja: "Formularz wstępny", etykieta: "Podrodzaj świadczonej usługi", typKontrolki: "select2" }),
     formaSwiadczenia: definicjaCelu("formaSwiadczenia", { selektory: ["#select2-formularzwstepnysekcja-formaswiadczenia-container"], selektoryAwaryjne: ["#formularzwstepnysekcja-formaswiadczenia"], sekcja: "Formularz wstępny", etykieta: "Forma świadczenia usługi", typKontrolki: "select2" }),
     wariantZajec: definicjaCelu("wariantZajec", { selektory: ["#select2-formularzwstepnysekcja-wariantzajec-container"], selektoryAwaryjne: ["#formularzwstepnysekcja-wariantzajec"], sekcja: "Formularz wstępny", etykieta: "Wariant zajęć", typKontrolki: "select2" }),
     podstawaWpisu: definicjaCelu("podstawaWpisu", { selektory: ["#formularzwstepnysekcja-podstawauzyskaniawpisuid", "#select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container"], sekcja: "Formularz wstępny", etykieta: "Podstawa uzyskania wpisu do BUR", typKontrolki: "select2" }),
@@ -73,6 +75,8 @@
   };
 
   const celeWalidacji = {
+    "Rodzaj świadczonej usługi": "rodzajUslugi",
+    "Podrodzaj świadczonej usługi": "podrodzajUslugi",
     "Forma świadczenia usługi": "formaSwiadczenia",
     "Wariant zajęć": "wariantZajec",
     "Data rozpoczęcia usługi": "dataRozpoczecia",

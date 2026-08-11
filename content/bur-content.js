@@ -1544,11 +1544,19 @@
     }
   }
 
-  function obsłużWypełnianieFormularzaBur(wiadomosc, odpowiedz) {
+  async function obsłużWypełnianieFormularzaBur(wiadomosc, odpowiedz) {
     try {
+      const profilId = wiadomosc.profilId || wiadomosc.szkolenieSemper && wiadomosc.szkolenieSemper.profilId || "semper";
+      if (profilId === "iist") {
+        const inicjalizacja = await przestrzen.inicjalizujFormularzWstępnyIist(document, {
+          profilId: profilId, wybranyTermin: wiadomosc.wybranyTermin || {}, wykryteKontoBur: wykryjKontoBur(), pobierzKontoBur: wykryjKontoBur
+        });
+        if (!inicjalizacja.ok) { throw new Error(inicjalizacja.komunikat || "Nie udało się zainicjalizować formularza wstępnego BUR."); }
+      }
       const wynik = przestrzen.wypełnijFormularzBur(document, {
         szkolenieSemper: wiadomosc.szkolenieSemper || {},
-        wybranyTermin: wiadomosc.wybranyTermin || {}
+        wybranyTermin: wiadomosc.wybranyTermin || {},
+        profilId: profilId
       });
 
       odpowiedz({
@@ -1826,12 +1834,17 @@
     }
 
     if (wiadomosc.typ === komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR) {
-      odpowiedz({
-        typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR,
-        wynik: {
-          propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}, { profilId: wiadomosc.profilId }),
-          kontoBur: wykryjKontoBur()
+      const konto = wykryjKontoBur();
+      const profilId = wiadomosc.profilId || wiadomosc.szkolenieSemper && wiadomosc.szkolenieSemper.profilId || "semper";
+      const inicjalizacja = profilId === "iist"
+        ? przestrzen.inicjalizujFormularzWstępnyIist(document, { profilId: profilId, wybranyTermin: wiadomosc.wybranyTermin || {}, wykryteKontoBur: konto, pobierzKontoBur: wykryjKontoBur })
+        : Promise.resolve({ ok: true });
+      inicjalizacja.then(function przygotuj(wynikInicjalizacji) {
+        if (!wynikInicjalizacji.ok) {
+          odpowiedz({ typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR, wynik: { ok: false, status: "wymaga_decyzji", błąd: wynikInicjalizacji.komunikat, propozycje: [], kontoBur: konto } });
+          return;
         }
+        odpowiedz({ typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR, wynik: { ok: true, propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}, { profilId: profilId }), kontoBur: konto } });
       });
       return true;
     }

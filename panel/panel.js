@@ -1338,7 +1338,7 @@
         })
         .catch(function zwróćDokładnyBłąd(błąd) {
           const szczegóły = błąd && błąd.message ? błąd.message : komunikatBrakuSkryptu;
-          throw new Error("Nie udało się uruchomić skryptu BUR: " + szczegóły);
+          throw new Error("Nie udało się połączyć z formularzem BUR. " + szczegóły);
         });
     });
   }

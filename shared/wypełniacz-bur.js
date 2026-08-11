@@ -637,6 +637,117 @@
     return /online/i.test([termin.forma, termin.miejsce].join(" "));
   }
 
+  function podpisOpcji(element) {
+    return String(element && (element.textContent || element.label) || "").replace(/\s+/g, " ").trim();
+  }
+
+  function sygnaturaOpcji(element) {
+    return Array.from(element && element.options || []).map(function podpis(opcja) {
+      return [opcja.value, podpisOpcji(opcja)].join(":");
+    }).join("|");
+  }
+
+  function poczekajNaPrzebudowęFormularza(dokument, stanPrzed, limitMs) {
+    return new Promise(function oczekuj(resolve) {
+      const limit = Number(limitMs) || 5000;
+      let zakończono = false;
+      let obserwator = null;
+      function sprawdź() {
+        const następnePole = dokument.querySelector(stanPrzed.selektorNastępnegoPola);
+        const przebudowano = Boolean(następnePole && (następnePole !== stanPrzed.następnePole
+          || sygnaturaOpcji(następnePole) !== stanPrzed.sygnaturaNastępnegoPola));
+        if (!przebudowano || zakończono) { return false; }
+        zakończono = true;
+        if (obserwator) { obserwator.disconnect(); }
+        clearTimeout(timer);
+        resolve({ ok: true, pole: następnePole });
+        return true;
+      }
+      obserwator = typeof MutationObserver !== "undefined" ? new MutationObserver(sprawdź) : null;
+      if (obserwator) { obserwator.observe(dokument.body || dokument.documentElement, { childList: true, subtree: true, attributes: true }); }
+      const timer = setTimeout(function przekroczonoLimit() {
+        if (zakończono) { return; }
+        zakończono = true;
+        if (obserwator) { obserwator.disconnect(); }
+        resolve({ ok: false, status: "wymaga_decyzji", kodBłędu: "TIMEOUT_AJAX_BUR", komunikat: "BUR nie potwierdził przebudowy formularza po zmianie pola „" + stanPrzed.pole + "”." });
+      }, limit);
+      sprawdź();
+    });
+  }
+
+  function sprawdźBezpieczeństwoIist(dokument, kontekst) {
+    const konto = kontekst && typeof kontekst.pobierzKontoBur === "function" ? kontekst.pobierzKontoBur(dokument)
+      : kontekst && kontekst.wykryteKontoBur
+      || (typeof przestrzeń.wykryjKontoDostawcyBur === "function" ? przestrzeń.wykryjKontoDostawcyBur(dokument) : null);
+    const profilId = kontekst && kontekst.profilId;
+    if (profilId !== "iist") { return { ok: false, status: "wymaga_decyzji", komunikat: "Aktywny profil nie jest profilem IIST." }; }
+    if (!konto || konto.profilId !== "iist") { return { ok: false, status: "wymaga_decyzji", komunikat: "Nie potwierdzono konta BUR IIST przed zmianą formularza." }; }
+    return { ok: true, konto: konto };
+  }
+
+  function wybierzDokładnąFormęBur(dokument, termin) {
+    const pole = dokument.querySelector("#formularzwstepnysekcja-formaswiadczenia");
+    if (!pole) { return { ok: false, komunikat: "Nie znaleziono natywnego pola formy świadczenia usługi." }; }
+    const normalizuj = przestrzeń.normalizujTekstDoWalidacji || function bezZmian(wartość) { return String(wartość || "").trim(); };
+    const dozwolone = czyTerminOnline(termin)
+      ? ["online", "zdalna w czasie rzeczywistym"]
+      : ["stacjonarna"];
+    const opcje = Array.from(pole.options || []).filter(function pasuje(opcja) {
+      return dozwolone.includes(normalizuj(podpisOpcji(opcja)).toLowerCase());
+    });
+    if (opcje.length !== 1) { return { ok: false, komunikat: "Nie znaleziono jednej dokładnej opcji BUR odpowiadającej formie wybranego terminu IIST." }; }
+    return { ok: true, tekst: podpisOpcji(opcje[0]) };
+  }
+
+  async function inicjalizujFormularzWstępnyIist(dokument, kontekst) {
+    const bezpieczeństwo = sprawdźBezpieczeństwoIist(dokument, kontekst || {});
+    if (!bezpieczeństwo.ok) { return bezpieczeństwo; }
+    const profil = przestrzeń.pobierzProfilDostawcy("iist");
+    const termin = kontekst && kontekst.wybranyTermin || {};
+    const etapy = [
+      { pole: "Rodzaj świadczonej usługi", selektor: "#formularzwstepnysekcja-rodzajuslugiid", tekst: profil.rodzajUsługiBur, następny: "#formularzwstepnysekcja-podrodzajuslugiid" },
+      { pole: "Podrodzaj świadczonej usługi", selektor: "#formularzwstepnysekcja-podrodzajuslugiid", tekst: profil.podrodzajUsługiBur, następny: "#formularzwstepnysekcja-formaswiadczenia" },
+      { pole: "Forma świadczenia usługi", selektor: "#formularzwstepnysekcja-formaswiadczenia", tekst: "", następny: "#formularzwstepnysekcja-wariantzajec" },
+      { pole: "Wariant zajęć", selektor: "#formularzwstepnysekcja-wariantzajec", tekst: profil.wariantZajęćBur, następny: "#formularzwstepnysekcja-podstawauzyskaniawpisuid" },
+      { pole: "Podstawa uzyskania wpisu do BUR", selektor: "#formularzwstepnysekcja-podstawauzyskaniawpisuid", tekst: profil.podstawaWpisuBur, następny: "#informacjepodstawowesekcja-tytuluslugi" }
+    ];
+    const wyniki = [];
+    for (const etap of etapy) {
+      const kontrola = sprawdźBezpieczeństwoIist(dokument, kontekst);
+      if (!kontrola.ok) { return Object.assign(kontrola, { etapy: wyniki }); }
+      if (etap.pole === "Forma świadczenia usługi") {
+        const forma = wybierzDokładnąFormęBur(dokument, termin);
+        if (!forma.ok) { return { ok: false, status: "wymaga_decyzji", komunikat: forma.komunikat, etapy: wyniki }; }
+        etap.tekst = forma.tekst;
+      }
+      const następnePole = dokument.querySelector(etap.następny);
+      const stanPrzed = { pole: etap.pole, selektorNastępnegoPola: etap.następny, następnePole: następnePole, sygnaturaNastępnegoPola: sygnaturaOpcji(następnePole) };
+      const ustawiono = ustawSelect2PoDokładnymTekście(dokument, { selektory: [etap.selektor] }, etap.tekst);
+      wyniki.push({ pole: etap.pole, status: ustawiono.status, kodBłędu: ustawiono.kodBłędu || "" });
+      if (!ustawiono.ok) { return { ok: false, status: "wymaga_decyzji", kodBłędu: ustawiono.kodBłędu, komunikat: ustawiono.komunikat, etapy: wyniki }; }
+      if (ustawiono.status !== "już_zgodne") {
+        const przebudowa = await poczekajNaPrzebudowęFormularza(dokument, stanPrzed, kontekst && kontekst.limitInicjalizacjiMs);
+        if (!przebudowa.ok) { return Object.assign(przebudowa, { etapy: wyniki }); }
+      }
+      const aktualnePole = dokument.querySelector(etap.selektor);
+      const aktualnaOpcja = aktualnePole && aktualnePole.selectedOptions && aktualnePole.selectedOptions[0];
+      const normalizuj = przestrzeń.normalizujTekstDoWalidacji || function bezZmian(wartość) { return String(wartość || "").trim(); };
+      if (!aktualnePole || normalizuj(podpisOpcji(aktualnaOpcja)) !== normalizuj(etap.tekst)) {
+        return { ok: false, status: "wymaga_decyzji", kodBłędu: "NIEPOTWIERDZONA_WARTOŚĆ_NATYWNA_PO_AJAX", komunikat: "Nowy natywny select BUR nie potwierdził wartości pola „" + etap.pole + "” po przebudowie AJAX.", etapy: wyniki };
+      }
+    }
+    const kontrolaKońcowa = sprawdźBezpieczeństwoIist(dokument, kontekst);
+    if (!kontrolaKońcowa.ok) { return Object.assign(kontrolaKońcowa, { etapy: wyniki }); }
+    const przełącznik = dokument.querySelector("#formularzwstepnysekcja-czyuslugadedykowanaLabel");
+    if (!przełącznik || !ustawPrzełącznikTakNie(przełącznik, profil.usługaZamkniętaBur)) {
+      return { ok: false, status: "wymaga_decyzji", komunikat: "Nie potwierdzono wartości NIE dla pola Usługa zamknięta.", etapy: wyniki };
+    }
+    if (!dokument.querySelector("#informacjepodstawowesekcja-tytuluslugi")) {
+      return { ok: false, status: "wymaga_decyzji", komunikat: "BUR nie udostępnił dalszych sekcji formularza po inicjalizacji.", etapy: wyniki };
+    }
+    return { ok: true, status: "zakończony", etapy: wyniki };
+  }
+
   function znajdźPoleWTabeli(dokument, tytułTabeli, nazwaKolumny) {
     if (typeof przestrzeń.znajdźPoleWTabeliBur === "function") {
       return przestrzeń.znajdźPoleWTabeliBur(dokument, tytułTabeli, nazwaKolumny);
@@ -1011,6 +1122,7 @@
   }
 
   przestrzeń.wypełnijFormularzBur = wypełnijFormularzBur;
+  przestrzeń.inicjalizujFormularzWstępnyIist = inicjalizujFormularzWstępnyIist;
   przestrzeń.wypełnijFormularzWstępny = wypełnijFormularzWstępny;
   przestrzeń.wypełnijInformacjePodstawowe = wypełnijInformacjePodstawowe;
   przestrzeń.wypełnijGłównyCelUsługi = wypełnijGłównyCelUsługi;

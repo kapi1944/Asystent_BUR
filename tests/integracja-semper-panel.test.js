@@ -80,6 +80,38 @@
     } finally { window.fetch = staryFetch; }
   });
 
+  test("wyszukiwanie IIST zaczyna od katalogu szkoleń otwartych", async function sprawdź() {
+    const staryFetch = window.fetch;
+    const adresy = [];
+    window.fetch = async function mockFetch(url) {
+      const adres = String(url); adresy.push(adres);
+      if (adres.endsWith("/szkolenia-otwarte/")) { return { ok: true, text: async function tekst() { return "<a href='/audytor-iso/'>Audytor wewnętrzny ISO 9001</a>"; } }; }
+      if (adres.endsWith("/audytor-iso/")) { return { ok: true, text: async function tekst() { return "<h1>Audytor wewnętrzny ISO 9001</h1>"; } }; }
+      return { ok: true, text: async function tekst() { return ""; } };
+    };
+    try {
+      const wynik = await bur.szukajŁączaIist("Audytor wewnętrzny ISO 9001");
+      sprawdzWarunek(wynik.ok);
+      sprawdzRownosc(adresy[0], "https://szkoleniaiist.com.pl/szkolenia-otwarte/");
+      sprawdzWarunek(!adresy.some(function sitemap(adres) { return adres.endsWith("sitemap.xml"); }));
+    } finally { window.fetch = staryFetch; }
+  });
+
+  test("wyszukiwanie IIST uwzględnia paginację katalogu", async function sprawdź() {
+    const staryFetch = window.fetch;
+    window.fetch = async function mockFetch(url) {
+      const adres = String(url);
+      if (adres.endsWith("/szkolenia-otwarte/")) { return { ok: true, text: async function tekst() { return "<a href='/szkolenia-otwarte/page/2/'>2</a>"; } }; }
+      if (adres.endsWith("/szkolenia-otwarte/page/2/")) { return { ok: true, text: async function tekst() { return "<a href='/zarzadzanie-zespolem/'>Skuteczne zarządzanie zespołem</a>"; } }; }
+      if (adres.endsWith("/zarzadzanie-zespolem/")) { return { ok: true, text: async function tekst() { return "<h1>Skuteczne zarządzanie zespołem</h1>"; } }; }
+      return { ok: true, text: async function tekst() { return ""; } };
+    };
+    try {
+      const wynik = await bur.szukajŁączaIist("Skuteczne zarządzanie zespołem");
+      sprawdzWarunek(wynik.ok && wynik.wynik.url.endsWith("/zarzadzanie-zespolem/"));
+    } finally { window.fetch = staryFetch; }
+  });
+
   test("renderujDaneSzkolenia pokazuje tytuł i terminy po imporcie", function sprawdź() {
     const dokument = document.implementation.createHTMLDocument("Panel");
 

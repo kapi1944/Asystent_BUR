@@ -17,6 +17,11 @@
     return !przestrzeń.normalizujTekstDoWalidacji(wartość);
   }
 
+  function pobierzLiczbęZTekstu(wartość) {
+    const trafienie = String(wartość || "").replace(/\s+/g, "").match(/\d+(?:[.,]\d+)?/);
+    return trafienie ? trafienie[0].replace(",", ".") : "";
+  }
+
   function czyZgodne(aktualnaWartość, oczekiwanaWartość) {
     const aktualna = normalizujDoPorównaniaBur(aktualnaWartość);
     const oczekiwana = normalizujDoPorównaniaBur(oczekiwanaWartość);
@@ -418,15 +423,19 @@
     return null;
   }
 
-  function walidujPodstawęWpisuBur(dokument, pozycje) {
+  function walidujPodstawęWpisuBur(dokument, pozycje, profil) {
     const definicja = przestrzeń.pobierzDefinicjęPodstawyWpisuBur();
     const natywnePole = przestrzeń.znajdźNatywnePoleWyboruBur
       ? przestrzeń.znajdźNatywnePoleWyboruBur(dokument, definicja)
       : null;
     const aktualnaWartość = natywnePole ? przestrzeń.pobierzTekstSelect2(natywnePole) : "";
-    const status = aktualnaWartość ? "poprawne" : "błąd";
-    const komunikat = aktualnaWartość
-      ? "Wybrano podstawę uzyskania wpisu do BUR."
+    const oczekiwanaPodstawa = profil && profil.id === "iist" ? profil.podstawaWpisuBur : "";
+    const zgodna = oczekiwanaPodstawa ? czyZgodne(aktualnaWartość, oczekiwanaPodstawa) : Boolean(aktualnaWartość);
+    const status = zgodna ? "poprawne" : "błąd";
+    const komunikat = zgodna
+      ? "Wybrano właściwą podstawę uzyskania wpisu do BUR."
+      : aktualnaWartość && oczekiwanaPodstawa
+        ? "Podstawa uzyskania wpisu do BUR nie odpowiada profilowi IIST."
       : "Pole podstawy uzyskania wpisu do BUR jest puste.";
 
     dodajPozycję(pozycje, {
@@ -434,7 +443,7 @@
       pole: "Podstawa uzyskania wpisu do BUR",
       status: status,
       komunikat: komunikat,
-      oczekiwanaWartość: "Dowolna wybrana podstawa",
+      oczekiwanaWartość: oczekiwanaPodstawa || "Dowolna wybrana podstawa",
       aktualnaWartość: aktualnaWartość || "Nie odczytano wartości",
       opisPola: "Podstawa uzyskania wpisu do BUR",
       selektorPomocniczy: "#formularzwstepnysekcja-podstawauzyskaniawpisuid",
@@ -449,6 +458,14 @@
     const czyTerminOnline = termin.forma === "online";
     const oczekiwanaForma = czyTerminOnline ? "zdalna w czasie rzeczywistym" : "stacjonarna";
     const przełącznikUsługiZamkniętej = znajdźPrzełącznikUsługiZamkniętej(dokument);
+    const profilId = kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId || "semper";
+    const profil = przestrzeń.pobierzProfilDostawcy(profilId) || {};
+
+    if (profilId === "iist") {
+      [["Rodzaj świadczonej usługi", "#formularzwstepnysekcja-rodzajuslugiid", profil.rodzajUsługiBur], ["Podrodzaj świadczonej usługi", "#formularzwstepnysekcja-podrodzajuslugiid", profil.podrodzajUsługiBur]].forEach(function sprawdźPoleWstępne(dane) {
+        sprawdźWartość(pozycje, { dokument: dokument, sekcja: "Formularz wstępny", pole: dane[0], oczekiwanaWartość: dane[2], definicja: { sekcja: "Formularz wstępny", etykieta: dane[0], selektory: [dane[1]] }, selektorPomocniczy: dane[1] });
+      });
+    }
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -482,7 +499,7 @@
       selektorPomocniczy: "#select2-formularzwstepnysekcja-wariantzajec-container"
     });
 
-    walidujPodstawęWpisuBur(dokument, pozycje);
+    walidujPodstawęWpisuBur(dokument, pozycje, profil);
 
     sprawdźWartość(pozycje, {
       dokument: dokument,
@@ -621,6 +638,14 @@
       },
       selektorPomocniczy: "#informacjepodstawowesekcja-maksymalnaliczbauczestnikow"
     });
+
+    [["Cena netto", "#informacjepodstawowesekcja-cenanettouslugi", pobierzLiczbęZTekstu(termin.cena)], ["Liczba godzin usługi", "#informacjepodstawowesekcja-liczbagodzinuslugi", pobierzLiczbęZTekstu(termin.liczbaGodzin || termin.czasTrwania)]].filter(function maŹródło(dane) { return Boolean(dane[2]); }).forEach(function sprawdźDaneWariantu(dane) {
+      sprawdźWartość(pozycje, { dokument: dokument, sekcja: "Informacje podstawowe", pole: dane[0], oczekiwanaWartość: dane[2], definicja: { sekcja: "Informacje podstawowe", etykieta: dane[0], selektory: [dane[1]] }, selektorPomocniczy: dane[1] });
+    });
+
+    if (termin.forma !== "online") {
+      sprawdźWartość(pozycje, { dokument: dokument, sekcja: "Lokalizacja usługi", pole: "Lokalizacja i adres", oczekiwanaWartość: termin.miejsce || termin.lokalizacja || "", definicja: { sekcja: "Lokalizacja usługi", etykieta: "Lokalizacja i adres", selektory: ["#lokalizacjauslugisekcja-adres", "#lokalizacjauslugisekcja-miasto"] }, czyOstrzeżenie: function sprawdźLokalizację(wartość) { return !czyTekstPodobny(wartość, termin.miejsce || termin.lokalizacja || ""); } });
+    }
   }
 
   function walidujGłównyCelUsługi(dokument, kontekst, pozycje) {
@@ -940,18 +965,19 @@
     const opis = przestrzeń.skróćCelEdukacyjnyDoLimituBur(szkolenie.sekcje && (szkolenie.sekcje.celEdukacyjnyOpis || szkolenie.sekcje.celSzkolenia) || "");
     dodajSprawdzenieProfilu(pozycje, "Główny cel usługi", "Cel edukacyjny - opis", Boolean(opis) && normalizujDoPorównaniaBur(cel.wartość).includes(normalizujDoPorównaniaBur(opis)), opis, cel.wartość, cel.element, "Brakuje pierwszej części celu edukacyjnego " + profil.nazwa + ".", opis ? "błąd" : "ostrzeżenie");
     const program = odczytajCel(dokument, "program");
-    const tekstNad = szkolenie.sekcje && (szkolenie.sekcje.tekstNadProgramem || szkolenie.sekcje.efektyPoSzkoleniu) || "";
-    dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", "Druga część celu nad programem", Boolean(tekstNad) && normalizujDoPorównaniaBur(program.wartość).includes(normalizujDoPorównaniaBur(tekstNad)), tekstNad, program.wartość, program.element, "Brakuje drugiej części celu edukacyjnego nad programem.", tekstNad ? "błąd" : "ostrzeżenie");
+    const tekstNad = szkolenie.sekcje && (profilId === "iist" ? szkolenie.sekcje.korzysci : szkolenie.sekcje.tekstNadProgramem || szkolenie.sekcje.efektyPoSzkoleniu) || "";
+    dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", profilId === "iist" ? "Korzyści dla uczestników" : "Druga część celu nad programem", Boolean(tekstNad) && normalizujDoPorównaniaBur(program.wartość).includes(normalizujDoPorównaniaBur(tekstNad)), tekstNad, program.wartość, program.element, profilId === "iist" ? "Brakuje sekcji Korzyści dla uczestników nad programem." : "Brakuje drugiej części celu edukacyjnego nad programem.", tekstNad ? "błąd" : "ostrzeżenie");
     dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", "Tekst organizacyjny profilu", normalizujDoPorównaniaBur(program.wartość).includes(normalizujDoPorównaniaBur(profil.tekstPodProgramem)) && !normalizujDoPorównaniaBur(program.wartość).includes(normalizujDoPorównaniaBur(przestrzeń.INFORMACJA_ORGANIZACYJNA_PROGRAMU)), profil.tekstPodProgramem, program.wartość, program.element, "Program nie zawiera właściwego tekstu organizacyjnego albo zawiera tekst SEMPER.");
     const harmonogram = odczytajCel(dokument, "harmonogram");
     const harmonogramPoprawny = [profil.osobaProwadzącaUsługę.email, profil.osobaProwadzącaWalidację.email].every(function maEmail(email) { return normalizujDoPorównaniaBur(harmonogram.wartość).includes(normalizujDoPorównaniaBur(email)); }) && !/szkolenia-semper\.pl/i.test(harmonogram.wartość);
     dodajSprawdzenieProfilu(pozycje, "Program i harmonogram usługi", "Adresy prowadzących w harmonogramie", harmonogramPoprawny, profil.osobaProwadzącaUsługę.email + ", " + profil.osobaProwadzącaWalidację.email, harmonogram.wartość, harmonogram.element, "Harmonogram nie używa wyłącznie adresów profilu " + profil.nazwa + ".");
     const online = /online/i.test([termin.forma, termin.miejsce].join(" "));
     walidujWarunkiUczestnictwa(pozycje, profilId, online, odczytajCel(dokument, "warunkiUczestnictwa"));
-    [["informacjaOMaterialach", "Informacja o materiałach", profil.materiałyOnline], ["informacjeDodatkowe", "Informacje dodatkowe", profil.informacjeDodatkoweOnline], ["warunkiTechniczne", "Warunki techniczne", profil.warunkiTechniczneOnline], ["kodyDostepowe", "Kody dostępowe", profil.kodyDostępoweOnline]].forEach(function sprawdźOnline(dane) {
+    const kluczFormy = online ? "online" : "stacjonarna";
+    [["informacjaOMaterialach", "Informacja o materiałach", profil.materiały ? profil.materiały[kluczFormy] : profil.materiałyOnline], ["informacjeDodatkowe", "Informacje dodatkowe", profil.informacjeDodatkowe ? profil.informacjeDodatkowe[kluczFormy] : profil.informacjeDodatkoweOnline], ["warunkiTechniczne", "Warunki techniczne", profil.warunkiTechniczne ? profil.warunkiTechniczne[kluczFormy] : profil.warunkiTechniczneOnline], ["kodyDostepowe", "Kody dostępowe", profil.kodyDostępowe ? profil.kodyDostępowe[kluczFormy] : profil.kodyDostępoweOnline]].forEach(function sprawdźWedługFormy(dane) {
       const pole = odczytajCel(dokument, dane[0]);
-      if (!online) { dodajPozycję(pozycje, { sekcja: "Informacje dodatkowe", pole: dane[1], status: "poprawne", komunikat: "Reguła dotyczy tylko online; pole nie jest wymuszane.", oczekiwanaWartość: "Reguła dotyczy tylko online", aktualnaWartość: pole.wartość, element: pole.element }); return; }
-      dodajSprawdzenieProfilu(pozycje, "Informacje dodatkowe", dane[1], normalizujDoPorównaniaBur(pole.wartość) === normalizujDoPorównaniaBur(dane[2]), dane[2], pole.wartość, pole.element, "Pole online jest niezgodne z profilem " + profil.nazwa + ".");
+      if (!dane[2]) { dodajPozycję(pozycje, { sekcja: "Informacje dodatkowe", pole: dane[1], status: "poprawne", komunikat: "Pole nie dotyczy wybranej formy usługi.", oczekiwanaWartość: "Nie dotyczy", aktualnaWartość: pole.wartość, element: pole.element }); return; }
+      dodajSprawdzenieProfilu(pozycje, "Informacje dodatkowe", dane[1], normalizujDoPorównaniaBur(pole.wartość) === normalizujDoPorównaniaBur(dane[2]), dane[2], pole.wartość, pole.element, "Pole jest niezgodne z profilem " + profil.nazwa + " i wybraną formą usługi.");
     });
   }
 

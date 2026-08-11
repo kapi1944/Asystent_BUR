@@ -191,7 +191,7 @@
 
   test("warunki IIST rozróżniają formę online i stacjonarną", function sprawdź() {
     const warunkiOnline = bur.pobierzProfilDostawcy("iist").warunkiUczestnictwaOnline;
-    const warunkiStacjonarne = warunkiOnline.split("\n").slice(0, 3).join("\n");
+    const warunkiStacjonarne = bur.pobierzProfilDostawcy("iist").warunkiUczestnictwa.stacjonarna;
     sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "online", warunkiOnline).status, "poprawne");
     sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "stacjonarna", warunkiStacjonarne).status, "poprawne");
     sprawdzRownosc(walidujWarunkiUczestnictwa("iist", "online", warunkiStacjonarne).status, "błąd");

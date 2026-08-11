@@ -1,17 +1,37 @@
 :root {
   color-scheme: dark;
-  --tlo: #141414;
-  --panel: #1f1f1f;
-  --panel-drugi: #262626;
-  --tekst: #f2f2f2;
-  --tekst-slaby: #b8b8b8;
-  --ramka: #3a3a3a;
+  --bur-bg: #141414;
+  --bur-surface: #1f1f1f;
+  --bur-surface-hover: #303030;
+  --bur-surface-elevated: #272727;
+  --bur-border: #484848;
+  --bur-border-strong: #686868;
+  --bur-text: #f2f2f2;
+  --bur-text-muted: #bdbdbd;
   --czerwony: #e53935;
   --czerwony-ciemny: #9f1f1c;
-  --zielony: #37b26c;
-  --pomaranczowy: #ff9f1c;
+  --bur-success: #37b26c;
+  --bur-warning: #ff9f1c;
+  --bur-error: #ef5350;
   --akcent: var(--czerwony);
   --akcent-ciemny: var(--czerwony-ciemny);
+  --bur-accent: var(--akcent);
+  --bur-accent-hover: var(--akcent-ciemny);
+  --bur-focus: #8fcdf1;
+  --bur-space-1: 4px;
+  --bur-space-2: 8px;
+  --bur-space-3: 12px;
+  --bur-space-4: 16px;
+
+  /* Aliasy zachowują zgodność z istniejącymi regułami i zmianą profilu w JS. */
+  --tlo: var(--bur-bg);
+  --panel: var(--bur-surface);
+  --panel-drugi: var(--bur-surface-elevated);
+  --tekst: var(--bur-text);
+  --tekst-slaby: var(--bur-text-muted);
+  --ramka: var(--bur-border);
+  --zielony: var(--bur-success);
+  --pomaranczowy: var(--bur-warning);
 }
 
 * {
@@ -33,7 +53,7 @@ body {
 
 .naglowek {
   padding: 16px;
-  background: #101010;
+  background: #181818;
   border-bottom: 1px solid var(--ramka);
 }
 
@@ -66,7 +86,7 @@ h2 {
 
 .karta {
   min-width: 0;
-  padding: 14px;
+  padding: var(--bur-space-3);
   background: var(--panel);
   border: 1px solid var(--ramka);
   border-radius: 8px;
@@ -77,22 +97,36 @@ button {
   min-height: 42px;
   border: 1px solid var(--akcent);
   border-radius: 6px;
-  background: var(--akcent-ciemny);
-  color: white;
+  background: var(--bur-surface-elevated);
+  color: var(--bur-text);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease;
 }
 
-button:hover {
-  background: var(--akcent);
+button:hover:not(:disabled) {
+  border-color: var(--bur-accent);
+  background: var(--bur-surface-hover);
+  transform: scale(1.02);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--bur-focus);
+  outline-offset: 2px;
 }
 
 button:disabled {
-  border-color: var(--ramka);
-  background: #333;
-  color: var(--tekst-slaby);
-  cursor: default;
+  border-color: var(--bur-border);
+  background: #292929;
+  color: #858585;
+  cursor: not-allowed;
+  opacity: 0.72;
+  transform: none;
 }
 
 input {
@@ -121,12 +155,10 @@ select {
 
 input:focus {
   border-color: var(--akcent);
-  outline: none;
 }
 
 select:focus {
   border-color: var(--akcent);
-  outline: none;
 }
 
 textarea {
@@ -142,8 +174,7 @@ textarea {
 }
 
 textarea:focus {
-  border-color: var(--czerwony);
-  outline: none;
+  border-color: var(--bur-accent);
 }
 
 .etykieta {
@@ -175,17 +206,20 @@ textarea:focus {
 }
 
 .aktualny-termin-bur {
-  margin-bottom: 10px;
-  padding: 9px 10px;
-  border: 1px solid var(--ramka);
-  border-radius: 6px;
-  background: var(--panel-drugi);
+  margin-bottom: var(--bur-space-2);
+  padding: var(--bur-space-3);
+  border: 1px solid var(--bur-border-strong);
+  border-left: 4px solid var(--bur-accent);
+  border-radius: 8px;
+  background: var(--bur-surface-elevated);
 }
 
 .kolejka-terminow-bur {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--ramka);
+  margin-bottom: var(--bur-space-4);
+  padding: var(--bur-space-3);
+  border: 1px solid var(--bur-border);
+  border-radius: 8px;
+  background: var(--bur-surface-elevated);
 }
 
 .kolejka-terminow-bur h3 {
@@ -211,14 +245,14 @@ textarea:focus {
 .podsumowanie-kolejki-terminow {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
+  gap: var(--bur-space-1);
   margin-top: 8px;
   color: var(--tekst-slaby);
   font-size: 12px;
 }
 
 .podsumowanie-kolejki-terminow span {
-  padding: 5px 6px;
+  padding: var(--bur-space-1) var(--bur-space-2);
   border: 1px solid var(--ramka);
   border-radius: 4px;
 }
@@ -311,16 +345,23 @@ textarea:focus {
 .filtr-terminow {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  margin-top: 10px;
+  gap: 0;
+  margin-top: var(--bur-space-3);
+  padding: 2px;
+  border: 1px solid var(--bur-border);
+  border-radius: 7px;
+  background: var(--bur-bg);
+  overflow: hidden;
 }
 
 .filtr-terminow button {
   min-height: 30px;
   padding: 4px 6px;
-  border-color: var(--ramka);
+  border-color: transparent;
+  border-right-color: var(--bur-border);
   border-radius: 0;
-  background: var(--panel-drugi);
-  color: var(--tekst-slaby);
+  background: var(--bur-surface-elevated);
+  color: var(--bur-text);
   font-size: 11px;
 }
 
@@ -330,12 +371,20 @@ textarea:focus {
 
 .filtr-terminow button:last-child {
   border-radius: 0 5px 5px 0;
+  border-right-color: transparent;
 }
 
 .filtr-terminow button[aria-pressed="true"] {
-  border-color: var(--czerwony);
-  background: var(--czerwony-ciemny);
+  border-color: var(--bur-accent);
+  background: var(--bur-accent);
   color: white;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.filtr-terminow button:hover:not(:disabled) {
+  border-color: var(--bur-border-strong);
+  background: var(--bur-surface-hover);
+  transform: none;
 }
 
 .lista-terminow-semper {
@@ -364,8 +413,9 @@ textarea:focus {
   gap: 6px;
   width: 100%;
   min-height: 0;
-  padding: 5px 7px;
+  padding: var(--bur-space-2);
   border: 1px solid transparent;
+  border-bottom-color: var(--bur-border);
   border-radius: 4px;
   background: transparent;
   color: var(--tekst-slaby);
@@ -375,13 +425,14 @@ textarea:focus {
 
 .pozycja-terminu-semper:hover,
 .pozycja-terminu-semper:focus-visible {
-  border-color: var(--ramka);
-  background: var(--panel-drugi);
+  border-color: var(--bur-border-strong);
+  background: var(--bur-surface-hover);
+  transform: none;
 }
 
 .pozycja-terminu-semper.wybrany {
-  border-color: var(--czerwony);
-  background: rgba(229, 57, 53, 0.12);
+  border-color: var(--bur-accent);
+  background: color-mix(in srgb, var(--bur-accent) 18%, var(--bur-surface-elevated));
   color: var(--tekst);
 }
 
@@ -446,17 +497,20 @@ textarea:focus {
 
 .pusta-lista-terminow {
   margin: 0;
-  padding: 8px 0;
+  padding: var(--bur-space-3);
+  border: 1px dashed var(--bur-border);
+  border-radius: 6px;
+  background: var(--bur-surface-elevated);
   color: var(--tekst-slaby);
   font-size: 12px;
 }
 
 .wybor-terminu-harmonogramu {
-  margin: 10px 0 12px;
-  padding: 10px;
-  border: 1px solid var(--ramka);
-  border-radius: 6px;
-  background: #1b1b1b;
+  margin: var(--bur-space-3) 0 var(--bur-space-4);
+  padding: var(--bur-space-3);
+  border: 1px solid var(--bur-border-strong);
+  border-radius: 8px;
+  background: var(--bur-surface-elevated);
 }
 
 .wybor-terminu-harmonogramu > h3 {
@@ -466,8 +520,8 @@ textarea:focus {
 }
 
 .wybrany-termin-harmonogramu {
-  padding: 7px 8px;
-  border: 1px solid var(--ramka);
+  padding: var(--bur-space-2);
+  border: 1px solid var(--bur-border-strong);
   border-radius: 5px;
   background: var(--panel-drugi);
   color: var(--tekst);
@@ -568,7 +622,7 @@ textarea:focus {
   padding: 8px 10px;
   border-bottom: 1px solid var(--ramka);
   border-radius: 6px 6px 0 0;
-  background: var(--panel-drugi);
+  background: var(--bur-bg);
   color: var(--tekst);
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -693,6 +747,7 @@ li + li {
 
 .przelacznik-profilu { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 12px 0; }
 .przelacznik-profilu button[aria-pressed="false"] { border-color: var(--ramka); background: var(--panel-drugi); }
+.przelacznik-profilu button[aria-pressed="true"] { border-color: var(--bur-accent); background: var(--bur-accent); color: #fff; }
 .wykryte-konto-bur { display: grid; gap: 4px; padding: 10px; border: 1px solid var(--akcent); border-radius: 6px; color: var(--tekst-slaby); }
 .wykryte-konto-bur strong { color: var(--tekst); }
 .wykryte-konto-bur button { margin-top: 4px; }
@@ -1050,9 +1105,10 @@ li + li {
   min-width: 0;
   min-height: 36px;
   padding: 6px 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--tekst-slaby);
+  border: 1px solid var(--bur-border-strong);
+  border-radius: 6px;
+  background: var(--bur-surface);
+  color: var(--bur-text);
   text-align: left;
   white-space: normal;
   overflow-wrap: anywhere;
@@ -1060,20 +1116,22 @@ li + li {
 
 .zakladki-panelu button:hover,
 .zakladki-panelu button:focus-visible {
-  border-color: #7c3aed;
-  background: rgba(124, 58, 237, 0.1);
+  border-color: var(--bur-accent);
+  background: var(--bur-surface-hover);
   color: var(--tekst);
+  transform: scale(1.02);
 }
 
 .zakladki-panelu button:focus-visible {
-  outline: 3px solid #7c3aed;
+  outline: 3px solid var(--bur-focus);
   outline-offset: 2px;
 }
 
 .zakladki-panelu button[aria-pressed="true"] {
-  border-color: #7c3aed;
-  background: rgba(124, 58, 237, 0.16);
-  color: var(--tekst);
+  border-color: var(--bur-accent);
+  background: var(--bur-accent);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
 }
 
 .karta[data-zakladki] {
@@ -1172,4 +1230,210 @@ body[data-aktywna-zakladka="diagnostyka"] .karta[data-zakladki~="diagnostyka"] {
   overflow-wrap: anywhere;
   font-size: 11px;
   line-height: 1.4;
+}
+
+/* Wspólne wykończenie komponentów side panelu. */
+.pozycja-terminu-harmonogramu {
+  border-bottom-color: var(--bur-border);
+}
+
+.pozycja-terminu-harmonogramu:hover,
+.pozycja-terminu-harmonogramu:focus-visible {
+  border-color: var(--bur-border-strong);
+  background: var(--bur-surface-hover);
+  transform: none;
+}
+
+.pozycja-terminu-harmonogramu.wybrany {
+  border-color: var(--bur-accent);
+  background: color-mix(in srgb, var(--bur-accent) 18%, var(--bur-surface-elevated));
+}
+
+.źródła-terminów-harmonogramu {
+  gap: var(--bur-space-4);
+}
+
+.karta-listy-terminów-harmonogramu {
+  padding: var(--bur-space-3);
+  border-color: var(--bur-border-strong);
+  border-radius: 8px;
+  background: var(--bur-surface-elevated);
+}
+
+.karta-listy-terminów-harmonogramu > h3 {
+  margin: calc(-1 * var(--bur-space-3)) calc(-1 * var(--bur-space-3)) var(--bur-space-3);
+  padding: var(--bur-space-2) var(--bur-space-3);
+  background: var(--bur-bg);
+}
+
+.przycisk-główny {
+  border-color: var(--bur-accent);
+  background: var(--bur-accent-hover);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--bur-accent) 35%, transparent);
+}
+
+.przycisk-główny:hover:not(:disabled) {
+  background: var(--bur-accent);
+}
+
+.status,
+.komunikat {
+  border: 1px solid var(--bur-border);
+  border-left: 4px solid var(--bur-accent);
+  background: var(--bur-surface-elevated);
+  color: var(--bur-text-muted);
+}
+
+.status-odczytano {
+  border-left-color: var(--bur-success);
+  background: color-mix(in srgb, var(--bur-success) 10%, var(--bur-surface-elevated));
+}
+
+.status-ostrzezenie {
+  border-left-color: var(--bur-warning);
+  background: color-mix(in srgb, var(--bur-warning) 9%, var(--bur-surface-elevated));
+}
+
+.status-blad {
+  border-left-color: var(--bur-error);
+  background: color-mix(in srgb, var(--bur-error) 10%, var(--bur-surface-elevated));
+}
+
+.status-neutralny {
+  border-left-color: var(--bur-accent);
+}
+
+.dane dd {
+  border-color: var(--bur-border);
+  background: var(--bur-surface-elevated);
+  color: var(--bur-text);
+}
+
+.dane-zwarte dt {
+  margin-bottom: calc(-1 * var(--bur-space-1));
+  color: var(--bur-text-muted);
+  letter-spacing: 0.03em;
+}
+
+.diagnostyka-semper,
+.diagnostyka-importu-csv,
+.podglad-kolejki-terminow {
+  border: 1px solid var(--bur-border);
+  border-radius: 7px;
+  background: var(--bur-surface-elevated);
+  color: var(--bur-text-muted);
+}
+
+.diagnostyka-semper summary,
+.diagnostyka-importu-csv summary,
+.podglad-kolejki-terminow summary {
+  position: relative;
+  padding: var(--bur-space-2) 36px var(--bur-space-2) var(--bur-space-3);
+  color: var(--bur-text);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+  transition: background-color 140ms ease;
+}
+
+.diagnostyka-semper summary::-webkit-details-marker,
+.diagnostyka-importu-csv summary::-webkit-details-marker,
+.podglad-kolejki-terminow summary::-webkit-details-marker {
+  display: none;
+}
+
+.diagnostyka-semper summary::after,
+.diagnostyka-importu-csv summary::after,
+.podglad-kolejki-terminow summary::after {
+  position: absolute;
+  top: 50%;
+  right: var(--bur-space-3);
+  content: "›";
+  font-size: 20px;
+  line-height: 1;
+  transform: translateY(-50%) rotate(90deg);
+  transition: transform 140ms ease;
+}
+
+.diagnostyka-semper[open] summary::after,
+.diagnostyka-importu-csv[open] summary::after,
+.podglad-kolejki-terminow[open] summary::after {
+  transform: translateY(-50%) rotate(-90deg);
+}
+
+.diagnostyka-semper summary:hover,
+.diagnostyka-importu-csv summary:hover,
+.podglad-kolejki-terminow summary:hover {
+  background: var(--bur-surface-hover);
+}
+
+.diagnostyka-semper[open] summary,
+.diagnostyka-importu-csv[open] summary,
+.podglad-kolejki-terminow[open] summary {
+  border-bottom: 1px solid var(--bur-border);
+  background: var(--bur-bg);
+}
+
+.diagnostyka-semper .dane,
+.diagnostyka-importu-csv > :not(summary),
+.podglad-kolejki-terminow > :not(summary) {
+  margin-right: var(--bur-space-3);
+  margin-left: var(--bur-space-3);
+}
+
+.kontrola-harmonogramu {
+  background: var(--bur-surface-elevated);
+}
+
+.kontrola-harmonogramu-neutralna {
+  border-left: 4px solid var(--bur-accent);
+  color: var(--bur-text-muted);
+}
+
+.podglad-harmonogramu:not(:empty) {
+  padding: var(--bur-space-3);
+  border: 1px solid var(--bur-border);
+  border-radius: 8px;
+  background: var(--bur-surface-elevated);
+}
+
+@media (max-width: 340px) {
+  .naglowek,
+  .panel,
+  .zakladki-panelu {
+    padding-right: var(--bur-space-2);
+    padding-left: var(--bur-space-2);
+  }
+
+  .karta,
+  .kolejka-terminow-bur,
+  .wybor-terminu-harmonogramu,
+  .karta-listy-terminów-harmonogramu {
+    padding: var(--bur-space-2);
+  }
+
+  .siatka-przycisków {
+    grid-template-columns: 1fr;
+  }
+
+  .podsumowanie-kolejki-terminow {
+    grid-template-columns: 1fr;
+  }
+
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button,
+  summary {
+    transition: none;
+  }
+
+  button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+.filtr-terminow button[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--bur-accent);
+  background: var(--bur-accent);
 }

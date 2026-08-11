@@ -95,6 +95,23 @@
     });
   });
 
+  test("Panel ma wspólne tokeny i rozróżnia stany kontrolek", function sprawdźSystemWizualny() {
+    return pobierzPlik("../panel/panel.css").then(function sprawdźCss(css) {
+      [
+        "--bur-bg", "--bur-surface", "--bur-surface-hover", "--bur-surface-elevated",
+        "--bur-border", "--bur-border-strong", "--bur-text", "--bur-text-muted",
+        "--bur-accent", "--bur-accent-hover", "--bur-success", "--bur-warning", "--bur-error"
+      ].forEach(function sprawdźToken(token) {
+        sprawdzWarunek(css.includes(token + ":"), "Brakuje wspólnego tokenu CSS " + token + ".");
+      });
+
+      sprawdzWarunek(/\.zakladki-panelu button\s*\{[^}]*border:\s*1px solid var\(--bur-border-strong\);/s.test(css), "Nieaktywne zakładki muszą mieć widoczną ramkę.");
+      sprawdzWarunek(/\.zakladki-panelu button\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--bur-accent\);/s.test(css), "Aktywna zakładka musi używać akcentu profilu.");
+      sprawdzWarunek(/button:focus-visible,[\s\S]*outline:\s*3px solid var\(--bur-focus\);/.test(css), "Kontrolki muszą mieć widoczny fokus klawiatury.");
+      sprawdzWarunek(/\.filtr-terminow button\[aria-pressed="true"\]\s*\{[^}]*background:\s*var\(--bur-accent\);/s.test(css), "Aktywny filtr musi używać akcentu profilu.");
+    });
+  });
+
   test("Domyślnie aktywna jest tylko sekcja SEMPER", function sprawdźStanDomyślny() {
     return pobierzPlik("../panel/panel.html").then(function sprawdźHtml(html) {
       const dokument = new DOMParser().parseFromString(html, "text/html");
@@ -122,7 +139,7 @@
   test("Przyciski przełączają sekcję kliknięciem oraz klawiaturą", function sprawdźObsługęPrzełączania() {
     return utwórzPanelTestowy(true).then(function sprawdźPanel(ramka) {
       const dokument = ramka.contentWindow.document;
-      const zakładki = ["semper", "terminy", "checklista", "harmonogram", "diagnostyka"];
+      const zakładki = ["semper", "terminy", "seria", "checklista", "harmonogram", "diagnostyka"];
 
       zakładki.forEach(function sprawdźZakładkę(nazwa) {
         const przycisk = dokument.querySelector('[data-przelacz-zakladke="' + nazwa + '"]');
@@ -148,6 +165,47 @@
       return pobierzPlik("../panel/panel.js").then(function sprawdźWarunekRęcznegoWyboru(skrypt) {
         sprawdzWarunek(/if \(!czyUżytkownikWybrałZakładkę\) \{\s*ustawAktywnąZakładkęPanelu/s.test(skrypt), "Odświeżenie statusu nie może nadpisywać ręcznego wyboru.");
       });
+      });
+    });
+  });
+
+  test("IIST zachowuje komplet zakładek i własny akcent", function sprawdźNawigacjęIist() {
+    return utwórzPanelTestowy(true).then(function przełączProfil(ramka) {
+      const dokument = ramka.contentWindow.document;
+      dokument.querySelector('[data-profil-dostawcy="iist"]').click();
+
+      return new Promise(function poczekajNaProfil(resolve) {
+        ramka.contentWindow.setTimeout(resolve, 0);
+      }).then(function sprawdźProfil() {
+        const przyciskIist = dokument.querySelector('[data-profil-dostawcy="iist"]');
+        sprawdzRownosc(przyciskIist.getAttribute("aria-pressed"), "true", "Profil IIST nie został aktywowany.");
+        sprawdzRownosc(dokument.documentElement.style.getPropertyValue("--akcent"), "#2e89be", "Profil IIST musi zachować niebieski akcent.");
+
+        ["semper", "terminy", "seria", "checklista", "harmonogram", "diagnostyka"].forEach(function sprawdźZakładkę(nazwa) {
+          const przycisk = dokument.querySelector('[data-przelacz-zakladke="' + nazwa + '"]');
+          przycisk.click();
+          sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, nazwa, "IIST nie przełączył zakładki " + nazwa + ".");
+        });
+
+        ramka.remove();
+      });
+    });
+  });
+
+  test("Panel nie tworzy poziomego przewijania przy szerokości 320 px", function sprawdźWąskiPanel() {
+    return utwórzPanelTestowy(true).then(function zmierzPanel(ramka) {
+      ramka.hidden = false;
+      ramka.style.cssText = "position:fixed;left:-10000px;top:0;width:320px;height:800px;border:0";
+
+      return new Promise(function poczekajNaUkład(resolve) {
+        ramka.contentWindow.requestAnimationFrame(resolve);
+      }).then(function sprawdźZakładki() {
+        const dokument = ramka.contentWindow.document;
+        ["semper", "terminy", "seria", "checklista", "harmonogram", "diagnostyka"].forEach(function sprawdźZakładkę(nazwa) {
+          dokument.querySelector('[data-przelacz-zakladke="' + nazwa + '"]').click();
+          sprawdzWarunek(dokument.documentElement.scrollWidth <= dokument.documentElement.clientWidth, "Zakładka " + nazwa + " tworzy poziome przewijanie przy 320 px.");
+        });
+        ramka.remove();
       });
     });
   });

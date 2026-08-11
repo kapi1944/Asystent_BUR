@@ -47,6 +47,7 @@
       cenaBezZakwaterowania: wartosci.cenaBezZakwaterowania || "",
       cenaBezZakwaterowaniaRodzaj: wartosci.cenaBezZakwaterowaniaRodzaj || "",
       czasTrwania: wartosci.czasTrwania || "",
+      liczbaGodzin: wartosci.liczbaGodzin || wartosci.czasTrwania || "",
       czyDojazdZakopane: Boolean(wartosci.czyDojazdZakopane)
     };
   }

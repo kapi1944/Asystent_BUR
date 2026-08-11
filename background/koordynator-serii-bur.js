@@ -243,7 +243,7 @@
     }
 
     function statusDlaEtapu(etap) {
-      if (["wypelnianie_pol", "kontrola_pol", "zastepowanie_osob_prowadzacych", "kontrola_osob_prowadzacych", "przygotowanie_programu"].includes(etap)) { return "wypelnianie"; }
+      if (["inicjalizacja_formularza_wstepnego", "wypelnianie_pol", "kontrola_pol", "zastepowanie_osob_prowadzacych", "kontrola_osob_prowadzacych", "przygotowanie_programu"].includes(etap)) { return "wypelnianie"; }
       if (etap === "import_harmonogramu") { return "import_harmonogramu"; }
       if (etap === "walidacja_formularza") { return "walidacja"; }
       return "przetwarzanie";
@@ -429,7 +429,7 @@
     }
 
     function czyEtapMutujący(etap) {
-      return ["wypelnianie_pol", "zastepowanie_osob_prowadzacych", "przygotowanie_programu", "import_harmonogramu"].includes(etap);
+      return ["inicjalizacja_formularza_wstepnego", "wypelnianie_pol", "zastepowanie_osob_prowadzacych", "przygotowanie_programu", "import_harmonogramu"].includes(etap);
     }
 
     async function odświeżStanKart() {

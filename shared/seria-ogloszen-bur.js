@@ -7,7 +7,7 @@
     "wymaga_decyzji", "wymaga_recznego_importu", "blad", "karta_zamknieta", "anulowane"
   ];
   const ETAPY_WORKFLOW_SERII_BUR = [
-    "kontrola_kontekstu", "kontrola_stanu_formularza", "przygotowanie_propozycji",
+    "kontrola_kontekstu", "kontrola_stanu_formularza", "inicjalizacja_formularza_wstepnego", "przygotowanie_propozycji",
     "wypelnianie_pol", "kontrola_pol", "zastepowanie_osob_prowadzacych",
     "kontrola_osob_prowadzacych", "przygotowanie_programu", "generowanie_harmonogramu",
     "import_harmonogramu", "weryfikacja_harmonogramu", "walidacja_formularza", "gotowe_do_kontroli"
@@ -44,9 +44,6 @@
     const powody = [];
     if (!dane.dataStartBur || !dane.dataKoniecBur || !liczbaDni) { powody.push("Brak poprawnego zakresu dat."); }
     if (!forma || forma === "nieznana") { powody.push("Forma terminu jest nieznana."); }
-    if (forma === "stacjonarna") { powody.push("Terminy stacjonarne nie są obsługiwane."); }
-    if (liczbaDni > 3) { powody.push("Termin ma więcej niż 3 dni."); }
-    if (!szablon) { powody.push("Brak obsługiwanego szablonu harmonogramu."); }
     if (dane.błądParsera || dane.bladParsera || dane.wymagaDecyzji || (Array.isArray(dane.błędy) && dane.błędy.length)) {
       powody.push("Błąd parsera wymaga decyzji.");
     }
@@ -55,6 +52,7 @@
       terminId: dane.identyfikator || dane.id || [dane.dataStartBur, dane.dataKoniecBur, forma, dane.miejsce || ""].join("|"),
       liczbaDni: liczbaDni,
       szablonHarmonogramu: szablon ? { id: szablon.id, nazwa: szablon.nazwa, wersja: szablon.wersja } : null,
+      harmonogramWymagaDecyzji: !szablon,
       możnaPrzygotowaćAutomatycznie: powody.length === 0,
       powodyBlokady: powody
     };
@@ -67,7 +65,7 @@
       terminId: ocena.terminId, indeksTerminu: indeksTerminu,
       dataStartBur: termin.dataStartBur || "", dataKoniecBur: termin.dataKoniecBur || "",
       dataZakonczeniaRekrutacjiBur: termin.dataZakończeniaRekrutacjiBur || termin.dataZakonczeniaRekrutacjiBur || "",
-      forma: termin.forma || "", miejsce: termin.miejsce || "", cena: termin.cena || "",
+      forma: termin.forma || "", miejsce: termin.miejsce || "", cena: termin.cena || "", liczbaGodzin: termin.liczbaGodzin || termin.czasTrwania || "",
       liczbaDni: ocena.liczbaDni, szablonHarmonogramu: ocena.szablonHarmonogramu,
       tabId: null, urlKarty: "", typFormularza: "", etap: "oczekuje", status: "oczekuje",
       raport: null, wynikWalidacji: null, bledy: ocena.powodyBlokady.slice(), ostrzezenia: [],
@@ -135,7 +133,7 @@
       profilId: dane.profilId || "", tytuł: dane.tytułPoNormalizacjiBur || dane.tytułOryginalny || dane.tytulOryginalny || "",
       url: dane.urlŹródła || dane.urlZrodla || "", sekcje: dane.sekcje || {},
       terminy: (dane.terminy || []).map(function termin(pozycja) {
-        return [pozycja.dataStartBur, pozycja.dataKoniecBur, pozycja.dataZakończeniaRekrutacjiBur || pozycja.dataZakonczeniaRekrutacjiBur, pozycja.forma, pozycja.miejsce, pozycja.cena];
+        return [pozycja.dataStartBur, pozycja.dataKoniecBur, pozycja.dataZakończeniaRekrutacjiBur || pozycja.dataZakonczeniaRekrutacjiBur, pozycja.forma, pozycja.miejsce, pozycja.cena, pozycja.liczbaGodzin || pozycja.czasTrwania];
       })
     });
   }

@@ -22,7 +22,9 @@
       }
 
       const proponowana = definicja.wartośćProponowana;
-      const zgodne = definicja.typPola === "data" && przestrzeń.normalizujDatęBur
+      const zgodne = definicja.id === "forma-swiadczenia" && przestrzeń.normalizujTrybTerminu
+        ? przestrzeń.normalizujTrybTerminu(aktualna) === przestrzeń.normalizujTrybTerminu(proponowana)
+        : definicja.typPola === "data" && przestrzeń.normalizujDatęBur
         ? przestrzeń.normalizujDatęBur(aktualna) === przestrzeń.normalizujDatęBur(proponowana)
         : String(aktualna || "").trim() === String(proponowana || "").trim();
       const status = definicja.regułaNieDotyczy
