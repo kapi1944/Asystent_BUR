@@ -27,7 +27,7 @@
         { dataStartBur: "15-10-2027", dataKoniecBur: "16-10-2027", miejsce: "Szkolenie online", forma: "online" }
       ];
       const dane = {
-        ostatnieSzkolenieSemper: { tytułOryginalny: "Test", terminy: terminy, sekcje: {} },
+        ostatnieSzkolenieSemper: { tytułOryginalny: "Prawo ochrony środowiska w praktyce", terminy: terminy, sekcje: {} },
         wybranyTerminSemperIndex: 0,
         harmonogramBurPrzygotowany: true,
         odciskAktualnegoTerminuBur: "2027-05-17|2027-05-18|stacjonarna|gdansk|https://uslugirozwojowe.parp.gov.pl/edit/1"
@@ -40,7 +40,7 @@
         + "window.__daneTestowe=dane;window.__ustawTerminBur=function(nowy){terminBur=nowy;wiadomości.forEach(function(fn){fn({typ:'ZMIENIONO_AKTUALNY_TERMIN_BUR',wynik:terminBur},{tab:{id:1}});});};"
         + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){if(b){b({});}},onMessage:{addListener:function(fn){wiadomości.push(fn);}}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.resolve();}},"
         + "storage:{local:{get:function(klucze,cb){const wynik={};klucze.forEach(function(k){wynik[k]=dane[k];});cb(wynik);},set:function(nowe,cb){Object.assign(dane,nowe);if(cb){cb();}},remove:function(klucze,cb){klucze.forEach(function(k){delete dane[k];});if(cb){cb();}}},session:{get:function(a,b){b({});},set:function(a,b){if(b){b();}}}},"
-        + "tabs:{query:function(){return Promise.resolve([{id:1,url:terminBur.url,active:true}]);},sendMessage:function(id,msg,cb){if(msg.typ==='PING_SKRYPTU_STRONY'){cb({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});}else if(msg.typ==='POBIERZ_AKTUALNY_TERMIN_BUR'){cb({typ:'ODPOWIEDŹ_AKTUALNY_TERMIN_BUR',wynik:terminBur});}else if(msg.typ==='SPRAWDŹ_PROGRAM_I_HARMONOGRAM_BUR'){cb({wynik:{}});}else{cb({wynik:{ok:true}});}},onActivated:{addListener:function(fn){aktywowane.push(fn);}},onUpdated:{addListener:function(fn){zaktualizowane.push(fn);}}}};"
+        + "tabs:{query:function(){return Promise.resolve([{id:1,url:terminBur.url,active:true}]);},sendMessage:function(id,msg,cb){if(msg.typ==='PING_SKRYPTU_STRONY'){cb({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});}else if(msg.typ==='POBIERZ_AKTUALNY_TERMIN_BUR'){cb({typ:'ODPOWIEDŹ_AKTUALNY_TERMIN_BUR',wynik:terminBur});}else if(msg.typ==='USTAW_TERMIN_BUR'){terminBur=Object.assign({},terminBur,{dataRozpoczęcia:msg.termin.dataStartBur,dataZakończenia:msg.termin.dataKoniecBur,tryb:msg.termin.forma,lokalizacja:msg.termin.miejsce});cb({typ:'ODPOWIEDŹ_USTAW_TERMIN_BUR',wynik:{ok:true,zgodneDaty:true,terminBur:terminBur}});}else if(msg.typ==='SPRAWDŹ_PROGRAM_I_HARMONOGRAM_BUR'){cb({wynik:{}});}else{cb({wynik:{ok:true}});}},onActivated:{addListener:function(fn){aktywowane.push(fn);}},onUpdated:{addListener:function(fn){zaktualizowane.push(fn);}}}};"
         + "})();<\/script>";
       ramka.hidden = true;
       ramka.srcdoc = html.replace("<head>", "<head>" + konfiguracja);
@@ -161,7 +161,7 @@
     });
   });
 
-  test("ręczny wybór niezgodnego terminu pokazuje ostrzeżenie", function sprawdź() {
+  test("ręczny wybór terminu zapisuje daty BUR i potwierdza zgodność", function sprawdź() {
     return utwórzPanelTerminów().then(function zweryfikuj(ramka) {
       const dokument = ramka.contentWindow.document;
       dokument.querySelector('.pozycja-terminu-semper[data-indeks-terminu="3"]').click();
@@ -169,7 +169,9 @@
         return ramka.contentWindow.__daneTestowe.wybranyTerminSemperIndex === 3;
       }).then(function sprawdźZapis() {
         sprawdzRownosc(ramka.contentWindow.__daneTestowe.źródłoWyboruTerminuSemper, "ręczny");
-        sprawdzWarunek(dokument.querySelector("#status-dopasowania-terminu").textContent.includes("niezgodny"));
+        sprawdzWarunek(dokument.querySelector("#status-dopasowania-terminu").textContent.includes("zgodny"));
+        sprawdzWarunek(dokument.querySelector("#aktualny-termin-bur").classList.contains("stan-zgodny"));
+        sprawdzWarunek(dokument.querySelector("#aktualny-termin-zrodlowy").classList.contains("stan-zgodny"));
         sprawdzRownosc(ramka.contentWindow.__daneTestowe.harmonogramBurPrzygotowany, false);
         ramka.remove();
       });

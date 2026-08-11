@@ -1609,6 +1609,23 @@
   if (chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener(obsłużZmianęKontekstuWalidacjiBur);
   }
+
+  async function obsłużUstawienieTerminuBur(wiadomosc, odpowiedz) {
+    const termin = wiadomosc.termin || {};
+    const zapis = await przestrzen.ustawTerminBurZWeryfikacją(document, termin);
+    const terminPoZapisie = odczytajAktualnyTerminBur();
+    const zgodneDaty = przestrzen.czyDatyTerminówZgodne(termin, terminPoZapisie);
+    odpowiedz({
+      typ: komunikaty.ODPOWIEDŹ_USTAW_TERMIN_BUR,
+      wynik: {
+        ok: zgodneDaty && zapis.ok,
+        zgodneDaty: zgodneDaty,
+        wyniki: zapis.wyniki,
+        terminBur: terminPoZapisie,
+        dataZakończeniaRekrutacji: zapis.dataZakończeniaRekrutacji
+      }
+    });
+  }
   wykryjKontoBur();
   obserwujZmianyKontaBur();
   zaplanujAutomatycznąWalidacjęBur();
@@ -1845,6 +1862,13 @@
           return;
         }
         odpowiedz({ typ: komunikaty.PRZYGOTUJ_WYPEŁNIENIE_BUR, wynik: { ok: true, propozycje: przestrzen.przygotujPropozycjeWypełnieniaBur(document, wiadomosc.szkolenieSemper || {}, wiadomosc.wybranyTermin || {}, { profilId: profilId }), kontoBur: konto } });
+      });
+      return true;
+    }
+
+    if (wiadomosc.typ === komunikaty.USTAW_TERMIN_BUR) {
+      obsłużUstawienieTerminuBur(wiadomosc, odpowiedz).catch(function odpowiedzBłędem(błąd) {
+        odpowiedz({ typ: komunikaty.ODPOWIEDŹ_USTAW_TERMIN_BUR, wynik: { ok: false, zgodneDaty: false, wyniki: [], błąd: błąd && błąd.message ? błąd.message : "Nie udało się ustawić terminu BUR." } });
       });
       return true;
     }

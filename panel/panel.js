@@ -67,6 +67,15 @@
     aktualnyZakresBur: document.getElementById("aktualny-zakres-bur"),
     aktualneSzczegółyBur: document.getElementById("aktualne-szczegoly-bur"),
     zgodnośćAktualnegoTerminuBur: document.getElementById("zgodnosc-aktualnego-terminu-bur"),
+    aktualnyTerminŹródłowy: document.getElementById("aktualny-termin-zrodlowy"),
+    nagłówekTerminuŹródłowego: document.getElementById("naglowek-terminu-zrodlowego"),
+    aktualnyTytułŹródłowy: document.getElementById("aktualny-tytul-zrodlowy"),
+    aktualnyZakresŹródłowy: document.getElementById("aktualny-zakres-zrodlowy"),
+    aktualneSzczegółyŹródłowe: document.getElementById("aktualne-szczegoly-zrodlowe"),
+    zgodnośćAktualnegoTerminuŹródłowego: document.getElementById("zgodnosc-aktualnego-terminu-zrodlowego"),
+    statusTytułuBur: document.getElementById("status-tytulu-bur"),
+    statusTytułuŹródłowego: document.getElementById("status-tytulu-zrodlowego"),
+    diagnostykaStanZgodnościBur: document.getElementById("diagnostyka-stan-zgodnosci-bur"),
     statusDopasowaniaTerminu: document.getElementById("status-dopasowania-terminu"),
     przyciskWalidujBur: document.getElementById("przycisk-waliduj-bur"),
     przyciskWyczyśćPodświetlenia: document.getElementById("przycisk-wyczysc-podswietlenia"),
@@ -128,6 +137,7 @@
   let ostatniWynikWalidacjiBur = null;
   let aktualnyTerminBur = null;
   let stanDopasowaniaTerminuBur = { status: "brak-dat-bur", indeks: null, indeksy: [] };
+  let stanZgodnościBurZOfertą = { zgodneDaty: false, zgodnyTytuł: false, pełnaZgodność: false };
   let filtrTerminówSemper = "wszystkie";
   let filtrTerminówHarmonogramu = "wszystkie";
   let wybranyTerminHarmonogramuBur = null;
@@ -221,7 +231,8 @@
     aktywnyProfilDostawcy = profilId;
     return (zmieniono && czyUnieważnić ? unieważnijOperacjeProfilu() : Promise.resolve())
       .then(function zapiszProfil() { return zapiszStorage({ aktywnyProfilDostawcy: profilId }); })
-      .then(function odśwież() { odświeżWidokProfilu(); renderujListęTerminówSerii(); return przywróćDaneAktywnegoProfilu(); });
+      .then(function odśwież() { odświeżWidokProfilu(); renderujListęTerminówSerii(); return przywróćDaneAktywnegoProfilu(); })
+      .then(function przeliczDlaProfilu() { return synchronizujAktualnyTerminBur(true).catch(function pomińBrakKartyBur() { return null; }); });
   }
 
   function zastosujWykryteKontoBur(wynik) {
@@ -670,14 +681,7 @@
     if (!elementy.zgodnośćAktualnegoTerminuBur) {
       return;
     }
-    const zgodne = Boolean(
-      wybranyTerminHarmonogramuBur
-      && aktualnyTerminBur
-      && przestrzeń.sprawdźZgodnośćTerminuHarmonogramuZBur(
-        wybranyTerminHarmonogramuBur,
-        aktualnyTerminBur
-      ).ok
-    );
+    const zgodne = Boolean(stanZgodnościBurZOfertą.pełnaZgodność);
     elementy.zgodnośćAktualnegoTerminuBur.classList.toggle("ukryty", !zgodne);
   }
 
@@ -885,6 +889,70 @@
     renderujListęTerminówHarmonogramu();
   }
 
+  function ustawStanKafelka(element, stan) {
+    if (!element) { return; }
+    element.classList.toggle("stan-zgodny", stan === "zgodny");
+    element.classList.toggle("stan-rozny", stan === "różny");
+    element.classList.toggle("stan-wybrany", stan === "wybrany");
+  }
+
+  function odświeżStanZgodnościBurZOfertą() {
+    stanZgodnościBurZOfertą = przestrzeń.utwórzStanZgodnościBurZOfertą({
+      profil: aktywnyProfilDostawcy,
+      szkolenie: ostatnieSzkolenieSemperZPanelu || {},
+      terminy: ostatnieTerminySemper,
+      terminBur: aktualnyTerminBur || {},
+      wybranyIndeks: ostatniWybranyTerminSemperIndex,
+      źródłoWyboru: źródłoWyboruTerminuSemper
+    });
+    const stan = stanZgodnościBurZOfertą;
+    const terminŹródłowy = stan.wybranyTermin || stan.dopasowanyTermin;
+    const datyŹródłowe = przestrzeń.pobierzDatyTerminuSemper(terminŹródłowy);
+    const szczegółyŹródłowe = terminŹródłowy
+      ? [terminŹródłowy.miejsce, terminŹródłowy.forma].filter(Boolean).filter(function unikalne(wartość, indeks, lista) { return lista.indexOf(wartość) === indeks; }).join(" · ")
+      : "";
+    const maDatyBur = Boolean(aktualnyTerminBur);
+    const maWybranyTermin = Boolean(terminŹródłowy);
+    const stanBur = stan.pełnaZgodność ? "zgodny" : (maDatyBur && (maWybranyTermin || stan.dopasowanie.status === "brak") ? "różny" : "neutralny");
+    const stanŹródła = stan.pełnaZgodność ? "zgodny" : (maWybranyTermin ? "wybrany" : "neutralny");
+
+    ustawStanKafelka(elementy.aktualnyTerminBur, stanBur);
+    ustawStanKafelka(elementy.aktualnyTerminŹródłowy, stanŹródła);
+    elementy.nagłówekTerminuŹródłowego.textContent = "TERMIN " + pobierzNazwęAktywnegoProfilu();
+    elementy.aktualnyTytułŹródłowy.textContent = stan.tytułŹródłowy || "Brak danych szkolenia";
+    elementy.aktualnyTytułŹródłowy.title = stan.tytułŹródłowy || "Brak danych szkolenia";
+    elementy.aktualnyZakresŹródłowy.textContent = maWybranyTermin
+      ? przestrzeń.formatujZakresDatPrezentacyjny(datyŹródłowe.dataRozpoczęcia, datyŹródłowe.dataZakończenia)
+      : "Nie wybrano terminu";
+    elementy.aktualneSzczegółyŹródłowe.textContent = szczegółyŹródłowe;
+    elementy.aktualneSzczegółyŹródłowe.classList.toggle("ukryty", !szczegółyŹródłowe);
+    elementy.zgodnośćAktualnegoTerminuBur.classList.toggle("ukryty", !stan.pełnaZgodność);
+    elementy.zgodnośćAktualnegoTerminuŹródłowego.classList.toggle("ukryty", !stan.pełnaZgodność);
+
+    [elementy.statusTytułuBur, elementy.statusTytułuŹródłowego].forEach(function ustawStatusTytułu(element) {
+      const maObaTytuły = Boolean(stan.tytułBur && stan.tytułŹródłowy);
+      element.textContent = !maObaTytuły ? "Brak danych do porównania tytułu" : (stan.zgodnyTytuł ? "✓ tytuł zgodny" : "⚠ tytuł różni się");
+      element.classList.toggle("status-zgodny", maObaTytuły && stan.zgodnyTytuł);
+      element.classList.toggle("status-ostrzezenie", maObaTytuły && !stan.zgodnyTytuł);
+    });
+
+    if (elementy.diagnostykaStanZgodnościBur) {
+      elementy.diagnostykaStanZgodnościBur.textContent = [
+        "aktywny profil: " + String(stan.profil || "—").toUpperCase(),
+        "tytuł BUR: " + (stan.tytułBur || "—"),
+        "tytuł źródłowy: " + (stan.tytułŹródłowy || "—"),
+        "data start BUR: " + (aktualnyTerminBur && aktualnyTerminBur.dataRozpoczęcia || "—"),
+        "data koniec BUR: " + (aktualnyTerminBur && aktualnyTerminBur.dataZakończenia || "—"),
+        "wybrany termin źródłowy: " + (stan.wybranyIndeks === null ? "—" : stan.wybranyIndeks),
+        "automatycznie dopasowany termin: " + (stan.dopasowanyIndeks === null ? "—" : stan.dopasowanyIndeks),
+        "datesMatch: " + stan.zgodneDaty,
+        "titleMatch: " + stan.zgodnyTytuł,
+        "fullMatch: " + stan.pełnaZgodność
+      ].join("\n");
+    }
+    return stan;
+  }
+
   function pokażAktualnyTerminBur(terminBur) {
     const daty = przestrzeń.pobierzDatyTerminuBur(terminBur);
     const tytuł = String(terminBur && terminBur.tytuł || "").replace(/\s+/g, " ").trim();
@@ -897,6 +965,7 @@
       elementy.aktualneSzczegółyBur.textContent = "";
       elementy.aktualneSzczegółyBur.classList.add("ukryty");
       elementy.aktualnyTerminBur.classList.remove("ukryty");
+      odświeżStanZgodnościBurZOfertą();
       odświeżZgodnośćTerminuHarmonogramu();
       renderujListęTerminówHarmonogramu();
       return;
@@ -911,6 +980,7 @@
     elementy.aktualneSzczegółyBur.textContent = lokalizacjaLubTryb;
     elementy.aktualneSzczegółyBur.classList.toggle("ukryty", !lokalizacjaLubTryb);
     elementy.aktualnyTerminBur.classList.remove("ukryty");
+    odświeżStanZgodnościBurZOfertą();
     odświeżZgodnośćTerminuHarmonogramu();
     renderujListęTerminówHarmonogramu();
   }
@@ -919,7 +989,8 @@
     const indeks = ostatniWybranyTerminSemperIndex;
 
     if (!Number.isInteger(indeks) || !aktualnyTerminBur || !ostatnieTerminySemper[indeks]
-      || !przestrzeń.czyDatyTerminówZgodne(ostatnieTerminySemper[indeks], aktualnyTerminBur)) {
+      || !przestrzeń.czyDatyTerminówZgodne(ostatnieTerminySemper[indeks], aktualnyTerminBur)
+      || !stanZgodnościBurZOfertą.zgodnyTytuł) {
       return false;
     }
 
@@ -946,7 +1017,9 @@
     if (!aktualnyTerminBur) {
       ustawStatus(elementy.statusDopasowaniaTerminu, "Nie odczytano jeszcze dat z formularza BUR.", "status-neutralny");
     } else if (wybrany && !przestrzeń.czyDatyTerminówZgodne(wybrany, aktualnyTerminBur)) {
-      ustawStatus(elementy.statusDopasowaniaTerminu, "Wybrany ręcznie termin " + pobierzNazwęAktywnegoProfilu() + " jest niezgodny z aktualnymi datami BUR: " + zakresBur + ".", "status-ostrzezenie");
+      ustawStatus(elementy.statusDopasowaniaTerminu, "⚠ Formularz BUR zawiera inny termin niż aktualny wybór Asystenta: " + zakresBur + ".", "status-ostrzezenie");
+    } else if (wybrany && !stanZgodnościBurZOfertą.zgodnyTytuł) {
+      ustawStatus(elementy.statusDopasowaniaTerminu, "⚠ Daty są zgodne, ale tytuł szkolenia BUR różni się od tytułu " + pobierzNazwęAktywnegoProfilu() + ".", "status-ostrzezenie");
     } else if (czyWybranyTerminJestWłaściwyDlaBur()) {
       ustawStatus(elementy.statusDopasowaniaTerminu, źródłoWyboruTerminuSemper === "automatyczny" ? "Automatycznie dopasowano termin " + pobierzNazwęAktywnegoProfilu() + " do BUR." : "Wybrany termin jest zgodny z aktualnym terminem BUR.", "status-odczytano");
     } else if (wybrany) {
@@ -990,7 +1063,7 @@
       przycisk.textContent = przestrzeń.opiszWariantTerminuSemper(ostatnieTerminySemper[indeks]);
       przycisk.addEventListener("click", function wybierzKandydata() {
         elementy.wybórTerminuSemper.value = String(indeks);
-        zapiszWybórTerminuSemper("ręczny");
+        wybierzTerminSemperIZapiszDoBur("ręczny");
       });
       przyciski.appendChild(przycisk);
     });
@@ -1019,7 +1092,7 @@
       const zgodnyZBur = aktualnyTerminBur && przestrzeń.czyDatyTerminówZgodne(pozycja.termin, aktualnyTerminBur);
       const wybranyJakoWłaściwy = pozycja.indeks === ostatniWybranyTerminSemperIndex && czyWybranyTerminJestWłaściwyDlaBur();
       przycisk.type = "button";
-      przycisk.className = "pozycja-terminu-semper" + (pozycja.indeks === ostatniWybranyTerminSemperIndex ? " wybrany" : "");
+      przycisk.className = "pozycja-terminu-semper" + (pozycja.indeks === ostatniWybranyTerminSemperIndex ? " wybrany" : "") + (wybranyJakoWłaściwy && stanZgodnościBurZOfertą.pełnaZgodność ? " zgodny-w-pelni" : "");
       przycisk.dataset.indeksTerminu = String(pozycja.indeks);
       przycisk.setAttribute("aria-pressed", pozycja.indeks === ostatniWybranyTerminSemperIndex ? "true" : "false");
       opis.textContent = przestrzeń.opiszTerminSemper(pozycja.termin, pozycja.indeks);
@@ -1032,7 +1105,7 @@
       }
       przycisk.addEventListener("click", function wybierzRęcznie() {
         elementy.wybórTerminuSemper.value = String(pozycja.indeks);
-        zapiszWybórTerminuSemper("ręczny");
+        wybierzTerminSemperIZapiszDoBur("ręczny");
       });
       elementy.listaTerminówSemper.appendChild(przycisk);
     });
@@ -1091,6 +1164,7 @@
     }
 
     ostatniWybranyTerminSemperIndex = elementy.wybórTerminuSemper.value === "" ? null : Number(elementy.wybórTerminuSemper.value);
+    odświeżStanZgodnościBurZOfertą();
     renderujListęTerminówSemper();
     pokażStatusDopasowaniaTerminu();
     odświeżDostępnośćWypełniania();
@@ -1105,12 +1179,13 @@
 
     ostatniWybranyTerminSemperIndex = indeks;
     źródłoWyboruTerminuSemper = źródło || "ręczny";
+    odświeżStanZgodnościBurZOfertą();
     renderujListęTerminówSemper();
     pokażStatusDopasowaniaTerminu();
     odświeżDostępnośćWypełniania();
 
     if (!czyZmienionoTermin) {
-      zapiszStorage({
+      return zapiszStorage({
         wybranyTerminSemperIndex: indeks,
         źródłoWyboruTerminuSemper: źródłoWyboruTerminuSemper,
         zgodnośćWybranegoTerminuBur: Boolean(ostatnieTerminySemper[indeks] && aktualnyTerminBur && przestrzeń.czyDatyTerminówZgodne(ostatnieTerminySemper[indeks], aktualnyTerminBur))
@@ -1118,7 +1193,7 @@
       return;
     }
 
-    odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieOstrzezeniaSemper"]).then(function zastosujCenęWybranegoTerminu(dane) {
+    return odczytajStorage(["ostatnieSzkolenieSemper", "ostatnieOstrzezeniaSemper"]).then(function zastosujCenęWybranegoTerminu(dane) {
       const szkolenie = dane.ostatnieSzkolenieSemper;
       const termin = szkolenie && szkolenie.terminy && szkolenie.terminy[indeks];
       const ostrzeżenia = aktywnyProfilDostawcy === "semper" && przestrzeń.zastosujCenęBezZakwaterowaniaWybranegoTerminu
@@ -1139,6 +1214,35 @@
         }
       });
     }).catch(function pomińBłądZapisu() {});
+  }
+
+  function zapiszWybranyTerminDoBur() {
+    const indeks = ostatniWybranyTerminSemperIndex;
+    const termin = Number.isInteger(indeks) ? ostatnieTerminySemper[indeks] : null;
+    if (!termin) { return Promise.resolve(null); }
+    ustawStatus(elementy.statusDopasowaniaTerminu, "Zapisywanie wybranego terminu do formularza BUR…", "status-neutralny");
+    return pobierzAktywnąKartę().then(function zapiszNaKarcie(karta) {
+      if (!karta || rozpoznajTypStrony(karta.url) !== "BUR") {
+        throw new Error("Otwórz formularz BUR, aby wpisać wybrany termin.");
+      }
+      return zapewnijSkryptStrony(karta).then(function wyślij() {
+        return wyślijDoKarty(karta, { typ: komunikaty.USTAW_TERMIN_BUR, termin: termin });
+      });
+    }).then(function potwierdź(odpowiedź) {
+      const wynik = odpowiedź && odpowiedź.wynik || {};
+      if (!wynik.ok || !wynik.zgodneDaty) {
+        throw new Error(wynik.błąd || "BUR nie potwierdził wszystkich trzech dat po zapisie.");
+      }
+      pokażAktualnyTerminBur(wynik.terminBur);
+      return synchronizujAktualnyTerminBur(true);
+    }).catch(function pokażBłąd(błąd) {
+      ustawStatus(elementy.statusDopasowaniaTerminu, "⚠ " + błąd.message, "status-ostrzezenie");
+      return null;
+    });
+  }
+
+  function wybierzTerminSemperIZapiszDoBur(źródło) {
+    return Promise.resolve(zapiszWybórTerminuSemper(źródło)).then(zapiszWybranyTerminDoBur);
   }
 
   function pokażOstrzeżenia(ostrzeżenia) {
@@ -1573,10 +1677,18 @@
       let wybranyIndeks = Number.isInteger(dane.wybranyTerminSemperIndex) ? dane.wybranyTerminSemperIndex : null;
       let źródło = dane.źródłoWyboruTerminuSemper || "brak";
       const poprzedniIndeks = wybranyIndeks;
-      stanDopasowaniaTerminuBur = przestrzeń.dopasujTerminSemperDoBur(terminy, terminBur);
+      const stanKandydata = przestrzeń.utwórzStanZgodnościBurZOfertą({
+        profil: aktywnyProfilDostawcy,
+        szkolenie: szkolenie,
+        terminy: terminy,
+        terminBur: terminBur,
+        wybranyIndeks: wybranyIndeks,
+        źródłoWyboru: źródło
+      });
+      stanDopasowaniaTerminuBur = stanKandydata.dopasowanie;
 
-      if (stanDopasowaniaTerminuBur.status === "dopasowany") {
-        const zachowajWybórRęczny = !czyZmienionoKontekst && !czyWymusićDopasowanie && źródło === "ręczny" && Number.isInteger(wybranyIndeks);
+      if (stanDopasowaniaTerminuBur.status === "dopasowany" && stanKandydata.zgodnyTytuł) {
+        const zachowajWybórRęczny = źródło === "ręczny" && Number.isInteger(wybranyIndeks) && stanDopasowaniaTerminuBur.indeks === wybranyIndeks;
         if (!zachowajWybórRęczny) {
           wybranyIndeks = stanDopasowaniaTerminuBur.indeks;
           źródło = "automatyczny";
@@ -1584,6 +1696,9 @@
         if (!zachowajWybórRęczny && filtrTerminówSemper !== "wszystkie" && !przestrzeń.filtrujTerminySemper(terminy, filtrTerminówSemper).some(function widoczny(pozycja) { return pozycja.indeks === wybranyIndeks; })) {
           ustawFiltrTerminówSemper("wszystkie");
         }
+      } else if (stanDopasowaniaTerminuBur.status === "dopasowany" && !stanKandydata.zgodnyTytuł && źródło !== "ręczny") {
+        wybranyIndeks = null;
+        źródło = "brak";
       } else if (stanDopasowaniaTerminuBur.status === "niejednoznaczny") {
         const ręcznyWybórNadalPasuje = !czyZmienionoKontekst
           && źródło === "ręczny"
@@ -1599,6 +1714,8 @@
       const wybranyTermin = Number.isInteger(wybranyIndeks) ? terminy[wybranyIndeks] : null;
       const zgodnyZBur = Boolean(wybranyTermin && przestrzeń.czyDatyTerminówZgodne(wybranyTermin, terminBur));
       źródłoWyboruTerminuSemper = źródło;
+      ostatniWybranyTerminSemperIndex = wybranyIndeks;
+      odświeżStanZgodnościBurZOfertą();
 
       return zapiszStorage({
         aktualnyTerminBur: terminBur,
@@ -3467,7 +3584,7 @@
   elementy.przyciskSkorygujDzienny.addEventListener("click", skorygujDziennyLicznikBur);
   elementy.przyciskResetujLiczniki.addEventListener("click", resetujLicznikiKolejkiBur);
   elementy.wybórTerminuSemper.addEventListener("change", function wybierzTerminZKontrolki() {
-    zapiszWybórTerminuSemper("ręczny");
+    wybierzTerminSemperIZapiszDoBur("ręczny");
   });
   document.querySelectorAll("[data-filtr-terminow]").forEach(function dodajObsługęFiltra(przycisk) {
     przycisk.addEventListener("click", function filtrujTerminy() {

@@ -9,6 +9,26 @@
   <body data-aktywna-zakladka="semper">
     <header class="naglowek">
       <h1>BUR Asystent</h1>
+      <section id="aktualny-termin-bur" class="aktualny-termin-bur" aria-live="polite">
+        <div class="aktualny-termin-bur-naglowek">
+          <h3>EDYTOWANY TERMIN BUR</h3>
+          <span id="zgodnosc-aktualnego-terminu-bur" class="zgodnosc-aktualnego-terminu-bur ukryty">✓ ZGODNE</span>
+        </div>
+        <span id="aktualny-tytul-bur" class="aktualny-tytul-bur" title="Brak tytułu usługi">Brak tytułu usługi</span>
+        <strong id="aktualny-zakres-bur">Nie wybrano terminu</strong>
+        <span id="aktualne-szczegoly-bur" class="ukryty"></span>
+        <span id="status-tytulu-bur" class="status-tytulu-zgodnosci">Brak danych do porównania tytułu</span>
+      </section>
+      <section id="aktualny-termin-zrodlowy" class="aktualny-termin-bur aktualny-termin-zrodlowy" aria-live="polite">
+        <div class="aktualny-termin-bur-naglowek">
+          <h3 id="naglowek-terminu-zrodlowego">TERMIN SEMPER</h3>
+          <span id="zgodnosc-aktualnego-terminu-zrodlowego" class="zgodnosc-aktualnego-terminu-bur ukryty">✓ ZGODNE</span>
+        </div>
+        <span id="aktualny-tytul-zrodlowy" class="aktualny-tytul-bur" title="Brak danych szkolenia">Brak danych szkolenia</span>
+        <strong id="aktualny-zakres-zrodlowy">Nie wybrano terminu</strong>
+        <span id="aktualne-szczegoly-zrodlowe" class="ukryty"></span>
+        <span id="status-tytulu-zrodlowego" class="status-tytulu-zgodnosci">Brak danych do porównania tytułu</span>
+      </section>
       <div class="przelacznik-profilu" role="group" aria-label="Profil dostawcy">
         <button type="button" data-profil-dostawcy="semper" aria-pressed="true">SEMPER</button>
         <button type="button" data-profil-dostawcy="iist" aria-pressed="false">IIST</button>
@@ -22,21 +42,12 @@
     <nav class="zakladki-panelu" aria-label="Sekcje Asystenta BUR">
       <div class="przyciski-zakladek">
         <button type="button" data-przelacz-zakladke="semper" aria-pressed="true" data-nazwa-zrodla>SEMPER</button>
-        <button type="button" data-przelacz-zakladke="terminy" aria-pressed="false">Terminy</button>
-        <button type="button" data-przelacz-zakladke="seria" aria-pressed="false">Seria ogłoszeń</button>
-        <button type="button" data-przelacz-zakladke="checklista" aria-pressed="false">Checklista</button>
-        <button type="button" data-przelacz-zakladke="harmonogram" aria-pressed="false">Harmonogram</button>
-        <button type="button" data-przelacz-zakladke="diagnostyka" aria-pressed="false">Diagnostyka</button>
+        <button type="button" data-przelacz-zakladke="checklista" aria-pressed="false">📝 Checklista</button>
+        <button type="button" data-przelacz-zakladke="terminy" aria-pressed="false">📅 Terminy</button>
+        <button type="button" data-przelacz-zakladke="seria" aria-pressed="false">🔫 Seria ogłoszeń</button>
+        <button type="button" data-przelacz-zakladke="harmonogram" aria-pressed="false">🕑 Harmonogram</button>
+        <button type="button" data-przelacz-zakladke="diagnostyka" aria-pressed="false">🩺 Diagnostyka</button>
       </div>
-      <section id="aktualny-termin-bur" class="aktualny-termin-bur" aria-live="polite">
-        <div class="aktualny-termin-bur-naglowek">
-          <h3>EDYTOWANY TERMIN BUR</h3>
-          <span id="zgodnosc-aktualnego-terminu-bur" class="zgodnosc-aktualnego-terminu-bur ukryty">✓ ZGODNE</span>
-        </div>
-        <span id="aktualny-tytul-bur" class="aktualny-tytul-bur" title="Brak tytułu usługi">Brak tytułu usługi</span>
-        <strong id="aktualny-zakres-bur">Nie wybrano terminu</strong>
-        <span id="aktualne-szczegoly-bur" class="ukryty"></span>
-      </section>
     </nav>
 
     <main class="panel">
@@ -269,6 +280,10 @@
 
       <section id="karta-diagnostyka" class="karta" data-zakladki="diagnostyka">
         <h2>Diagnostyka</h2>
+        <dl id="diagnostyka-zgodnosci-bur" class="dane dane-zwarte">
+          <dt>Zgodność BUR z ofertą</dt>
+          <dd id="diagnostyka-stan-zgodnosci-bur">Brak danych.</dd>
+        </dl>
       </section>
     </main>
 

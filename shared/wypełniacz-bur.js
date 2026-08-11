@@ -595,6 +595,30 @@
     return wynik;
   }
 
+  async function ustawTerminBurZWeryfikacją(dokument, termin) {
+    const daneTerminu = termin || {};
+    const dataRekrutacji = daneTerminu.dataZakończeniaRekrutacjiBur || daneTerminu.dataZakonczeniaRekrutacjiBur
+      || przestrzeń.wyliczDateZakonczeniaRekrutacjiBur(daneTerminu.dataStartBur);
+    const pola = [
+      { pole: "Data rozpoczęcia usługi", wartość: daneTerminu.dataStartBur, selektor: "#informacjepodstawowesekcja-datarozpoczeciauslugi" },
+      { pole: "Data zakończenia usługi", wartość: daneTerminu.dataKoniecBur, selektor: "#informacjepodstawowesekcja-datazakonczeniauslugi" },
+      { pole: "Data zakończenia rekrutacji", wartość: dataRekrutacji, selektor: "#informacjepodstawowesekcja-datazakonczeniarekrutacji" }
+    ];
+    const wyniki = [];
+    for (let indeks = 0; indeks < pola.length; indeks += 1) {
+      const pole = pola[indeks];
+      wyniki.push(await ustawPoleBurZWeryfikacją(dokument, {
+        sekcja: "Informacje podstawowe",
+        pole: pole.pole,
+        typPola: "data",
+        wartość: pole.wartość,
+        zezwólNaNadpisanie: true,
+        definicjaPola: { selektory: [pole.selektor], typ: "data" }
+      }));
+    }
+    return { ok: wyniki.every(function potwierdzone(wynik) { return wynik.ok; }), wyniki: wyniki, dataZakończeniaRekrutacji: dataRekrutacji };
+  }
+
   function ustawRaportowanePole(raport, dokument, ustawienia) {
     const definicja = Object.assign({}, ustawienia.definicja || {}, {
       dokument: dokument,
@@ -1134,6 +1158,7 @@
   przestrzeń.ustawPrzełącznikTakNie = ustawPrzełącznikTakNie;
   przestrzeń.ustawPoleJeśliIstnieje = ustawPoleJeśliIstnieje;
   przestrzeń.ustawPoleBurZWeryfikacją = ustawPoleBurZWeryfikacją;
+  przestrzeń.ustawTerminBurZWeryfikacją = ustawTerminBurZWeryfikacją;
   przestrzeń.wywołajZdarzeniaZmiany = wywołajZdarzeniaZmiany;
   przestrzeń.znajdźPrzyciskLubOpcjęSelect2PoTekście = znajdźPrzyciskLubOpcjęSelect2PoTekście;
   przestrzeń.normalizujDatęBur = normalizujDatęBur;

@@ -229,6 +229,63 @@
     return ["Termin " + (indeks + 1), zakres, miejsce].filter(Boolean).join(" · ");
   }
 
+  function normalizujTytułDoPorównania(wartość) {
+    return String(wartość || "")
+      .toLocaleLowerCase("pl-PL")
+      .replace(/[‐‑‒–—―-]+/g, " ")
+      .replace(/[.,;:!?()[\]{}'"„”«»/\\|]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function czyTytułySzkoleńZgodne(tytułBur, tytułŹródłowy) {
+    const bur = normalizujTytułDoPorównania(tytułBur);
+    const źródło = normalizujTytułDoPorównania(tytułŹródłowy);
+    if (!bur || !źródło) { return false; }
+    if (bur === źródło) { return true; }
+
+    const tokenyBur = bur.split(" ");
+    const tokenyŹródła = źródło.split(" ");
+    const limit = Math.min(tokenyBur.length, tokenyŹródła.length);
+    let wspólneTokeny = 0;
+    while (wspólneTokeny < limit && tokenyBur[wspólneTokeny] === tokenyŹródła[wspólneTokeny]) {
+      wspólneTokeny += 1;
+    }
+    const wspólnyPoczątek = tokenyBur.slice(0, wspólneTokeny).join(" ");
+    return wspólneTokeny >= 4 && wspólnyPoczątek.length >= 24;
+  }
+
+  function utwórzStanZgodnościBurZOfertą(dane) {
+    const ustawienia = dane || {};
+    const terminy = Array.isArray(ustawienia.terminy) ? ustawienia.terminy : [];
+    const terminBur = ustawienia.terminBur || {};
+    const szkolenie = ustawienia.szkolenie || {};
+    const tytułBur = String(terminBur.tytuł || ustawienia.tytułBur || "").trim();
+    const tytułŹródłowy = String(szkolenie.tytułOryginalny || szkolenie.tytulOryginalny || szkolenie.tytułBur || szkolenie.tytulBur || "").trim();
+    const zgodnyTytuł = czyTytułySzkoleńZgodne(tytułBur, tytułŹródłowy);
+    const dopasowanie = dopasujTerminSemperDoBur(terminy, terminBur);
+    const wybranyIndeks = Number.isInteger(ustawienia.wybranyIndeks) ? ustawienia.wybranyIndeks : null;
+    const wybranyTermin = wybranyIndeks === null ? null : terminy[wybranyIndeks] || null;
+    const zgodneDaty = Boolean(wybranyTermin && czyDatyTerminówZgodne(wybranyTermin, terminBur));
+    const dopasowanyIndeks = zgodnyTytuł && dopasowanie.status === "dopasowany" ? dopasowanie.indeks : null;
+
+    return {
+      profil: ustawienia.profil || szkolenie.profilId || "semper",
+      tytułBur: tytułBur,
+      tytułŹródłowy: tytułŹródłowy,
+      terminBur: terminBur,
+      wybranyIndeks: wybranyIndeks,
+      wybranyTermin: wybranyTermin,
+      dopasowanyIndeks: dopasowanyIndeks,
+      dopasowanyTermin: dopasowanyIndeks === null ? null : terminy[dopasowanyIndeks],
+      źródłoWyboru: ustawienia.źródłoWyboru || "brak",
+      dopasowanie: dopasowanie,
+      zgodneDaty: zgodneDaty,
+      zgodnyTytuł: zgodnyTytuł,
+      pełnaZgodność: zgodneDaty && zgodnyTytuł
+    };
+  }
+
   function opiszWariantTerminuSemper(termin) {
     if (czyTerminOnline(termin)) {
       return "Online";
@@ -391,6 +448,9 @@
   przestrzeń.normalizujTrybTerminu = normalizujTrybTerminu;
   przestrzeń.pobierzTrybTerminuSemper = pobierzTrybTerminu;
   przestrzeń.czyDatyTerminówZgodne = czyDatyTerminówZgodne;
+  przestrzeń.normalizujTytułDoPorównania = normalizujTytułDoPorównania;
+  przestrzeń.czyTytułySzkoleńZgodne = czyTytułySzkoleńZgodne;
+  przestrzeń.utwórzStanZgodnościBurZOfertą = utwórzStanZgodnościBurZOfertą;
   przestrzeń.dopasujTerminSemperDoBur = dopasujTerminSemperDoBur;
   przestrzeń.filtrujTerminySemper = filtrujTerminySemper;
   przestrzeń.grupujTerminySemper = grupujTerminySemper;
