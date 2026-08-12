@@ -42,4 +42,11 @@
       "Zielona transformacja: Nowe regulacje UE, obowiązki dla firm i JST, Fit for 55, CBAM i Zielony Ład w praktyce. Szkolenie warsztatowe dla sektora publicznego i prywatnego."
     );
   });
+
+  test("ustawia wielka litere po oznaczeniu dni na poczatku zdania", function sprawdz() {
+    sprawdzRownosc(
+      normalizujTytulBur("Postępowanie administracyjne w praktyce przedsiębiorcy - jak skutecznie prowadzić sprawy przed organami administracji, przygotowywać pisma i wnioski, dochodzić swoich praw oraz unikać najczęstszych błędów proceduralnych. 2-dniowe warsztaty szkoleniowe."),
+      "Postępowanie administracyjne w praktyce przedsiębiorcy - jak skutecznie prowadzić sprawy przed organami administracji, przygotowywać pisma i wnioski, dochodzić swoich praw oraz unikać najczęstszych błędów proceduralnych. Warsztaty szkoleniowe."
+    );
+  });
 })();

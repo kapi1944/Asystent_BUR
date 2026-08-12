@@ -16,9 +16,16 @@
     });
   }
 
+  function poprawWielkaLiterePoOznaczeniuDni(tekst) {
+    return tekst.replace(/([.!?]\s+)[123]\s*(?:-\s*)?dniowe\b\s+(\p{L})/giu, function zmienLitere(caly, poczatek, litera) {
+      return poczatek + litera.toLocaleUpperCase("pl-PL");
+    });
+  }
+
   function normalizujTytulBur(tytul) {
     let wynik = String(tytul || "");
 
+    wynik = poprawWielkaLiterePoOznaczeniuDni(wynik);
     wynik = wynik
       .replace(/\b[123]\s*-\s*dniowe\b/gi, "")
       .replace(/\b[123]\s+dniowe\b/gi, "")

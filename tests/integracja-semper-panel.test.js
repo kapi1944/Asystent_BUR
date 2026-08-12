@@ -112,6 +112,22 @@
     } finally { window.fetch = staryFetch; }
   });
 
+  test("import IIST działa z bezpośredniego linku do szkolenia", async function sprawdź() {
+    const staryFetch = window.fetch;
+    window.fetch = async function mockFetch(url) {
+      return {
+        ok: true,
+        text: async function tekst() { return "<html><h1>Audytor wewnętrzny ISO 9001</h1></html>"; }
+      };
+    };
+    try {
+      const wynik = await bur.importujSzkolenieZLinkuIist("https://szkoleniaiist.com.pl/audytor-wewnetrzny-iso-9001/#terminy");
+      sprawdzWarunek(wynik.ok, "Import IIST z bezpośredniego linku powinien się udać.");
+      sprawdzRownosc(wynik.url, "https://szkoleniaiist.com.pl/audytor-wewnetrzny-iso-9001/");
+      sprawdzWarunek(wynik.html.includes("Audytor wewnętrzny"), "Import powinien zwrócić HTML szkolenia IIST.");
+    } finally { window.fetch = staryFetch; }
+  });
+
   test("renderujDaneSzkolenia pokazuje tytuł i terminy po imporcie", function sprawdź() {
     const dokument = document.implementation.createHTMLDocument("Panel");
 
