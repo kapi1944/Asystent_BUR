@@ -64,7 +64,9 @@
         "shared/kolejka-terminow-bur.js", "shared/stan-operacji-bur.js", "shared/szablony-harmonogramow.js",
         "shared/seria-ogloszen-bur.js", "shared/bur-program-harmonogram.js", "shared/wyszukiwarka-semper.js",
         "shared/parser-semper.js", "shared/parser-iist.js", "background/klient-iist.js",
-        "shared/definicje-pol-bur.js", "shared/przygotowanie-wypelnienia-bur.js", "panel.js"
+        "shared/definicje-pol-bur.js", "shared/przygotowanie-wypelnienia-bur.js",
+        "shared/feature-flags.js", "shared/panel-state.js", "router.js", "features/diagnostyka.js",
+        "panel.js", "app.js"
       ];
 
       sprawdzRownosc(plikiServiceWorkera.join("\n"), oczekiwanyServiceWorker.join("\n"), "Zmieniła się kolejność importScripts service workera.");

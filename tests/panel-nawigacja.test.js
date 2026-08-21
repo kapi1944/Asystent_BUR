@@ -179,7 +179,7 @@
       sprawdzRownosc(dokument.body.dataset.aktywnaZakladka, "semper", "Enter i Spacja muszą pozostawiać aktywną wybraną sekcję.");
       ramka.remove();
       return pobierzPlik("../panel/panel.js").then(function sprawdźWarunekRęcznegoWyboru(skrypt) {
-        sprawdzWarunek(/if \(!czyUżytkownikWybrałZakładkę\) \{\s*ustawAktywnąZakładkęPanelu/s.test(skrypt), "Odświeżenie statusu nie może nadpisywać ręcznego wyboru.");
+        sprawdzWarunek(/if \(!stanPanelu\.czyZakładkaWybranaRęcznie\(\)\) \{\s*ustawAktywnąZakładkęPanelu/s.test(skrypt), "Odświeżenie statusu nie może nadpisywać ręcznego wyboru.");
       });
       });
     });

@@ -1,4 +1,4 @@
-(function uruchomPanel(globalny) {
+(function zarejestrujPanel(globalny) {
   const przestrzeń = globalny.BurAsystent;
   const komunikaty = przestrzeń.KOMUNIKATY;
   const storageApi = przestrzeń.storageApi;
@@ -9,12 +9,6 @@
     statusAkcji: document.getElementById("status-akcji"),
     statusSemper: document.getElementById("status-semper"),
     statusOperacjiBur: document.getElementById("status-operacji-bur"),
-    diagnostykaFraza: document.getElementById("diagnostyka-fraza"),
-    diagnostykaŹródłoFrazy: document.getElementById("diagnostyka-zrodlo-frazy"),
-    diagnostykaKandydaci: document.getElementById("diagnostyka-kandydaci"),
-    diagnostykaBłądSw: document.getElementById("diagnostyka-blad-sw"),
-    diagnostykaZapisImportu: document.getElementById("diagnostyka-zapis-importu"),
-    diagnostykaTerminyImportu: document.getElementById("diagnostyka-terminy-importu"),
     przyciskPobierz: document.getElementById("przycisk-pobierz"),
     przyciskWyczyśćPanel: document.getElementById("przycisk-wyczysc-panel"),
     przyciskSzukajLinku: document.getElementById("przycisk-szukaj-linku"),
@@ -125,24 +119,36 @@
   let wybranyTerminHarmonogramuBur = null;
   let ostatnieTerminyKolejkiBur = [];
   let źródłoWyboruTerminuSemper = "brak";
-  let aktywnaZakładkaPanelu = "semper";
   let aktywnyProfilDostawcy = "semper";
   let wykryteKontoBur = null;
-  let czyUżytkownikWybrałZakładkę = false;
   let czyImportHarmonogramuWToku = false;
   let czyAutomatyczneWyszukiwanieWToku = false;
   let odciskAutomatycznegoWyszukiwania = "";
   let wybraneIndeksySerii = new Set();
   let odciskTerminówSerii = "";
   let stanSeriiOgłoszeńBur = null;
-  const diagnostykaSemper = {
-    fraza: "",
-    źródłoFrazy: "",
-    liczbaKandydatów: "",
-    ostatniBłądServiceWorkera: "",
-    importZapisałSzkolenie: "",
-    liczbaTerminówPoImporcie: ""
-  };
+  const stanPanelu = przestrzeń.panel.stan.utwórzStanPanelu();
+  const funkcjaDiagnostyki = przestrzeń.panel.diagnostyka.utwórzDiagnostykę(document);
+  const routerPanelu = przestrzeń.panel.router.utwórzRouterPanelu({
+    dokument: document,
+    stanPanelu: stanPanelu,
+    dozwoloneZakładki: ["semper", "terminy", "seria", "checklista", "harmonogram", "diagnostyka"],
+    zapiszStan: function zapiszStanRoutera(stan) {
+      if (!storageApi.czyDostępny("session")) {
+        return;
+      }
+      const dane = {};
+      dane[kluczeStorage.STAN_PANELU_BUR] = stan;
+      storageApi.zapiszSession(dane).catch(function zgłośBłądStorage(błąd) {
+        console.error("Nie udało się zapisać stanu panelu.", błąd);
+      });
+    },
+    poZmianie: function obsłużZmianęZakładki(zakładka) {
+      if (zakładka === "terminy") {
+        odświeżKolejkęTerminówBur();
+      }
+    }
+  });
 
   function pobierzKluczDanychProfilu(profilId) { return przestrzeń.kluczDanychProfilu(profilId); }
 
@@ -480,15 +486,6 @@
   function wyczyśćDecyzjęHarmonogramuBur() {
     elementy.decyzjaHarmonogramuBur.textContent = "";
     elementy.decyzjaHarmonogramuBur.classList.add("ukryty");
-  }
-
-  function pokażDiagnostykęSemper() {
-    elementy.diagnostykaFraza.textContent = diagnostykaSemper.fraza || "-";
-    elementy.diagnostykaŹródłoFrazy.textContent = diagnostykaSemper.źródłoFrazy || "-";
-    elementy.diagnostykaKandydaci.textContent = diagnostykaSemper.liczbaKandydatów === "" ? "-" : String(diagnostykaSemper.liczbaKandydatów);
-    elementy.diagnostykaBłądSw.textContent = diagnostykaSemper.ostatniBłądServiceWorkera || "-";
-    elementy.diagnostykaZapisImportu.textContent = diagnostykaSemper.importZapisałSzkolenie || "-";
-    elementy.diagnostykaTerminyImportu.textContent = diagnostykaSemper.liczbaTerminówPoImporcie === "" ? "-" : String(diagnostykaSemper.liczbaTerminówPoImporcie);
   }
 
   function wpisz(pole, wartość) {
@@ -1689,26 +1686,10 @@
   }
 
   function ustawAktywnąZakładkęPanelu(zakładka, zapiszStan, wybórRęczny) {
-    const dozwolone = ["semper", "terminy", "seria", "checklista", "harmonogram", "diagnostyka"];
-    aktywnaZakładkaPanelu = dozwolone.includes(zakładka) ? zakładka : "semper";
-    if (wybórRęczny === true) {
-      czyUżytkownikWybrałZakładkę = true;
-    }
-    document.body.dataset.aktywnaZakladka = aktywnaZakładkaPanelu;
-    document.querySelectorAll("[data-przelacz-zakladke]").forEach(function ustawPrzycisk(przycisk) {
-      przycisk.setAttribute("aria-pressed", String(przycisk.dataset.przelaczZakladke === aktywnaZakładkaPanelu));
+    return routerPanelu.ustawAktywnąZakładkę(zakładka, {
+      zapiszStan: zapiszStan,
+      wybórRęczny: wybórRęczny
     });
-    if (zapiszStan !== false && storageApi.czyDostępny("session")) {
-      const dane = {};
-      dane[kluczeStorage.STAN_PANELU_BUR] = {
-        aktywnaZakładka: aktywnaZakładkaPanelu,
-        wybranaRęcznie: czyUżytkownikWybrałZakładkę
-      };
-      storageApi.zapiszSession(dane).catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się zapisać stanu panelu.", błąd); });
-    }
-    if (aktywnaZakładkaPanelu === "terminy") {
-      odświeżKolejkęTerminówBur();
-    }
   }
 
   function wybierzZakładkęDlaKarty(karta) {
@@ -1719,7 +1700,7 @@
     if (rozpoznajTypStrony(url) === "BUR") {
       return /lista|list|uslugi\/?(?:\?|$)/i.test(url) ? "terminy" : "checklista";
     }
-    return aktywnaZakładkaPanelu;
+    return stanPanelu.pobierzAktywnąZakładkę();
   }
 
   function odczytajStanPanelu() {
@@ -1731,7 +1712,7 @@
       if (!stan || !stan.aktywnaZakładka) {
         return;
       }
-      czyUżytkownikWybrałZakładkę = stan.wybranaRęcznie !== false;
+      stanPanelu.ustawCzyZakładkaWybranaRęcznie(stan.wybranaRęcznie !== false);
       ustawAktywnąZakładkęPanelu(stan.aktywnaZakładka, false);
     });
   }
@@ -2780,7 +2761,7 @@
     if (typ !== "BUR") {
       pokażAktualnyTerminBur(null);
     }
-    if (!czyUżytkownikWybrałZakładkę) {
+    if (!stanPanelu.czyZakładkaWybranaRęcznie()) {
       ustawAktywnąZakładkęPanelu(wybierzZakładkęDlaKarty(karta), false);
     }
 
@@ -2888,13 +2869,7 @@
     elementy.przyciskPobierzHarmonogramCsv.disabled = true;
     elementy.przyciskWypełnijHarmonogramRęcznie.disabled = true;
     pokażDiagnostykęImportuHarmonogramu(null);
-    diagnostykaSemper.fraza = "";
-    diagnostykaSemper.źródłoFrazy = "";
-    diagnostykaSemper.liczbaKandydatów = "";
-    diagnostykaSemper.ostatniBłądServiceWorkera = "";
-    diagnostykaSemper.importZapisałSzkolenie = "";
-    diagnostykaSemper.liczbaTerminówPoImporcie = "";
-    pokażDiagnostykęSemper();
+    funkcjaDiagnostyki.wyczyść();
 
     usuńStorage(klucze)
       .then(function pokażWyczyszczenie() {
@@ -2967,9 +2942,7 @@
     const wpisanaFraza = przestrzeń.oczyśćLinię(elementy.linkLubFrazaSemper.value);
 
     if (wpisanaFraza) {
-      diagnostykaSemper.fraza = wpisanaFraza;
-      diagnostykaSemper.źródłoFrazy = "input";
-      pokażDiagnostykęSemper();
+      funkcjaDiagnostyki.aktualizuj({ fraza: wpisanaFraza, źródłoFrazy: "input" });
       return Promise.resolve(wpisanaFraza);
     }
 
@@ -2986,21 +2959,15 @@
 
         if (wynik && wynik.ok && wynik.frazaWyszukiwania) {
           elementy.linkLubFrazaSemper.value = wynik.frazaWyszukiwania;
-          diagnostykaSemper.fraza = wynik.frazaWyszukiwania;
-          diagnostykaSemper.źródłoFrazy = "tytuł BUR";
-          pokażDiagnostykęSemper();
+          funkcjaDiagnostyki.aktualizuj({ fraza: wynik.frazaWyszukiwania, źródłoFrazy: "tytuł BUR" });
           return wynik.frazaWyszukiwania;
         }
 
-        diagnostykaSemper.fraza = wpisanaFraza;
-        diagnostykaSemper.źródłoFrazy = wpisanaFraza ? "input" : "";
-        pokażDiagnostykęSemper();
+        funkcjaDiagnostyki.aktualizuj({ fraza: wpisanaFraza, źródłoFrazy: wpisanaFraza ? "input" : "" });
         return wpisanaFraza;
       })
       .catch(function użyjInputa() {
-        diagnostykaSemper.fraza = "";
-        diagnostykaSemper.źródłoFrazy = "";
-        pokażDiagnostykęSemper();
+        funkcjaDiagnostyki.aktualizuj({ fraza: "", źródłoFrazy: "" });
         return "";
       });
   }
@@ -3038,17 +3005,19 @@
 
         const wynik = odpowiedź.wynik || {};
         const diagnostyka = wynik.diagnostyka || {};
+        const aktualizacjaDiagnostyki = {
+          ostatniBłądServiceWorkera: wynik.błąd || diagnostyka.błądDirect || diagnostyka.błądAutocomplete || ""
+        };
 
         if (diagnostyka.fraza) {
-          diagnostykaSemper.fraza = diagnostyka.fraza;
+          aktualizacjaDiagnostyki.fraza = diagnostyka.fraza;
         }
 
         if (diagnostyka.liczbaKandydatów !== undefined) {
-          diagnostykaSemper.liczbaKandydatów = diagnostyka.liczbaKandydatów;
+          aktualizacjaDiagnostyki.liczbaKandydatów = diagnostyka.liczbaKandydatów;
         }
 
-        diagnostykaSemper.ostatniBłądServiceWorkera = wynik.błąd || diagnostyka.błądDirect || diagnostyka.błądAutocomplete || "";
-        pokażDiagnostykęSemper();
+        funkcjaDiagnostyki.aktualizuj(aktualizacjaDiagnostyki);
 
         if (!wynik.ok) {
           const czyBłądSieci = /Nie udało się wyszukać szkolenia/i.test(wynik.błąd || "");
@@ -3078,8 +3047,9 @@
         return "";
       })
       .catch(function pokażBłąd(błąd) {
-        diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku " + pobierzNazwęAktywnegoProfilu() + ".";
-        pokażDiagnostykęSemper();
+        funkcjaDiagnostyki.aktualizuj({
+          ostatniBłądServiceWorkera: błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku " + pobierzNazwęAktywnegoProfilu() + "."
+        });
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wyszukać szkolenia na " + pobierzNazwęAktywnegoProfilu() + ".", "status-blad");
         return "";
       });
@@ -3123,10 +3093,11 @@
         wynikParsera.ostrzezenia = ostrzeżenia;
 
         return zapiszWynikImportu(wynikParsera, profilId, wynik.url || url).then(function zwróćWynik() {
-          diagnostykaSemper.importZapisałSzkolenie = "tak";
-          diagnostykaSemper.liczbaTerminówPoImporcie = szkolenie.terminy ? szkolenie.terminy.length : 0;
-          diagnostykaSemper.ostatniBłądServiceWorkera = "";
-          pokażDiagnostykęSemper();
+          funkcjaDiagnostyki.aktualizuj({
+            importZapisałSzkolenie: "tak",
+            liczbaTerminówPoImporcie: szkolenie.terminy ? szkolenie.terminy.length : 0,
+            ostatniBłądServiceWorkera: ""
+          });
           wynikParsera.wybranyTerminSemperIndex = wybranyTerminSemperIndex;
           return wynikParsera;
         });
@@ -3147,9 +3118,10 @@
         });
       })
       .catch(function pokażBłąd(błąd) {
-        diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.";
-        diagnostykaSemper.importZapisałSzkolenie = "nie";
-        pokażDiagnostykęSemper();
+        funkcjaDiagnostyki.aktualizuj({
+          ostatniBłądServiceWorkera: błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.",
+          importZapisałSzkolenie: "nie"
+        });
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.", "status-blad");
         return null;
       });
@@ -3178,9 +3150,7 @@
     czyAutomatyczneWyszukiwanieWToku = true;
     odciskAutomatycznegoWyszukiwania = odcisk;
     elementy.linkLubFrazaSemper.value = tytuł;
-    diagnostykaSemper.fraza = tytuł;
-    diagnostykaSemper.źródłoFrazy = "tytuł BUR — automatycznie";
-    pokażDiagnostykęSemper();
+    funkcjaDiagnostyki.aktualizuj({ fraza: tytuł, źródłoFrazy: "tytuł BUR — automatycznie" });
     ustawStatus(elementy.statusSemper, "Automatycznie wyszukuję szkolenie na " + pobierzNazwęAktywnegoProfilu() + "...", "status-neutralny");
 
     return szukajLinkuSemper(tytuł).then(function zaimportujZnalezione(url) {
@@ -3452,9 +3422,10 @@
           return;
         }
 
-        diagnostykaSemper.importZapisałSzkolenie = "tak";
-        diagnostykaSemper.liczbaTerminówPoImporcie = Array.isArray(dane.ostatnieSzkolenieSemper.terminy) ? dane.ostatnieSzkolenieSemper.terminy.length : 0;
-        pokażDiagnostykęSemper();
+        funkcjaDiagnostyki.aktualizuj({
+          importZapisałSzkolenie: "tak",
+          liczbaTerminówPoImporcie: Array.isArray(dane.ostatnieSzkolenieSemper.terminy) ? dane.ostatnieSzkolenieSemper.terminy.length : 0
+        });
 
         pokażSzkolenie({
           szkolenie: dane.ostatnieSzkolenieSemper,
@@ -3475,9 +3446,10 @@
       .catch(function pomińBłądStorage() {});
   }
 
-  przestrzeń.renderujDaneSzkolenia = renderujDaneSzkolenia;
-  przestrzeń.odświeżDaneSzkoleniaZMagazynu = odświeżDaneSzkoleniaZMagazynu;
-  pokażDiagnostykęSemper();
+  function inicjalizujPanel() {
+    przestrzeń.renderujDaneSzkolenia = renderujDaneSzkolenia;
+    przestrzeń.odświeżDaneSzkoleniaZMagazynu = odświeżDaneSzkoleniaZMagazynu;
+    funkcjaDiagnostyki.renderuj();
   odświeżDostępnośćWypełniania();
   renderujListęTerminówHarmonogramu();
   renderujListęTerminówSerii();
@@ -3575,18 +3547,14 @@
   elementy.przyciskWypełnijHarmonogramRęcznie.addEventListener("click", function wypełnijRęcznie() {
     wprowadźPrzygotowanyHarmonogramDoBur(komunikaty.WYPEŁNIJ_HARMONOGRAM_RĘCZNIE_BUR);
   });
-  document.querySelectorAll("[data-przelacz-zakladke]").forEach(function dodajObsługęZakładki(przycisk) {
-    przycisk.addEventListener("click", function wybierzZakładkę() {
-      ustawAktywnąZakładkęPanelu(przycisk.dataset.przelaczZakladke, true, true);
-    });
-  });
+  routerPanelu.podłącz();
   document.querySelectorAll("[data-profil-dostawcy]").forEach(function dodajObsługęProfilu(przycisk) {
     przycisk.addEventListener("click", function zmieńProfil() { ustawAktywnyProfilDostawcy(przycisk.dataset.profilDostawcy, true); });
   });
   elementy.przyciskPrzełączNaWykrytyProfil.addEventListener("click", function przełączNaWykryty() {
     if (wykryteKontoBur && wykryteKontoBur.profilId) { ustawAktywnyProfilDostawcy(wykryteKontoBur.profilId, true); }
   });
-  document.getElementById("karta-diagnostyka").appendChild(document.getElementById("diagnostyka-semper"));
+  funkcjaDiagnostyki.zamontuj();
   chrome.tabs.onActivated.addListener(function poZmianieKarty() {
     pobierzAktywnąKartę().then(ustawStatusStronyDlaKarty).catch(function pomińBłąd() {});
   });
@@ -3647,4 +3615,7 @@
   odczytajStanSesjiWalidacji().catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się odtworzyć stanu walidacji.", błąd); });
   odświeżStanProgramuHarmonogramu();
   odświeżStanPrzygotowaniaHarmonogramu();
+  }
+
+  przestrzeń.panel.aplikacja = Object.freeze({ inicjalizuj: inicjalizujPanel });
 })(globalThis);
