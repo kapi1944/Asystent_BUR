@@ -1,6 +1,8 @@
 (function uruchomBurContent(globalny) {
   const przestrzen = globalny.BurAsystent || {};
   const komunikaty = przestrzen.KOMUNIKATY;
+  const storageApi = przestrzen.storageApi;
+  const kluczeStorage = przestrzen.KLUCZE_STORAGE;
   let ostatnieWykryteKontoBur = null;
   let timerWykrywaniaKontaBur = null;
   let timerAutomatycznejWalidacjiBur = null;
@@ -1300,16 +1302,10 @@
   }
 
   function odczytajStorageWalidacjiBur() {
-    return new Promise(function utwórzPromise(resolve, reject) {
-      chrome.storage.local.get(["ostatnieSzkolenieSemper", "wybranyTerminSemperIndex"], function poOdczycie(dane) {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-
-        resolve(dane || {});
-      });
-    });
+    return storageApi.pobierzLocal([
+      kluczeStorage.OSTATNIE_SZKOLENIE_SEMPER,
+      kluczeStorage.WYBRANY_TERMIN_SEMPER_INDEX
+    ]);
   }
 
   function wybierzTerminSemper(szkolenieSemper, wybranyTerminSemperIndex) {

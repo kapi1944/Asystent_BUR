@@ -68,6 +68,22 @@
     });
   }
 
+  function utwórzPanelZeStanemSesji(stanSesji) {
+    return pobierzPlik("../panel/panel.html").then(function utwórzRamkę(html) {
+      const ramka = document.createElement("iframe");
+      const mockChrome = "<base href='../panel/'><script>"
+        + "window.__stanSesji=" + JSON.stringify(stanSesji || {}) + ";"
+        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b({});}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.resolve();}},storage:{local:{get:function(a,b){b({});},set:function(a,b){b&&b();},remove:function(a,b){b&&b();}},session:{get:function(klucze,b){var wynik={};klucze.forEach(function(k){if(Object.prototype.hasOwnProperty.call(window.__stanSesji,k)){wynik[k]=window.__stanSesji[k];}});b(wynik);},set:function(dane,b){Object.assign(window.__stanSesji,dane);b&&b();},remove:function(klucze,b){klucze.forEach(function(k){delete window.__stanSesji[k];});b&&b();}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list',active:true}]);},sendMessage:function(a,b,c){c({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});},onActivated:{addListener:function(){}},onUpdated:{addListener:function(){}}}};"
+        + "</script>";
+      ramka.hidden = true;
+      ramka.srcdoc = html.replace("<head>", "<head>" + mockChrome);
+      document.body.appendChild(ramka);
+      return new Promise(function poczekaj(resolve) {
+        ramka.addEventListener("load", function gotowe() { resolve(ramka); }, { once: true });
+      });
+    });
+  }
+
   test("Panel ma sześć pionowych przycisków nawigacji", function sprawdźPrzyciski() {
     return Promise.all([pobierzPlik("../panel/panel.html"), pobierzPlik("../panel/panel.css")]).then(function sprawdźPliki(wyniki) {
       const przyciski = pobierzElementyNawigacji(wyniki[0]);
@@ -167,6 +183,20 @@
       });
       });
     });
+  });
+
+  test("zamknięcie i reinicjalizacja panelu odtwarza stan z session storage", async function sprawdźReinicjalizacjęPanelu() {
+    const pierwszy = await utwórzPanelZeStanemSesji({});
+    pierwszy.contentWindow.document.querySelector('[data-przelacz-zakladke="seria"]').click();
+    await Promise.resolve();
+    const zapisanyStan = JSON.parse(JSON.stringify(pierwszy.contentWindow.__stanSesji));
+    pierwszy.remove();
+
+    const drugi = await utwórzPanelZeStanemSesji(zapisanyStan);
+    await Promise.resolve();
+    sprawdzRownosc(drugi.contentWindow.document.body.dataset.aktywnaZakladka, "seria");
+    sprawdzRownosc(zapisanyStan.stanPaneluBur.aktywnaZakładka, "seria");
+    drugi.remove();
   });
 
   test("IIST zachowuje komplet zakładek i własny akcent", function sprawdźNawigacjęIist() {

@@ -95,6 +95,16 @@
     sprawdzRownosc(środowisko.pobierzLiczbęUtworzonych(), 1);
   });
 
+  test("restart service workera odtwarza Serię z trwałego local mimo starszej sesji", async function sprawdźTrwałeŹródło() {
+    const środowisko = utwórzŚrodowisko();
+    await środowisko.koordynator.utwórzSerię(daneSerii(1));
+    środowisko.magazyn.local.aktywnaSeriaOgloszenBur.status = "stan-z-local";
+    środowisko.magazyn.session.aktywnaSeriaOgloszenBur.status = "stary-stan-z-session";
+    const drugi = asystent.utwórzKoordynatorSeriiBur(środowisko.api);
+    const odtworzona = await drugi.inicjalizuj();
+    sprawdzRownosc(odtworzona.status, "stan-z-local");
+  });
+
   test("zamknięcie jednej karty oznacza tylko jej zadanie", async function sprawdź() {
     const środowisko = utwórzŚrodowisko();
     const wynik = await środowisko.koordynator.utwórzSerię(daneSerii(2));

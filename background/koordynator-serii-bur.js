@@ -1,8 +1,9 @@
 (function zarejestrujKoordynatorSeriiBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
-  const KLUCZ_SERII = "aktywnaSeriaOgloszenBur";
+  const KLUCZ_SERII = przestrzeń.KLUCZE_STORAGE.AKTYWNA_SERIA_OGŁOSZEŃ_BUR;
   const MAKSYMALNA_LICZBA_PRÓB = 3;
   const PLIKI_CONTENT_BUR = [
+    "shared/storage/storage-keys.js", "shared/storage/storage-api.js",
     "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
     "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/bur/selectors/selector-catalog.js",
     "shared/bur/dom/field-resolver.js", "shared/bur/forms/field-writer.js", "shared/bur/widgets/select2-adapter.js",
@@ -16,6 +17,7 @@
 
   function utwórzKoordynatorSeriiBur(interfejs) {
     const zależności = interfejs || {};
+    const storageApi = zależności.storageApi || przestrzeń.storageApi;
     let aktywnaSeria = null;
     let inicjalizacja = null;
     let przetwarzanieWToku = false;
@@ -24,25 +26,18 @@
     function komunikatBłędu(błąd) { return błąd && błąd.message ? błąd.message : String(błąd || "Nieznany błąd."); }
     function lista(wartość) { return Array.isArray(wartość) ? wartość.filter(Boolean).map(String) : (wartość ? [String(wartość)] : []); }
 
-    function wywołajStorage(obsługiwanyStorage, metoda, argument) {
-      if (!obsługiwanyStorage || typeof obsługiwanyStorage[metoda] !== "function") { return Promise.resolve(metoda === "get" ? {} : undefined); }
-      return new Promise(function wykonaj(resolve, reject) {
-        obsługiwanyStorage[metoda](argument, function poWykonaniu(wynik) {
-          const błąd = globalny.chrome && globalny.chrome.runtime && globalny.chrome.runtime.lastError;
-          if (błąd) { reject(new Error(błąd.message)); return; }
-          resolve(wynik);
-        });
-      });
-    }
-
     function pobierzStorage(rodzaj, klucz) {
       if (zależności.pobierzStorage) { return Promise.resolve(zależności.pobierzStorage(rodzaj, klucz)); }
-      return wywołajStorage(globalny.chrome.storage && globalny.chrome.storage[rodzaj], "get", [klucz]);
+      return storageApi.pobierz(rodzaj, [klucz]);
     }
 
     function zapiszStorage(rodzaj, dane) {
       if (zależności.zapiszStorage) { return Promise.resolve(zależności.zapiszStorage(rodzaj, dane)); }
-      return wywołajStorage(globalny.chrome.storage && globalny.chrome.storage[rodzaj], "set", dane);
+      return storageApi.zapisz(rodzaj, dane);
+    }
+
+    function czyDostępnaSesja() {
+      return Boolean(zależności.pobierzStorage || storageApi.czyDostępny("session"));
     }
 
     function utwórzKartę(url) {
@@ -91,8 +86,7 @@
       const dane = {}; dane[KLUCZ_SERII] = aktywnaSeria;
       return Promise.all([
         zapiszStorage("local", dane),
-        globalny.chrome && globalny.chrome.storage && globalny.chrome.storage.session !== undefined || zależności.pobierzStorage
-          ? zapiszStorage("session", dane).catch(function pomińBrakSesji() {}) : Promise.resolve()
+        czyDostępnaSesja() ? zapiszStorage("session", dane) : Promise.resolve()
       ]).then(function zakończ() { return aktywnaSeria; });
     }
 
@@ -454,9 +448,12 @@
     }
 
     async function odtwórzStan() {
-      const sesja = await pobierzStorage("session", KLUCZ_SERII).catch(function brak() { return {}; });
-      const lokalny = sesja && sesja[KLUCZ_SERII] ? sesja : await pobierzStorage("local", KLUCZ_SERII).catch(function brak() { return {}; });
-      aktywnaSeria = lokalny && lokalny[KLUCZ_SERII] || null;
+      const lokalny = await pobierzStorage("local", KLUCZ_SERII);
+      let zapis = lokalny;
+      if ((!zapis || !zapis[KLUCZ_SERII]) && czyDostępnaSesja()) {
+        zapis = await pobierzStorage("session", KLUCZ_SERII);
+      }
+      aktywnaSeria = zapis && zapis[KLUCZ_SERII] || null;
       if (!aktywnaSeria) { return null; }
       aktywnaSeria.zadania.forEach(function uzupełnij(zadanie) {
         zadanie.etapy = zadanie.etapy || {}; zadanie.następnyEtapIndex = Number(zadanie.następnyEtapIndex || 0);
@@ -495,10 +492,11 @@
   przestrzeń.utwórzKoordynatorSeriiBur = utwórzKoordynatorSeriiBur;
   globalny.BurAsystent = przestrzeń;
 
-  if (globalny.chrome && globalny.chrome.tabs && globalny.chrome.storage && globalny.chrome.runtime) {
+  if (globalny.chrome && globalny.chrome.tabs && globalny.chrome.runtime
+    && przestrzeń.storageApi && przestrzeń.storageApi.czyDostępny("local")) {
     const koordynator = utwórzKoordynatorSeriiBur();
     przestrzeń.koordynatorSeriiBur = koordynator;
-    koordynator.inicjalizuj().catch(function pomińBłądStartu() {});
+    koordynator.inicjalizuj().catch(function zgłośBłądStartu(błąd) { console.error("Nie udało się odtworzyć stanu Serii BUR.", błąd); });
     globalny.chrome.tabs.onUpdated.addListener(function poAktualizacji(tabId, zmiana) { koordynator.poZaładowaniuKarty(tabId, zmiana); });
     globalny.chrome.tabs.onRemoved.addListener(function poZamknięciu(tabId) { koordynator.poZamknięciuKarty(tabId); });
     globalny.chrome.runtime.onMessage.addListener(function obsłużSerię(wiadomość, nadawca, odpowiedz) {

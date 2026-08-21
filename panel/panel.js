@@ -1,8 +1,12 @@
 (function uruchomPanel(globalny) {
   const przestrzeń = globalny.BurAsystent;
   const komunikaty = przestrzeń.KOMUNIKATY;
+  const storageApi = przestrzeń.storageApi;
+  const kluczeStorage = przestrzeń.KLUCZE_STORAGE;
   const komunikatBrakuSkryptu = "Nie znaleziono skryptu strony na tej karcie. Odśwież stronę BUR lub stronę dostawcy albo otwórz obsługiwaną stronę.";
   const plikiContentBur = [
+    "shared/storage/storage-keys.js",
+    "shared/storage/storage-api.js",
     "shared/providers/provider-rules.js",
     "shared/providers/profile-detector.js",
     "shared/profile-dostawcow.js",
@@ -1611,29 +1615,11 @@
   }
 
   function zapiszStorage(dane) {
-    return new Promise(function utwórzPromise(resolve, reject) {
-      chrome.storage.local.set(dane, function poZapisie() {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-
-        resolve();
-      });
-    });
+    return storageApi.zapiszLocal(dane);
   }
 
   function odczytajStorage(klucze) {
-    return new Promise(function utwórzPromise(resolve, reject) {
-      chrome.storage.local.get(klucze, function poOdczycie(dane) {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-
-        resolve(dane || {});
-      });
-    });
+    return storageApi.pobierzLocal(klucze);
   }
 
   function pobierzAktualnyTerminBurZKarty() {
@@ -1743,25 +1729,23 @@
   }
 
   function zapiszStanSesjiWalidacji() {
-    if (!chrome.storage.session) {
+    if (!storageApi.czyDostępny("session")) {
       return Promise.resolve();
     }
-    return new Promise(function utwórzPromise(resolve) {
-      chrome.storage.session.set({
-        stanWalidacjiBur: {
-          wynik: ostatniWynikWalidacjiBur,
-          pozycjaPrzewijania: document.documentElement.scrollTop || document.body.scrollTop || 0
-        }
-      }, resolve);
-    });
+    const dane = {};
+    dane[kluczeStorage.STAN_WALIDACJI_BUR] = {
+      wynik: ostatniWynikWalidacjiBur,
+      pozycjaPrzewijania: document.documentElement.scrollTop || document.body.scrollTop || 0
+    };
+    return storageApi.zapiszSession(dane);
   }
 
   function odczytajStanSesjiWalidacji() {
-    if (!chrome.storage.session) {
-      return;
+    if (!storageApi.czyDostępny("session")) {
+      return Promise.resolve();
     }
-    chrome.storage.session.get(["stanWalidacjiBur"], function pokażStan(dane) {
-      const stan = dane && dane.stanWalidacjiBur;
+    return storageApi.pobierzSession([kluczeStorage.STAN_WALIDACJI_BUR]).then(function pokażStan(dane) {
+      const stan = dane && dane[kluczeStorage.STAN_WALIDACJI_BUR];
       if (!stan || !stan.wynik) {
         return;
       }
@@ -1783,11 +1767,13 @@
     document.querySelectorAll("[data-przelacz-zakladke]").forEach(function ustawPrzycisk(przycisk) {
       przycisk.setAttribute("aria-pressed", String(przycisk.dataset.przelaczZakladke === aktywnaZakładkaPanelu));
     });
-    if (zapiszStan !== false && chrome.storage.session) {
-      chrome.storage.session.set({ stanPaneluBur: {
+    if (zapiszStan !== false && storageApi.czyDostępny("session")) {
+      const dane = {};
+      dane[kluczeStorage.STAN_PANELU_BUR] = {
         aktywnaZakładka: aktywnaZakładkaPanelu,
         wybranaRęcznie: czyUżytkownikWybrałZakładkę
-      } });
+      };
+      storageApi.zapiszSession(dane).catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się zapisać stanu panelu.", błąd); });
     }
     if (aktywnaZakładkaPanelu === "terminy") {
       odświeżKolejkęTerminówBur();
@@ -1806,11 +1792,11 @@
   }
 
   function odczytajStanPanelu() {
-    if (!chrome.storage.session) {
-      return;
+    if (!storageApi.czyDostępny("session")) {
+      return Promise.resolve();
     }
-    chrome.storage.session.get(["stanPaneluBur"], function przywróćStan(dane) {
-      const stan = dane && dane.stanPaneluBur;
+    return storageApi.pobierzSession([kluczeStorage.STAN_PANELU_BUR]).then(function przywróćStan(dane) {
+      const stan = dane && dane[kluczeStorage.STAN_PANELU_BUR];
       if (!stan || !stan.aktywnaZakładka) {
         return;
       }
@@ -1820,16 +1806,7 @@
   }
 
   function usuńStorage(klucze) {
-    return new Promise(function utwórzPromise(resolve, reject) {
-      chrome.storage.local.remove(klucze, function poUsunięciu() {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-
-        resolve();
-      });
-    });
+    return storageApi.usuńLocal(klucze);
   }
 
   function ustawStatusElementu(element, czyZnaleziono) {
@@ -2596,7 +2573,7 @@
     elementy.wynikWalidacjiBur.textContent = "";
     ostatniWynikWalidacjiBur = null;
     if (zapiszStan !== false) {
-      zapiszStanSesjiWalidacji();
+      zapiszStanSesjiWalidacji().catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się zapisać stanu walidacji.", błąd); });
     }
   }
 
@@ -2789,7 +2766,7 @@
     );
     ostatniWynikWalidacjiBur = wynik;
     if (zapiszStan !== false) {
-      zapiszStanSesjiWalidacji();
+      zapiszStanSesjiWalidacji().catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się zapisać stanu walidacji.", błąd); });
     }
   }
 
@@ -3716,7 +3693,7 @@
   }
   window.addEventListener("scroll", function zapiszPozycjęWalidacji() {
     if (ostatniWynikWalidacjiBur) {
-      zapiszStanSesjiWalidacji();
+      zapiszStanSesjiWalidacji().catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się zapisać stanu walidacji.", błąd); });
     }
   }, { passive: true });
 
@@ -3734,9 +3711,9 @@
       ustawDostępnośćWalidacji(false);
     });
 
-  odczytajStanPanelu();
+  odczytajStanPanelu().catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się odtworzyć stanu panelu.", błąd); });
   odświeżSerię(false);
-  odczytajStanSesjiWalidacji();
+  odczytajStanSesjiWalidacji().catch(function zgłośBłądStorage(błąd) { console.error("Nie udało się odtworzyć stanu walidacji.", błąd); });
   odświeżStanProgramuHarmonogramu();
   odświeżStanPrzygotowaniaHarmonogramu();
 })(globalThis);

@@ -262,7 +262,7 @@
     const wynik = await środowisko.koordynator.utwórzSerię(daneSerii(1));
     const zadanie = wynik.seria.zadania[0]; zadanie.etap = "import_harmonogramu"; zadanie.status = "import_harmonogramu"; zadanie.następnyEtapIndex = 9;
     zadanie.etapy.import_harmonogramu = { status: "w_toku", rozpoczęto: new Date().toISOString() };
-    środowisko.magazyn.session.aktywnaSeriaOgloszenBur = JSON.parse(JSON.stringify(wynik.seria));
+    środowisko.magazyn.local.aktywnaSeriaOgloszenBur = JSON.parse(JSON.stringify(wynik.seria));
     const drugi = asystent.utwórzKoordynatorSeriiBur(środowisko.interfejs);
     const odtworzona = await drugi.inicjalizuj();
     sprawdzRownosc(odtworzona.zadania[0].status, "wymaga_decyzji");

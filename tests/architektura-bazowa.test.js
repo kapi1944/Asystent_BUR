@@ -53,12 +53,14 @@
       });
       const plikiPanelu = wyodrębnijSkryptyHtml(wyniki[1]);
       const oczekiwanyServiceWorker = [
+        "shared/storage/storage-keys.js", "shared/storage/storage-api.js",
         "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/szablony-harmonogramow.js",
         "shared/seria-ogloszen-bur.js", "shared/wyszukiwarka-semper.js", "background/klient-semper.js",
         "background/klient-iist.js", "background/koordynator-serii-bur.js"
       ];
       const oczekiwanyPanel = [
+        "shared/storage/storage-keys.js", "shared/storage/storage-api.js",
         "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/model.js",
         "shared/normalizacja-tytulu.js", "shared/daty.js", "shared/terminy-bur.js",
@@ -84,11 +86,12 @@
     return Promise.all([
       pobierzPlik("../panel/panel.js"),
       pobierzPlik("../content/bur-content.js"),
-      pobierzPlik("../background/koordynator-serii-bur.js")
+      pobierzPlik("../background/koordynator-serii-bur.js"),
+      pobierzPlik("../shared/storage/storage-keys.js")
     ]).then(function sprawdźKlucze(wyniki) {
       [
         "ostatnieSzkolenieSemper", "wybranyTerminSemperIndex", "aktywnyProfilDostawcy",
-        "aktywnaOperacjaBur", "stanWalidacjiBur", "stanPaneluBur",
+        "aktywnaOperacjaBur",
         "wybranyTerminHarmonogramuBur", "harmonogramBurPrzygotowany"
       ].forEach(function sprawdźKluczPanelu(klucz) {
         sprawdzWarunek(wyniki[0].includes(klucz), "Panel nie używa utrwalonego klucza: " + klucz + ".");
@@ -96,7 +99,10 @@
       ["bur_terms_raw", "bur_term_index", "bur_terms_order_mode", "bur_total_counter", "bur_daily_counter_"].forEach(function sprawdźKluczKolejki(klucz) {
         sprawdzWarunek(wyniki[1].includes(klucz), "Content script nie używa utrwalonego klucza kolejki: " + klucz + ".");
       });
-      sprawdzWarunek(wyniki[2].includes('const KLUCZ_SERII = "aktywnaSeriaOgloszenBur";'), "Zmienił się klucz stanu serii BUR.");
+      sprawdzWarunek(wyniki[2].includes("KLUCZE_STORAGE.AKTYWNA_SERIA_OGŁOSZEŃ_BUR"), "Koordynator nie używa wspólnego kontraktu kluczy storage.");
+      sprawdzWarunek(wyniki[3].includes('AKTYWNA_SERIA_OGŁOSZEŃ_BUR: "aktywnaSeriaOgloszenBur"'), "Zmienił się klucz stanu serii BUR.");
+      sprawdzWarunek(wyniki[3].includes('STAN_WALIDACJI_BUR: "stanWalidacjiBur"'), "Zmienił się klucz stanu walidacji BUR.");
+      sprawdzWarunek(wyniki[3].includes('STAN_PANELU_BUR: "stanPaneluBur"'), "Zmienił się klucz stanu panelu BUR.");
     });
   });
 

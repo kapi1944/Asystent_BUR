@@ -34,6 +34,8 @@
         "https://www.szkolenia-semper.pl/*"
       ],
       "js": [
+        "shared/storage/storage-keys.js",
+        "shared/storage/storage-api.js",
         "shared/providers/provider-rules.js",
         "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",
@@ -57,6 +59,8 @@
         "https://www.szkoleniaiist.com.pl/*"
       ],
       "js": [
+        "shared/storage/storage-keys.js",
+        "shared/storage/storage-api.js",
         "shared/providers/provider-rules.js",
         "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",
@@ -78,6 +82,8 @@
         "content/bur-highlighter.css"
       ],
       "js": [
+        "shared/storage/storage-keys.js",
+        "shared/storage/storage-api.js",
         "shared/providers/provider-rules.js",
         "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",

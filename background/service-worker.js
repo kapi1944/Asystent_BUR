@@ -1,4 +1,6 @@
 importScripts(
+  "../shared/storage/storage-keys.js",
+  "../shared/storage/storage-api.js",
   "../shared/providers/provider-rules.js",
   "../shared/providers/profile-detector.js",
   "../shared/profile-dostawcow.js",
