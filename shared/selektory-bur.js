@@ -1,413 +1,42 @@
-(function zarejestrujSelektoryBur(globalny) {
+(function zarejestrujFasadęSelektorówBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
 
-  function pobierzDefinicjęPodstawyWpisuBur() {
-    return {
-      sekcja: "Formularz wstępny",
-      etykieta: "Podstawa uzyskania wpisu do BUR",
-      selektoryNatywne: [
-        "#formularzwstepnysekcja-podstawauzyskaniawpisuid",
-        "select[name='formularzwstepnysekcja[podstawauzyskaniawpisuid]']",
-        "select[name*='podstawauzyskaniawpisu']"
-      ],
-      selektory: ["#select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container"]
-    };
-  }
-
-  function normalizujTekstDoWalidacji(wartość) {
-    const element = typeof document !== "undefined" ? document.createElement("div") : null;
-    let tekst = String(wartość || "");
-
-    if (/<[a-z][\s\S]*>/i.test(tekst) && element) {
-      element.innerHTML = tekst;
-      tekst = element.textContent || "";
-    }
-
-    return tekst
-      .replace(/\u00a0/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function normalizujKluczBur(wartość) {
-    return normalizujTekstDoWalidacji(wartość)
-      .toLowerCase()
-      .replace(/ł/g, "l")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "");
-  }
-
-  function znajdźPolePoSelektorach(dokument, selektory) {
-    const lista = Array.isArray(selektory) ? selektory : [selektory];
-
-    for (let indeks = 0; indeks < lista.length; indeks += 1) {
-      const selektor = lista[indeks];
-
-      if (!selektor) {
-        continue;
-      }
-
-      try {
-        const element = dokument.querySelector(selektor);
-
-        if (element) {
-          return element;
-        }
-      } catch (błąd) {}
-    }
-
-    return null;
-  }
-
-  function pobierzIdBezpiecznie(id) {
-    if (!id) {
-      return "";
-    }
-
-    if (globalny.CSS && globalny.CSS.escape) {
-      return "#" + globalny.CSS.escape(id);
-    }
-
-    return "#" + String(id).replace(/([ #;?%&,.+*~':"!^$[\]()=>|/@])/g, "\\$1");
-  }
-
-  function znajdźKontenerPola(element) {
-    if (!element) {
-      return null;
-    }
-
-    return element.closest(
-      ".question-field, .form-group, .field, [class*='field-'], .row, tr, td, .select2-container, .ql-container, .card-body"
-    ) || element.parentElement || element;
-  }
-
-  function znajdźPoleWKontenerze(kontener) {
-    if (!kontener) {
-      return null;
-    }
-
-    if (kontener.matches("input, textarea, select, .ql-editor, .select2-selection, [id^='select2-'][id$='-container'], [contenteditable='true']")) {
-      return kontener;
-    }
-
-    return kontener.querySelector("input, textarea, select, .ql-editor, .select2-selection, [id^='select2-'][id$='-container'], [contenteditable='true']");
-  }
-
-  function znajdźPolePoEtykiecie(dokument, tekstEtykiety) {
-    const szukanyKlucz = normalizujKluczBur(tekstEtykiety);
-    const etykiety = Array.from(dokument.querySelectorAll("label, dt, th, span, div, p"));
-
-    const kandydaci = [];
-    for (let indeks = 0; indeks < etykiety.length; indeks += 1) {
-      const etykieta = etykiety[indeks];
-      const tekst = normalizujKluczBur(etykieta.textContent || "");
-
-      if (!tekst || tekst.length > 260 || !tekst.includes(szukanyKlucz)) {
-        continue;
-      }
-
-      if (etykieta.htmlFor) {
-        const polePoId = dokument.querySelector(pobierzIdBezpiecznie(etykieta.htmlFor));
-
-        if (polePoId) {
-          kandydaci.push(polePoId);
-          continue;
-        }
-      }
-
-      const kontener = znajdźKontenerPola(etykieta);
-      if (kontener === dokument.body) {
-        continue;
-      }
-      const pole = znajdźPoleWKontenerze(kontener);
-
-      if (pole && pole !== etykieta) {
-        kandydaci.push(pole);
-        continue;
-      }
-
-      if (kontener) {
-        kandydaci.push(kontener);
-      }
-    }
-    const unikalne = Array.from(new Set(kandydaci));
-    return unikalne.length === 1 ? unikalne[0] : null;
-  }
-
-  function znajdźSekcjęPoNagłówku(dokument, tekstNagłówka) {
-    const szukanyKlucz = normalizujKluczBur(tekstNagłówka);
-    const kandydaci = Array.from(dokument.querySelectorAll("h1, h2, h3, h4, h5, h6, .card-header, legend, strong, b, span, div"));
-
-    for (let indeks = 0; indeks < kandydaci.length; indeks += 1) {
-      const element = kandydaci[indeks];
-      const tekst = normalizujKluczBur(element.textContent || "");
-
-      if (tekst && tekst.length <= 180 && tekst.includes(szukanyKlucz)) {
-        return element.closest("section, fieldset, .card, .panel, .row, div") || element;
-      }
-    }
-
-    return null;
-  }
-
-
-  function znajdźPoleWTabeliBur(dokument, tytułTabeli, nazwaKolumny) {
-    const tabele = Array.from(dokument.querySelectorAll("table"));
-    const kluczTabeli = normalizujKluczBur(tytułTabeli);
-    const kluczKolumny = normalizujKluczBur(nazwaKolumny);
-
-    for (let indeksTabeli = 0; indeksTabeli < tabele.length; indeksTabeli += 1) {
-      const tabela = tabele[indeksTabeli];
-      const tekstTabeli = normalizujKluczBur(tabela.textContent || "");
-
-      const kandydaciNagłówków = Array.from(tabela.querySelectorAll("thead th, thead td"));
-      const nagłówki = kandydaciNagłówków.length
-        ? kandydaciNagłówków
-        : Array.from(tabela.querySelectorAll("tr:first-child th, tr:first-child td"));
-      const indeksKolumny = nagłówki.findIndex(function sprawdźNagłówek(nagłówek) {
-        return normalizujKluczBur(nagłówek.textContent || "").includes(kluczKolumny);
-      });
-      const nagłówkiTabeliEfektów = ["efekty uczenia sie", "kryteria weryfikacji", "metody walidacji"];
-      const czyTabelaEfektów = nagłówkiTabeliEfektów.every(function zawieraNagłówek(nagłówek) {
-        return nagłówki.some(function pasuje(element) {
-          return normalizujKluczBur(element.textContent || "").includes(nagłówek);
-        });
-      });
-
-      if (kluczTabeli && !tekstTabeli.includes(kluczTabeli) && !czyTabelaEfektów) {
-        continue;
-      }
-
-      if (indeksKolumny < 0) {
-        continue;
-      }
-
-      if (kluczKolumny.includes("metody walidacji")) {
-        const metodaWalidacji = tabela.querySelector(
-          "tbody select, tbody [id^='select2-'][id$='-container'], tbody .select2-selection__rendered, "
-          + "select, [id^='select2-'][id$='-container'], .select2-selection__rendered"
-        );
-
-        if (metodaWalidacji) {
-          return metodaWalidacji;
-        }
-      }
-
-      const wiersze = Array.from(tabela.querySelectorAll("tbody tr, tr")).filter(function zostawWiersz(wiersz) {
-        const komórki = Array.from(wiersz.children || []).filter(function tylkoKomórki(element) {
-          return element.tagName === "TD";
-        });
-        return komórki.length > indeksKolumny;
-      });
-
-      for (let indeksWiersza = 0; indeksWiersza < wiersze.length; indeksWiersza += 1) {
-        const komórki = Array.from(wiersze[indeksWiersza].children || []).filter(function tylkoKomórki(element) {
-          return element.tagName === "TD";
-        });
-        const komórka = komórki[indeksKolumny];
-
-        if (!komórka) {
-          continue;
-        }
-
-        const kontrolka = komórka.querySelector(
-          "input:not([type='hidden']), textarea, select, .ql-editor, "
-          + "[id^='select2-'][id$='-container'], .select2-selection__rendered, "
-          + ".select2-selection, [contenteditable='true']"
-        );
-
-        if (kontrolka) {
-          return kontrolka;
-        }
-
-        if (komórka.querySelector("input[type='hidden']")) {
-          return komórka;
-        }
-
-        if (normalizujTekstDoWalidacji(komórka.textContent || "")) {
-          return komórka;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  function znajdźPoleBur(dokument, definicjaPola) {
-    const wynik = znajdźPoleBurZSzczegółami(dokument, definicjaPola);
-    return wynik.element;
-  }
-
-  function znajdźPoleBurZSzczegółami(dokument, definicjaPola) {
-    const definicja = definicjaPola || {};
-    let pole = null;
-
-    if (definicja.tabela && definicja.kolumna) {
-      pole = znajdźPoleWTabeliBur(dokument, definicja.tabela, definicja.kolumna);
-      if (pole) {
-        return { element: pole, metodaZnalezienia: "tabela", selektor: "" };
-      }
-    }
-
-    if (definicja.selektory) {
-      for (let indeks = 0; indeks < definicja.selektory.length; indeks += 1) {
-        const selektor = definicja.selektory[indeks];
-        let kandydaci = [];
-        try { kandydaci = selektor ? dokument.querySelectorAll(selektor) : []; } catch (błąd) { continue; }
-        if (kandydaci.length === 1) { return { element: kandydaci[0], metodaZnalezienia: indeks ? "selektor alternatywny" : "selektor podstawowy", selektor: selektor }; }
-        if (kandydaci.length > 1) { return { element: null, metodaZnalezienia: "niejednoznaczny selektor", selektor: selektor, kodBłędu: "NIEJEDNOZNACZNY_SELEKTOR" }; }
-      }
-    }
-
-    if (!pole && definicja.sekcja && definicja.etykieta) {
-      const sekcja = znajdźSekcjęPoNagłówku(dokument, definicja.sekcja);
-
-      if (sekcja) {
-        pole = znajdźPolePoEtykiecie(sekcja, definicja.etykieta);
-        if (pole) { return { element: pole, metodaZnalezienia: "etykieta w sekcji", selektor: "" }; }
-      }
-    }
-
-    if (!pole && definicja.etykieta) {
-      pole = znajdźPolePoEtykiecie(dokument, definicja.etykieta);
-      if (pole) { return { element: pole, metodaZnalezienia: "etykieta globalna", selektor: "" }; }
-    }
-    return { element: null, metodaZnalezienia: "brak", selektor: "" };
-  }
-
   function pobierzTekstSelect2(elementLubKontener) {
-    if (!elementLubKontener) {
-      return "";
-    }
-
-    if (elementLubKontener.tagName === "SELECT") {
-      const opcja = elementLubKontener.selectedOptions && elementLubKontener.selectedOptions[0];
-      return normalizujTekstDoWalidacji(opcja ? (opcja.textContent || opcja.label || "") : "");
-    }
-
-    const element = elementLubKontener.matches && elementLubKontener.matches(
-      "[id^='select2-'][id$='-container'], .select2-selection__rendered, .select2-selection"
-    )
-      ? elementLubKontener
-      : elementLubKontener.querySelector && elementLubKontener.querySelector(
-        "[id^='select2-'][id$='-container'], .select2-selection__rendered, .select2-selection"
-      );
-
-    if (element) {
-      return normalizujTekstDoWalidacji(element.getAttribute("title") || element.textContent || "");
-    }
-
-    if (elementLubKontener.id) {
-      const dokument = elementLubKontener.ownerDocument || document;
-      const widoczny = dokument.getElementById("select2-" + elementLubKontener.id + "-container");
-      if (widoczny) {
-        return normalizujTekstDoWalidacji(widoczny.getAttribute("title") || widoczny.textContent || "");
-      }
-    }
-
-    return "";
-  }
-
-  function znajdźNatywnePoleWyboruWKontekście(element) {
-    if (!element) {
-      return null;
-    }
-
-    if (element.matches && element.matches("select")) {
-      return element;
-    }
-
-    const dokument = element.ownerDocument || document;
-    const dopasowanieId = String(element.id || "").match(/^select2-(.+)-container$/);
-
-    if (dopasowanieId) {
-      const polePoId = dokument.getElementById(dopasowanieId[1]);
-      if (polePoId && polePoId.matches("select")) {
-        return polePoId;
-      }
-    }
-
-    const kontener = element.closest && element.closest(".form-group, .question-field, .field, [class*='field-']");
-    const pola = kontener ? Array.from(kontener.querySelectorAll("select")) : [];
-
-    return pola.length === 1 ? pola[0] : null;
+    return przestrzeń.adapterSelect2.odczytajTekstWidoczny(elementLubKontener);
   }
 
   function znajdźNatywnePoleWyboruBur(dokument, definicjaPola) {
-    const definicja = definicjaPola || {};
-    const kluczEtykiety = normalizujKluczBur(definicja.etykieta || "");
-    const znalezionePoEtykiecie = [];
-
-    if (kluczEtykiety) {
-      Array.from(dokument.querySelectorAll("label")).forEach(function sprawdźEtykietę(etykieta) {
-        const tekst = normalizujKluczBur(etykieta.textContent || "");
-        if (!tekst || !tekst.includes(kluczEtykiety)) {
-          return;
-        }
-
-        const polePoId = etykieta.htmlFor ? dokument.getElementById(etykieta.htmlFor) : null;
-        const natywnePole = znajdźNatywnePoleWyboruWKontekście(polePoId || etykieta);
-        if (natywnePole) {
-          znalezionePoEtykiecie.push(natywnePole);
-        }
-      });
-    }
-
-    const unikalnePoEtykiecie = Array.from(new Set(znalezionePoEtykiecie));
-    if (unikalnePoEtykiecie.length === 1) {
-      return unikalnePoEtykiecie[0];
-    }
-
-    const selektoryNatywne = definicja.selektoryNatywne || [];
-    for (let indeks = 0; indeks < selektoryNatywne.length; indeks += 1) {
-      const pole = znajdźPolePoSelektorach(dokument, selektoryNatywne[indeks]);
-      if (pole && pole.matches("select")) {
-        return pole;
-      }
-    }
-
-    const prezentacja = znajdźPolePoSelektorach(dokument, definicja.selektory || []);
-    return znajdźNatywnePoleWyboruWKontekście(prezentacja);
+    const wynik = przestrzeń.adapterSelect2.znajdźNatywnePole(dokument, definicjaPola);
+    return wynik.ok ? wynik.natywnePole : null;
   }
 
   function znajdźWidocznyElementSelect2(natywnePole) {
-    if (!natywnePole || !natywnePole.ownerDocument) {
-      return null;
-    }
-
-    return natywnePole.id
-      ? natywnePole.ownerDocument.getElementById("select2-" + natywnePole.id + "-container")
-      : null;
+    return przestrzeń.adapterSelect2.znajdźWidocznyElement(natywnePole);
   }
 
   function pobierzWartośćQuill(elementLubKontener) {
     if (!elementLubKontener) {
       return "";
     }
-
     const element = elementLubKontener.matches && elementLubKontener.matches(".ql-editor")
       ? elementLubKontener
-      : elementLubKontener.querySelector(".ql-editor");
-
-    return normalizujTekstDoWalidacji(element ? element.textContent || "" : "");
+      : elementLubKontener.querySelector && elementLubKontener.querySelector(".ql-editor");
+    return przestrzeń.normalizujTekstDoWalidacji(element ? element.textContent || "" : "");
   }
 
   function pobierzKontrolkiPrzełącznika(elementLubKontener) {
     if (!elementLubKontener) {
       return [];
     }
-
     if (elementLubKontener.matches && elementLubKontener.matches("input[type='checkbox'], input[type='radio']")) {
       return [elementLubKontener];
     }
-
-    const inputy = elementLubKontener.querySelectorAll
-      ? Array.from(elementLubKontener.querySelectorAll("input[type='checkbox'], input[type='radio']"))
-      : [];
+    const inputy = Array.from(elementLubKontener.querySelectorAll
+      ? elementLubKontener.querySelectorAll("input[type='checkbox'], input[type='radio']")
+      : []);
     if (inputy.length) {
       return inputy;
     }
-
     const kontrolkiAria = [];
     if (elementLubKontener.matches && elementLubKontener.matches("[role='switch'], [aria-checked]")) {
       kontrolkiAria.push(elementLubKontener);
@@ -422,14 +51,12 @@
     if (!elementLubKontener) {
       return { stan: "", źródło: "" };
     }
-
     if (elementLubKontener.matches && elementLubKontener.matches("input[type='checkbox'], input[type='radio']")) {
       return { stan: elementLubKontener.checked ? "TAK" : "NIE", źródło: "checkbox" };
     }
-
-    const inputy = elementLubKontener.querySelectorAll
-      ? Array.from(elementLubKontener.querySelectorAll("input[type='checkbox'], input[type='radio']"))
-      : [];
+    const inputy = Array.from(elementLubKontener.querySelectorAll
+      ? elementLubKontener.querySelectorAll("input[type='checkbox'], input[type='radio']")
+      : []);
     if (inputy.length === 1) {
       return { stan: inputy[0].checked ? "TAK" : "NIE", źródło: "checkbox" };
     }
@@ -437,11 +64,8 @@
     const kontrolki = pobierzKontrolkiPrzełącznika(elementLubKontener);
     if (kontrolki.length === 1) {
       const ariaChecked = kontrolki[0].getAttribute("aria-checked");
-      if (ariaChecked === "true") {
-        return { stan: "TAK", źródło: "aria" };
-      }
-      if (ariaChecked === "false") {
-        return { stan: "NIE", źródło: "aria" };
+      if (ariaChecked === "true" || ariaChecked === "false") {
+        return { stan: ariaChecked === "true" ? "TAK" : "NIE", źródło: "aria" };
       }
     }
 
@@ -454,11 +78,11 @@
         ".toggle-switch-label, [aria-pressed='true'], .active, .checked, .selected, .is-active"
       )).filter(function pomińZwykłyPrzycisk(element) { return element.tagName !== "BUTTON"; }));
     }
-    const stanyWizualne = Array.from(new Set(kandydaciWizualni)).map(function pobierzStanWizualny(element) {
-      const tekst = normalizujKluczBur(element.textContent || element.value || element.getAttribute("aria-label") || "");
+    const stany = Array.from(new Set(kandydaciWizualni)).map(function pobierzStan(element) {
+      const tekst = przestrzeń.normalizujKluczBur(element.textContent || element.value || element.getAttribute("aria-label") || "");
       return tekst === "tak" ? "TAK" : (tekst === "nie" ? "NIE" : "");
     }).filter(Boolean);
-    const unikalneStany = Array.from(new Set(stanyWizualne));
+    const unikalneStany = Array.from(new Set(stany));
     return unikalneStany.length === 1
       ? { stan: unikalneStany[0], źródło: "wizualny fallback" }
       : { stan: "", źródło: "" };
@@ -472,51 +96,34 @@
     if (!element) {
       return "";
     }
-
     const tekstSelect2 = pobierzTekstSelect2(element);
-
     if (tekstSelect2) {
       return tekstSelect2;
     }
-
     const tekstQuill = pobierzWartośćQuill(element);
-
     if (tekstQuill) {
       return tekstQuill;
     }
-
     if (element.matches && element.matches("input[type='checkbox'], input[type='radio']")) {
       return element.checked ? "TAK" : "NIE";
     }
-
     if (element.tagName === "SELECT") {
-      return normalizujTekstDoWalidacji(element.selectedOptions && element.selectedOptions[0] ? element.selectedOptions[0].textContent : element.value);
+      const opcja = element.selectedOptions && element.selectedOptions[0];
+      return przestrzeń.normalizujTekstDoWalidacji(opcja ? opcja.textContent : element.value);
     }
-
     if ("value" in element) {
-      return normalizujTekstDoWalidacji(element.value);
+      return przestrzeń.normalizujTekstDoWalidacji(element.value);
     }
-
-    return normalizujTekstDoWalidacji(element.textContent || "");
+    return przestrzeń.normalizujTekstDoWalidacji(element.textContent || "");
   }
 
-  przestrzeń.znajdźPoleWTabeliBur = znajdźPoleWTabeliBur;
-  przestrzeń.znajdźPoleBur = znajdźPoleBur;
-  przestrzeń.znajdźPoleBurZSzczegółami = znajdźPoleBurZSzczegółami;
-  przestrzeń.znajdźPolePoSelektorach = znajdźPolePoSelektorach;
-  przestrzeń.znajdźPolePoEtykiecie = znajdźPolePoEtykiecie;
-  przestrzeń.znajdźSekcjęPoNagłówku = znajdźSekcjęPoNagłówku;
-  przestrzeń.znajdźKontenerPola = znajdźKontenerPola;
   przestrzeń.pobierzWartośćPola = pobierzWartośćPola;
   przestrzeń.pobierzTekstSelect2 = pobierzTekstSelect2;
-  przestrzeń.pobierzDefinicjęPodstawyWpisuBur = pobierzDefinicjęPodstawyWpisuBur;
   przestrzeń.znajdźNatywnePoleWyboruBur = znajdźNatywnePoleWyboruBur;
   przestrzeń.znajdźWidocznyElementSelect2 = znajdźWidocznyElementSelect2;
   przestrzeń.pobierzWartośćQuill = pobierzWartośćQuill;
   przestrzeń.pobierzKontrolkiPrzełącznika = pobierzKontrolkiPrzełącznika;
   przestrzeń.pobierzStanPrzełącznikaZSzczegółami = pobierzStanPrzełącznikaZSzczegółami;
   przestrzeń.pobierzStanPrzełącznika = pobierzStanPrzełącznika;
-  przestrzeń.normalizujTekstDoWalidacji = normalizujTekstDoWalidacji;
-
   globalny.BurAsystent = przestrzeń;
 })(globalThis);

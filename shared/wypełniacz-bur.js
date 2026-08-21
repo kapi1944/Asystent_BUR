@@ -49,67 +49,15 @@
   }
 
   function wywołajZdarzeniaZmiany(element) {
-    if (!element || !element.dispatchEvent) {
-      return;
-    }
-
-    const okno = element.ownerDocument && element.ownerDocument.defaultView || globalny;
-    const KonstruktorZdarzenia = okno.Event || Event;
-    ["input", "change", "blur"].forEach(function wywołaj(typ) {
-      element.dispatchEvent(new KonstruktorZdarzenia(typ, { bubbles: true }));
-    });
+    return przestrzeń.pisarzPólBur.wyemitujZdarzenia(element);
   }
 
   function ustawNatywnąWartość(element, wartość) {
-    const okno = element.ownerDocument && element.ownerDocument.defaultView || globalny;
-    const prototyp = element.tagName === "TEXTAREA"
-      ? okno.HTMLTextAreaElement && okno.HTMLTextAreaElement.prototype
-      : element.tagName === "INPUT"
-        ? okno.HTMLInputElement && okno.HTMLInputElement.prototype
-        : element.tagName === "SELECT"
-          ? okno.HTMLSelectElement && okno.HTMLSelectElement.prototype
-          : null;
-    const opis = prototyp ? Object.getOwnPropertyDescriptor(prototyp, "value") : null;
-
-    if (opis && opis.set) {
-      opis.set.call(element, wartość);
-    } else {
-      element.value = wartość;
-    }
+    return przestrzeń.pisarzPólBur.ustawWartośćNatywną(element, wartość);
   }
 
   function ustawWartośćPola(element, wartość) {
-    if (!element) {
-      return false;
-    }
-
-    const tekst = wartość === undefined || wartość === null ? "" : String(wartość);
-
-    if (element.matches && element.matches("input, textarea, select")) {
-      if (element.tagName === "SELECT") {
-        const klucz = normalizujKluczBur(tekst);
-        const opcja = Array.from(element.options || []).find(function znajdźOpcję(opcjaSelect) {
-          const tekstOpcji = normalizujKluczBur(opcjaSelect.textContent || opcjaSelect.value || "");
-
-          return tekstOpcji === klucz || tekstOpcji.includes(klucz);
-        });
-
-        if (opcja) {
-          ustawNatywnąWartość(element, opcja.value);
-        } else {
-          ustawNatywnąWartość(element, tekst);
-        }
-      } else {
-        ustawNatywnąWartość(element, tekst);
-      }
-    } else if (element.isContentEditable || (element.matches && element.matches("[contenteditable='true']"))) {
-      element.textContent = tekst;
-    } else {
-      element.textContent = tekst;
-    }
-
-    wywołajZdarzeniaZmiany(element);
-    return true;
+    return przestrzeń.pisarzPólBur.ustawWartość(element, wartość);
   }
 
   function normalizujDatęBur(wartość) {
@@ -219,179 +167,29 @@
     return true;
   }
 
-  function znajdźUkrytySelect2(dokument, elementLubKontener) {
-    if (!elementLubKontener) {
-      return null;
-    }
-
-    const id = elementLubKontener.id || "";
-    const dopasowanie = id.match(/^select2-(.+)-container$/);
-
-    if (dopasowanie) {
-      return dokument.getElementById(dopasowanie[1]);
-    }
-
-    const kontener = elementLubKontener.closest(".form-group, .field, [class*='field-'], div") || elementLubKontener.parentElement;
-
-    return kontener ? kontener.querySelector("select, input[type='hidden']") : null;
-  }
-
   function znajdźPrzyciskLubOpcjęSelect2PoTekście(tekst) {
-    const klucz = normalizujKluczBur(tekst);
-    const kandydaci = Array.from(document.querySelectorAll(".select2-results__option, li, button, [role='option']"));
-
-    return kandydaci.find(function znajdź(element) {
-      const tekstElementu = normalizujKluczBur(element.textContent || element.getAttribute("aria-label") || "");
-
-      return tekstElementu === klucz || tekstElementu.includes(klucz);
-    }) || null;
+    return przestrzeń.adapterSelect2.znajdźOpcjęWidocznąPoTekście(tekst);
   }
 
   function ustawSelect2PoTekście(dokument, elementLubKontener, tekst) {
     ostatnieOstrzeżenieSelect2 = "";
-
-    if (!elementLubKontener) {
-      return false;
+    const wynik = przestrzeń.adapterSelect2.setExactAndVerify(dokument, elementLubKontener, tekst);
+    if (!wynik.ok) {
+      ostatnieOstrzeżenieSelect2 = wynik.kodBłędu === "BRAK_NATYWNEGO_SELECTA"
+        ? "Select2 wygląda na ustawiony wizualnie, ale nie potwierdzono wartości technicznej."
+        : wynik.komunikat;
     }
-
-    const poleTechniczne = znajdźUkrytySelect2(dokument, elementLubKontener);
-    const klucz = normalizujKluczBur(tekst);
-
-    function czyPotwierdzonoWartość(element) {
-      const odczyt = przestrzeń.pobierzWartośćPola
-        ? przestrzeń.pobierzWartośćPola(element)
-        : (element && "value" in element ? element.value : "");
-      const kluczOdczytu = normalizujKluczBur(odczyt);
-
-      return Boolean(kluczOdczytu && (kluczOdczytu === klucz || kluczOdczytu.includes(klucz) || klucz.includes(kluczOdczytu)));
-    }
-
-    if (poleTechniczne && poleTechniczne.tagName === "SELECT") {
-      const opcja = Array.from(poleTechniczne.options || []).find(function znajdźOpcję(opcjaSelect) {
-        const tekstOpcji = normalizujKluczBur(opcjaSelect.textContent || opcjaSelect.value || "");
-
-        return tekstOpcji === klucz || tekstOpcji.includes(klucz);
-      });
-
-      if (opcja) {
-        ustawNatywnąWartość(poleTechniczne, opcja.value);
-        wywołajZdarzeniaZmiany(poleTechniczne);
-        if (globalny.jQuery) {
-          globalny.jQuery(poleTechniczne).trigger("change");
-        }
-
-        return czyPotwierdzonoWartość(poleTechniczne);
-      }
-    }
-
-    if (poleTechniczne && poleTechniczne.matches && poleTechniczne.matches("input[type='hidden']")) {
-      ustawNatywnąWartość(poleTechniczne, tekst);
-      wywołajZdarzeniaZmiany(poleTechniczne);
-
-      if (czyPotwierdzonoWartość(poleTechniczne)) {
-        return true;
-      }
-    }
-
-    try {
-      elementLubKontener.click();
-      const opcja = znajdźPrzyciskLubOpcjęSelect2PoTekście(tekst);
-
-      if (opcja) {
-        opcja.click();
-        return true;
-      }
-    } catch (błąd) {}
-
-    const widoczny = elementLubKontener.matches && elementLubKontener.matches("[id^='select2-'][id$='-container'], .select2-selection__rendered")
-      ? elementLubKontener
-      : elementLubKontener.querySelector("[id^='select2-'][id$='-container'], .select2-selection__rendered");
-
-    if (widoczny) {
-      widoczny.textContent = tekst;
-      widoczny.setAttribute("title", tekst);
-      wywołajZdarzeniaZmiany(widoczny);
-      ostatnieOstrzeżenieSelect2 = "Select2 wygląda na ustawiony wizualnie, ale nie potwierdzono wartości technicznej.";
-    }
-
-    return false;
+    return wynik.ok;
   }
 
   function pobierzTekstWybranejOpcji(natywnePole) {
-    const opcja = natywnePole && natywnePole.selectedOptions && natywnePole.selectedOptions[0];
-    return przestrzeń.normalizujTekstDoWalidacji
-      ? przestrzeń.normalizujTekstDoWalidacji(opcja ? opcja.textContent || opcja.label || "" : "")
-      : String(opcja ? opcja.textContent || opcja.label || "" : "").trim();
+    const dokument = natywnePole && natywnePole.ownerDocument;
+    const wynik = dokument ? przestrzeń.adapterSelect2.read(dokument, natywnePole) : { ok: false };
+    return wynik.ok ? wynik.tekst : "";
   }
 
   function ustawSelect2PoDokładnymTekście(dokument, definicjaPola, oczekiwanyTekst) {
-    const definicja = definicjaPola || {};
-    const natywnePole = przestrzeń.znajdźNatywnePoleWyboruBur
-      ? przestrzeń.znajdźNatywnePoleWyboruBur(dokument, definicja)
-      : null;
-    const wynik = {
-      ok: false,
-      status: "błąd",
-      natywnePole: natywnePole,
-      elementWidoczny: null,
-      wartośćPrzed: "",
-      wartośćPo: "",
-      wartośćOczekiwana: oczekiwanyTekst,
-      kodBłędu: "",
-      komunikat: ""
-    };
-
-    if (!natywnePole) {
-      wynik.kodBłędu = "BRAK_NATYWNEGO_SELECTA";
-      wynik.komunikat = "Nie znaleziono natywnego pola select będącego źródłem danych Select2.";
-      return wynik;
-    }
-
-    wynik.elementWidoczny = przestrzeń.znajdźWidocznyElementSelect2
-      ? przestrzeń.znajdźWidocznyElementSelect2(natywnePole)
-      : null;
-    wynik.wartośćPrzed = pobierzTekstWybranejOpcji(natywnePole);
-    const normalizuj = przestrzeń.normalizujTekstDoWalidacji || function bezNormalizacji(wartość) { return String(wartość || "").trim(); };
-    const tekstOczekiwany = normalizuj(oczekiwanyTekst);
-    const opcja = Array.from(natywnePole.options || []).find(function znajdźDokładnąOpcję(opcjaPola) {
-      return normalizuj(opcjaPola.textContent || opcjaPola.label || "") === tekstOczekiwany;
-    });
-
-    if (!opcja) {
-      wynik.kodBłędu = "BRAK_OCZEKIWANEJ_OPCJI";
-      wynik.komunikat = "Na liście BUR nie ma oczekiwanej aktualnej opcji: " + oczekiwanyTekst + ".";
-      return wynik;
-    }
-
-    if (wynik.wartośćPrzed === tekstOczekiwany && natywnePole.value === opcja.value) {
-      wynik.ok = true;
-      wynik.status = "już_zgodne";
-      wynik.wartośćPo = wynik.wartośćPrzed;
-      return wynik;
-    }
-
-    ustawNatywnąWartość(natywnePole, opcja.value);
-    wywołajZdarzeniaZmiany(natywnePole);
-    if (globalny.jQuery) {
-      globalny.jQuery(natywnePole).trigger("change");
-    }
-
-    wynik.wartośćPo = pobierzTekstWybranejOpcji(natywnePole);
-    if (natywnePole.value !== opcja.value || wynik.wartośćPo !== tekstOczekiwany) {
-      wynik.kodBłędu = "NIEPOTWIERDZONA_WARTOŚĆ_NATYWNA";
-      wynik.komunikat = "Natywne pole select nie zachowało oczekiwanej wartości po zmianie.";
-      return wynik;
-    }
-
-    if (wynik.elementWidoczny && przestrzeń.pobierzTekstSelect2(wynik.elementWidoczny) !== tekstOczekiwany) {
-      wynik.kodBłędu = "BRAK_SYNCHRONIZACJI_SELECT2";
-      wynik.komunikat = "Natywny select został zmieniony, ale Select2 nie potwierdził tej samej wartości.";
-      return wynik;
-    }
-
-    wynik.ok = true;
-    wynik.status = "potwierdzone";
-    return wynik;
+    return przestrzeń.adapterSelect2.setExactAndVerify(dokument, definicjaPola || {}, oczekiwanyTekst);
   }
 
   function skorygujPodstawęWpisuBur(dokument) {

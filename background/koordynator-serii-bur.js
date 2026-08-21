@@ -4,8 +4,9 @@
   const MAKSYMALNA_LICZBA_PRÓB = 3;
   const PLIKI_CONTENT_BUR = [
     "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
-    "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/cele-formularza-bur.js",
-    "shared/model-walidacji.js", "shared/normalizacja-tytulu.js", "shared/daty.js",
+    "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/bur/selectors/selector-catalog.js",
+    "shared/bur/dom/field-resolver.js", "shared/bur/forms/field-writer.js", "shared/bur/widgets/select2-adapter.js",
+    "shared/cele-formularza-bur.js", "shared/model-walidacji.js", "shared/normalizacja-tytulu.js", "shared/daty.js",
     "shared/terminy-bur.js", "shared/stan-operacji-bur.js", "shared/szablony-harmonogramow.js",
     "shared/seria-ogloszen-bur.js", "shared/bur-program-harmonogram.js", "shared/wyszukiwarka-semper.js",
     "shared/selektory-bur.js", "shared/walidatory-bur.js", "shared/definicje-pol-bur.js",

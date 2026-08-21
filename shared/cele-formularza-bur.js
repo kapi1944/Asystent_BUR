@@ -1,78 +1,27 @@
 (function zarejestrujCeleFormularzaBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
 
-  function definicjaCelu(id, dane) {
-    return Object.assign({
-      id: id,
-      selektory: [],
-      selektoryAwaryjne: [],
-      selektorSekcji: "",
-      sekcja: "",
-      etykieta: "",
-      typKontrolki: "input"
-    }, dane || {});
-  }
-
   function skróćCelEdukacyjnyDoLimituBur(wartość, limit) {
     const tekst = String(wartość || "").trim();
     const maksymalnaDługość = Number(limit) || 500;
     if (tekst.length <= maksymalnaDługość) {
       return tekst;
     }
-
     const fragment = tekst.slice(0, maksymalnaDługość);
     const zakończeniaZdań = Array.from(fragment.matchAll(/[.!?](?:["”')\]]+)?(?=\s|$)/g));
     if (zakończeniaZdań.length) {
       const ostatnieZakończenie = zakończeniaZdań[zakończeniaZdań.length - 1];
       return fragment.slice(0, ostatnieZakończenie.index + ostatnieZakończenie[0].length).trim();
     }
-
     const ostatniaSpacja = fragment.lastIndexOf(" ");
     return fragment.slice(0, ostatniaSpacja > 0 ? ostatniaSpacja : maksymalnaDługość).trim();
   }
 
-  const cele = {
-    rodzajUslugi: definicjaCelu("rodzajUslugi", { selektory: ["#formularzwstepnysekcja-rodzajuslugiid"], sekcja: "Formularz wstępny", etykieta: "Rodzaj świadczonej usługi", typKontrolki: "select2" }),
-    podrodzajUslugi: definicjaCelu("podrodzajUslugi", { selektory: ["#formularzwstepnysekcja-podrodzajuslugiid"], sekcja: "Formularz wstępny", etykieta: "Podrodzaj świadczonej usługi", typKontrolki: "select2" }),
-    formaSwiadczenia: definicjaCelu("formaSwiadczenia", { selektory: ["#select2-formularzwstepnysekcja-formaswiadczenia-container"], selektoryAwaryjne: ["#formularzwstepnysekcja-formaswiadczenia"], sekcja: "Formularz wstępny", etykieta: "Forma świadczenia usługi", typKontrolki: "select2" }),
-    wariantZajec: definicjaCelu("wariantZajec", { selektory: ["#select2-formularzwstepnysekcja-wariantzajec-container"], selektoryAwaryjne: ["#formularzwstepnysekcja-wariantzajec"], sekcja: "Formularz wstępny", etykieta: "Wariant zajęć", typKontrolki: "select2" }),
-    podstawaWpisu: definicjaCelu("podstawaWpisu", { selektory: ["#formularzwstepnysekcja-podstawauzyskaniawpisuid", "#select2-formularzwstepnysekcja-podstawauzyskaniawpisuid-container"], sekcja: "Formularz wstępny", etykieta: "Podstawa uzyskania wpisu do BUR", typKontrolki: "select2" }),
-    uslugaZamknieta: definicjaCelu("uslugaZamknieta", { selektory: ["#formularzwstepnysekcja-czyuslugadedykowanaLabel"], sekcja: "Formularz wstępny", etykieta: "Usługa zamknięta", typKontrolki: "przełącznik" }),
-    dataRozpoczecia: definicjaCelu("dataRozpoczecia", { selektory: ["#informacjepodstawowesekcja-datarozpoczeciauslugi"], sekcja: "Informacje podstawowe", etykieta: "Data rozpoczęcia usługi", typKontrolki: "input" }),
-    dataZakonczenia: definicjaCelu("dataZakonczenia", { selektory: ["#informacjepodstawowesekcja-datazakonczeniauslugi"], sekcja: "Informacje podstawowe", etykieta: "Data zakończenia usługi", typKontrolki: "input" }),
-    dataZakonczeniaRekrutacji: definicjaCelu("dataZakonczeniaRekrutacji", { selektory: ["#informacjepodstawowesekcja-datazakonczeniarekrutacji"], sekcja: "Informacje podstawowe", etykieta: "Data zakończenia rekrutacji", typKontrolki: "input" }),
-    minimalnaLiczbaUczestnikow: definicjaCelu("minimalnaLiczbaUczestnikow", { selektory: ["#informacjepodstawowesekcja-minimalnaliczbauczestnikow"], sekcja: "Informacje podstawowe", etykieta: "Minimalna liczba uczestników", typKontrolki: "input" }),
-    maksymalnaLiczbaUczestnikow: definicjaCelu("maksymalnaLiczbaUczestnikow", { selektory: ["#informacjepodstawowesekcja-maksymalnaliczbauczestnikow"], sekcja: "Informacje podstawowe", etykieta: "Maksymalna liczba uczestników", typKontrolki: "input" }),
-    liczbaGodzin: definicjaCelu("liczbaGodzin", { selektory: ["#informacjepodstawowesekcja-liczbagodzinuslugi"], sekcja: "Informacje podstawowe", etykieta: "Liczba godzin usługi", typKontrolki: "input" }),
-    cenaNetto: definicjaCelu("cenaNetto", { selektory: ["#informacjepodstawowesekcja-cenanettouslugi"], selektoryAwaryjne: ["#informacjepodstawowesekcja-cena"], sekcja: "Informacje podstawowe", etykieta: "Cena netto", typKontrolki: "input" }),
-    lokalizacjaAdres: definicjaCelu("lokalizacjaAdres", { selektory: ["#lokalizacjauslugisekcja-adres"], selektoryAwaryjne: ["#lokalizacjauslugisekcja-miasto"], sekcja: "Lokalizacja usługi", etykieta: "Lokalizacja i adres", typKontrolki: "input" }),
-    osobyProwadzace: definicjaCelu("osobyProwadzace", { selektory: ["#osoby-prowadzace-grid"], selektoryAwaryjne: ["#osobyprowadzace-grid", "#osoby-prowadzace-grid table"], sekcja: "Osoby prowadzące", etykieta: "Osoby prowadzące", typKontrolki: "tabela" }),
-    program: definicjaCelu("program", { selektory: ["#programiharmonogramuslugisekcja-programuslugi-wysiwyg .ql-editor"], selektoryAwaryjne: ["#programiharmonogramuslugisekcja-programuslugi-wysiwyg"], sekcja: "Program i harmonogram usługi", etykieta: "Program usługi", typKontrolki: "edytorTekstowy" }),
-    kontaktImieNazwisko: definicjaCelu("kontaktImieNazwisko", { selektory: ["#osobadokontaktusekcja-godnosc", "input[name='OsobaDoKontaktuSekcja[godnosc]']", "#danekontaktowesekcja-imieinazwisko", "input[id*='danekontaktowe' i][id*='imie' i]", "input[name*='danekontaktowe' i][name*='imie' i]"], sekcja: "Dane kontaktowe", etykieta: "Imię i nazwisko", typKontrolki: "input" }),
-    kontaktEmail: definicjaCelu("kontaktEmail", { selektory: ["#osobadokontaktusekcja-email", "input[name='OsobaDoKontaktuSekcja[email]']", "#danekontaktowesekcja-email", "input[id*='danekontaktowe' i][type='email']", "input[id*='danekontaktowe' i][id*='email' i]", "input[name*='danekontaktowe' i][name*='email' i]"], selektoryAwaryjne: ["#danekontaktowesekcja-adrese-mail"], sekcja: "Dane kontaktowe", etykieta: "E-mail", typKontrolki: "input" }),
-    kontaktTelefon: definicjaCelu("kontaktTelefon", { selektory: ["#osobadokontaktusekcja-telefon", "input[name='OsobaDoKontaktuSekcja[telefon]']", "#danekontaktowesekcja-telefon", "input[id*='danekontaktowe' i][type='tel']", "input[id*='danekontaktowe' i][id*='telefon' i]", "input[name*='danekontaktowe' i][name*='telefon' i]"], sekcja: "Dane kontaktowe", etykieta: "Telefon", typKontrolki: "input" }),
-    daneKontaktowe: definicjaCelu("daneKontaktowe", { selektoryAwaryjne: ["#daneKontaktowe", "#danekontaktowesekcja"], sekcja: "Dane kontaktowe", etykieta: "Dane kontaktowe", typKontrolki: "input" }),
-    informacjaOMaterialach: definicjaCelu("informacjaOMaterialach", { selektory: ["#informacjedodatkowesekcja-informacjaomaterialachdlaosobuczestniczacychwusludze-wysiwyg .ql-editor"], sekcja: "Informacje dodatkowe", etykieta: "Informacja o materiałach dla uczestników usługi", typKontrolki: "edytorTekstowy" }),
-    warunkiUczestnictwa: definicjaCelu("warunkiUczestnictwa", { selektory: ["#informacjedodatkowesekcja-warunkiuczestnictwa-wysiwyg .ql-editor"], sekcja: "Informacje dodatkowe", etykieta: "Warunki uczestnictwa", typKontrolki: "edytorTekstowy" }),
-    informacjeDodatkowe: definicjaCelu("informacjeDodatkowe", { selektory: ["#informacjedodatkowesekcja-informacjedodatkowe-wysiwyg .ql-editor"], sekcja: "Informacje dodatkowe", etykieta: "Informacje dodatkowe", typKontrolki: "edytorTekstowy" }),
-    warunkiTechniczne: definicjaCelu("warunkiTechniczne", { selektory: ["#informacjedodatkowesekcja-warunkitechniczne-wysiwyg .ql-editor"], sekcja: "Informacje dodatkowe", etykieta: "Warunki techniczne", typKontrolki: "edytorTekstowy" }),
-    kodyDostepowe: definicjaCelu("kodyDostepowe", { selektory: ["#informacjedodatkowesekcja-kodydostepowedouslugi-wysiwyg .ql-editor"], sekcja: "Informacje dodatkowe", etykieta: "Kody dostępowe do usługi", typKontrolki: "edytorTekstowy" }),
-    harmonogram: definicjaCelu("harmonogram", { selektory: ["#harmonogram-grid > div > table"], selektoryAwaryjne: ["#harmonogram-grid", "#import"], sekcja: "Program i harmonogram usługi", etykieta: "Harmonogram", typKontrolki: "tabela" }),
-    publikacja: definicjaCelu("publikacja", { selektoryAwaryjne: ["button[type='submit']", "button[name*='publik']"], sekcja: "Publikacja", etykieta: "Opublikuj", typKontrolki: "przycisk" }),
-    tytul: definicjaCelu("tytul", { selektory: ["#informacjepodstawowesekcja-tytuluslugi", "input[name*='tytuluslugi' i]", "textarea[name*='tytuluslugi' i]"], sekcja: "Informacje podstawowe", etykieta: "Tytuł", typKontrolki: "input" }),
-    grupaDocelowa: definicjaCelu("grupaDocelowa", { selektory: ["#informacjepodstawowesekcja-grupadocelowauslugi-wysiwyg .ql-editor"], sekcja: "Informacje podstawowe", etykieta: "Grupa docelowa usługi", typKontrolki: "edytorTekstowy" }),
-    celEdukacyjny: definicjaCelu("celEdukacyjny", { sekcja: "Główny cel usługi", etykieta: "Cel edukacyjny", typKontrolki: "input" }),
-    opisCeluEdukacyjnego: definicjaCelu("opisCeluEdukacyjnego", { selektory: ["#glownyceluslugisekcja-celedukacyjnyopis"], sekcja: "Główny cel usługi", etykieta: "Cel edukacyjny - opis", typKontrolki: "input" }),
-    kwalifikacjeZrk: definicjaCelu("kwalifikacjeZrk", { selektory: ["#qualificationsZrk .field-glownyceluslugisekcja-czyuslugadajekwalifikacjezrk"], sekcja: "Główny cel usługi", etykieta: "Czy usługa pozwala na uzyskanie kwalifikacji włączonej do ZSK?", typKontrolki: "przełącznik" }),
-    kwalifikacjeInne: definicjaCelu("kwalifikacjeInne", { selektory: ["#qualificationsZrk .field-glownyceluslugisekcja-czyuslugadajekwalifikacjeinnenizzrk"], sekcja: "Główny cel usługi", etykieta: "Czy usługa pozwala na uzyskanie kwalifikacji niewłączonych do ZSK?", typKontrolki: "przełącznik" }),
-    kompetencje: definicjaCelu("kompetencje", { selektoryAwaryjne: ["#qualificationsZrk .field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji"], sekcja: "Główny cel usługi", etykieta: "Czy usługa prowadzi do nabycia kompetencji?", typKontrolki: "input" }),
-    kompetencjeDokument: definicjaCelu("kompetencjeDokument", { sekcja: "Główny cel usługi", etykieta: "Czy dokument potwierdzający uzyskanie kompetencji", typKontrolki: "input" }),
-    kompetencjeWalidacja: definicjaCelu("kompetencjeWalidacja", { sekcja: "Główny cel usługi", etykieta: "Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają, że walidacja", typKontrolki: "input" }),
-    kompetencjeRozwiazania: definicjaCelu("kompetencjeRozwiazania", { sekcja: "Główny cel usługi", etykieta: "Czy dokument lub wyraźnie z nim powiązane inne dokumenty związane ze wsparciem potwierdzają zastosowanie rozwiązań", typKontrolki: "input" }),
-    efektyUczenia: definicjaCelu("efektyUczenia", { sekcja: "Główny cel usługi", etykieta: "Efekty uczenia się", tabela: "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji", kolumna: "Efekty uczenia się", typKontrolki: "tabela" }),
-    kryteriaWeryfikacji: definicjaCelu("kryteriaWeryfikacji", { sekcja: "Główny cel usługi", etykieta: "Kryteria weryfikacji", tabela: "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji", kolumna: "Kryteria weryfikacji", typKontrolki: "tabela" }),
-    metodaWalidacji: definicjaCelu("metodaWalidacji", { sekcja: "Główny cel usługi", etykieta: "Wybierz metodę walidacji", tabela: "Efekty uczenia się oraz kryteria weryfikacji ich osiągnięcia i Metody walidacji", kolumna: "Metody walidacji", typKontrolki: "select2" })
+  const celeKontrolerów = {
+    harmonogram: { id: "harmonogram", selektory: ["#harmonogram-grid > div > table"], selektoryAwaryjne: ["#harmonogram-grid", "#import"], sekcja: "Program i harmonogram usługi", etykieta: "Harmonogram", typKontrolki: "tabela" },
+    publikacja: { id: "publikacja", selektory: [], selektoryAwaryjne: ["button[type='submit']", "button[name*='publik']"], sekcja: "Publikacja", etykieta: "Opublikuj", typKontrolki: "przycisk" }
   };
+  const cele = Object.assign({}, przestrzeń.KATALOG_SELEKTORÓW_PÓL_BUR || {}, celeKontrolerów);
 
   const celeWalidacji = {
     "Rodzaj świadczonej usługi": "rodzajUslugi",
@@ -120,24 +69,17 @@
   }
 
   function znajdźPierwszyWidoczny(dokument, selektory) {
-    const lista = Array.isArray(selektory) ? selektory : [];
-    for (let indeks = 0; indeks < lista.length; indeks += 1) {
-      try {
-        const elementy = Array.from(dokument.querySelectorAll(lista[indeks]));
-        const widoczny = elementy.find(function wybierz(element) {
-          const styl = globalny.getComputedStyle ? globalny.getComputedStyle(element) : null;
-          return !styl || (styl.display !== "none" && styl.visibility !== "hidden");
-        });
-        if (widoczny) {
-          return widoczny;
-        }
-      } catch (błąd) {}
+    const wynik = przestrzeń.resolverPólBur.rozwiążPoSelektorach(dokument, selektory || []);
+    if (!wynik.element) {
+      return null;
     }
-    return null;
+    const styl = globalny.getComputedStyle ? globalny.getComputedStyle(wynik.element) : null;
+    return !styl || (styl.display !== "none" && styl.visibility !== "hidden") ? wynik.element : null;
   }
 
   function rozwińSekcjęCeluBur(dokument, cel, element) {
-    const kontener = (cel.selektorSekcji && dokument.querySelector(cel.selektorSekcji)) || (element && przestrzeń.znajdźSekcjęPoNagłówku ? przestrzeń.znajdźSekcjęPoNagłówku(dokument, cel.sekcja) : null);
+    const kontener = (cel.selektorSekcji && dokument.querySelector(cel.selektorSekcji))
+      || (element && przestrzeń.znajdźSekcjęPoNagłówku ? przestrzeń.znajdźSekcjęPoNagłówku(dokument, cel.sekcja) : null);
     const szczegóły = (kontener && kontener.closest("details")) || (element && element.closest("details"));
     if (szczegóły && !szczegóły.open) {
       szczegóły.open = true;

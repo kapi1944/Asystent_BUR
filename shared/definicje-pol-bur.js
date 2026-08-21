@@ -3,7 +3,7 @@
   function sekcja(szkolenie, nazwy) { const dane = szkolenie.sekcje || {}; return nazwy.map(function pobierz(nazwa) { return dane[nazwa]; }).find(Boolean) || ""; }
   function definicja(id, celId, wartość, źródło, opcje) {
     const cel = przestrzeń.pobierzCelFormularzaBur(celId) || {};
-    return Object.assign({ id: id, sekcja: cel.sekcja || "", pole: cel.etykieta || id, typPola: cel.typKontrolki === "edytorTekstowy" ? "quill" : cel.typKontrolki || "input", wartośćProponowana: wartość, źródło: źródło || "reguła BUR", wymagalność: "wymagane", blokująca: false, definicjaPola: { sekcja: cel.sekcja, etykieta: cel.etykieta, selektory: (cel.selektory || []).concat(cel.selektoryAwaryjne || []), typ: cel.typKontrolki === "edytorTekstowy" ? "quill" : cel.typKontrolki, tabela: cel.tabela, kolumna: cel.kolumna }, sposóbLokalizacji: cel.tabela ? "tabela" : (cel.selektory && cel.selektory.length ? "selektor" : "etykieta") }, opcje || {});
+    return Object.assign({ id: id, sekcja: cel.sekcja || "", pole: cel.etykieta || id, typPola: cel.typKontrolki === "edytorTekstowy" ? "quill" : cel.typKontrolki || "input", wartośćProponowana: wartość, źródło: źródło || "reguła BUR", wymagalność: "wymagane", blokująca: false, definicjaPola: { sekcja: cel.sekcja, etykieta: cel.etykieta, selektory: (cel.selektory || []).concat(cel.selektoryAwaryjne || []), selektoryNatywne: cel.selektoryNatywne || [], typ: cel.typKontrolki === "edytorTekstowy" ? "quill" : cel.typKontrolki, tabela: cel.tabela, kolumna: cel.kolumna }, sposóbLokalizacji: cel.tabela ? "tabela" : (cel.selektory && cel.selektory.length ? "selektor" : "etykieta") }, opcje || {});
   }
   function pobierzLiczbęDoPola(wartość) {
     const trafienie = String(wartość || "").replace(/\s+/g, "").match(/\d+(?:[.,]\d+)?/);
