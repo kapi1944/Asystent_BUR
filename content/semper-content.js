@@ -7,12 +7,11 @@
       return false;
     }
 
-    if (wiadomosc.typ === komunikaty.PING_SKRYPTU_STRONY) {
-      odpowiedz({
-        typ: komunikaty.PONG_SKRYPTU_STRONY,
+    if (przestrzen.czyWiadomośćTypu(wiadomosc, [komunikaty.PING_SKRYPTU_STRONY, przestrzen.TYPY_WIADOMOŚCI.PING_BUR])) {
+      odpowiedz(przestrzen.utwórzOdpowiedźPing(wiadomosc, {
         typStrony: "SEMPER",
         url: location.href
-      });
+      }));
 
       return true;
     }

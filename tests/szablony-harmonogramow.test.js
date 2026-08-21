@@ -220,8 +220,6 @@
       sprawdzWarunek(wpis.js.indexOf("shared/szablony-harmonogramow.js") < wpis.js.indexOf("shared/bur-program-harmonogram.js"));
     });
     const panelHtml = await fetch("../panel/panel.html").then(function odczytaj(odpowiedź) { return odpowiedź.text(); });
-    const panelJs = await fetch("../panel/panel.js").then(function odczytaj(odpowiedź) { return odpowiedź.text(); });
     sprawdzWarunek(panelHtml.indexOf("szablony-harmonogramow.js") < panelHtml.indexOf("bur-program-harmonogram.js"));
-    sprawdzWarunek(panelJs.indexOf("szablony-harmonogramow.js") < panelJs.indexOf("bur-program-harmonogram.js"));
   });
 })(globalThis);

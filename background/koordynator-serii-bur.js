@@ -1,23 +1,26 @@
 (function zarejestrujKoordynatorSeriiBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
   const KLUCZ_SERII = przestrzeń.KLUCZE_STORAGE.AKTYWNA_SERIA_OGŁOSZEŃ_BUR;
-  const MAKSYMALNA_LICZBA_PRÓB = 3;
-  const PLIKI_CONTENT_BUR = [
-    "shared/storage/storage-keys.js", "shared/storage/storage-api.js",
-    "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
-    "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/bur/selectors/selector-catalog.js",
-    "shared/bur/dom/field-resolver.js", "shared/bur/forms/field-writer.js", "shared/bur/widgets/select2-adapter.js",
-    "shared/cele-formularza-bur.js", "shared/model-walidacji.js", "shared/normalizacja-tytulu.js", "shared/daty.js",
-    "shared/terminy-bur.js", "shared/stan-operacji-bur.js", "shared/szablony-harmonogramow.js",
-    "shared/seria-ogloszen-bur.js", "shared/bur-program-harmonogram.js", "shared/wyszukiwarka-semper.js",
-    "shared/selektory-bur.js", "shared/walidatory-bur.js", "shared/definicje-pol-bur.js",
-    "shared/przygotowanie-wypelnienia-bur.js", "shared/wypełniacz-bur.js", "content/bur-content.js",
-    "content/workflow-bur-dla-zadania.js"
-  ];
 
   function utwórzKoordynatorSeriiBur(interfejs) {
     const zależności = interfejs || {};
     const storageApi = zależności.storageApi || przestrzeń.storageApi;
+    const wykonawcaKart = zależności.wykonawcaKart || przestrzeń.utwórzWykonawcęZadańKart({
+      chromeApi: globalny.chrome,
+      utwórzKartę: zależności.utwórzKartę,
+      pobierzKartę: zależności.pobierzKartę,
+      pobierzAktywnąKartę: zależności.pobierzAktywnąKartę,
+      aktywujKartę: zależności.aktywujKartę,
+      wyślijDoKarty: zależności.wyślijDoKarty,
+      wstrzyknijContentScript: zależności.wstrzyknijSkrypt
+    });
+    const opcjePingSerii = {
+      typPing: przestrzeń.KOMUNIKATY.PING_SKRYPTU_STRONY,
+      typPong: przestrzeń.KOMUNIKATY.PONG_SKRYPTU_STRONY,
+      plikWejściowy: "content/bur-content.js",
+      liczbaPrób: 3,
+      opóźnienieMs: 0
+    };
     let aktywnaSeria = null;
     let inicjalizacja = null;
     let przetwarzanieWToku = false;
@@ -41,43 +44,19 @@
     }
 
     function utwórzKartę(url) {
-      if (zależności.utwórzKartę) { return Promise.resolve(zależności.utwórzKartę({ url: url, active: false })); }
-      return new Promise(function wykonaj(resolve, reject) {
-        globalny.chrome.tabs.create({ url: url, active: false }, function poUtworzeniu(karta) {
-          if (globalny.chrome.runtime.lastError) { reject(new Error(globalny.chrome.runtime.lastError.message)); return; }
-          resolve(karta);
-        });
-      });
+      return wykonawcaKart.utwórzKartę({ url: url, active: false });
     }
 
     function pobierzKartę(tabId) {
-      if (zależności.pobierzKartę) { return Promise.resolve(zależności.pobierzKartę(tabId)); }
-      return new Promise(function wykonaj(resolve) {
-        globalny.chrome.tabs.get(tabId, function poOdczycie(karta) { resolve(globalny.chrome.runtime.lastError ? null : karta); });
-      });
+      return wykonawcaKart.pobierzKartę(tabId);
     }
 
     function pobierzAktywnąKartę() {
-      if (zależności.pobierzAktywnąKartę) { return Promise.resolve(zależności.pobierzAktywnąKartę()); }
-      return new Promise(function wykonaj(resolve) {
-        globalny.chrome.tabs.query({ active: true, currentWindow: true }, function poOdczycie(karty) { resolve(karty && karty[0] || null); });
-      });
+      return wykonawcaKart.pobierzAktywnąKartę();
     }
 
     function wyślijDoKarty(tabId, wiadomość) {
-      if (zależności.wyślijDoKarty) { return Promise.resolve(zależności.wyślijDoKarty(tabId, wiadomość)); }
-      return new Promise(function wykonaj(resolve, reject) {
-        globalny.chrome.tabs.sendMessage(tabId, wiadomość, function poOdpowiedzi(odpowiedź) {
-          if (globalny.chrome.runtime.lastError) { reject(new Error(globalny.chrome.runtime.lastError.message)); return; }
-          resolve(odpowiedź);
-        });
-      });
-    }
-
-    function wstrzyknijSkrypt(tabId) {
-      if (zależności.wstrzyknijSkrypt) { return Promise.resolve(zależności.wstrzyknijSkrypt(tabId)); }
-      if (!globalny.chrome.scripting || !globalny.chrome.scripting.executeScript) { return Promise.reject(new Error("Brak bezpiecznego mechanizmu wstrzyknięcia content scriptu.")); }
-      return globalny.chrome.scripting.executeScript({ target: { tabId: tabId }, files: PLIKI_CONTENT_BUR });
+      return wykonawcaKart.wyślijWiadomość(tabId, wiadomość);
     }
 
     function zapiszStan() {
@@ -99,17 +78,7 @@
     }
 
     async function zapewnijContentScript(tabId) {
-      let ostatniBłąd = null;
-      for (let próba = 1; próba <= MAKSYMALNA_LICZBA_PRÓB; próba += 1) {
-        try {
-          const pong = await wyślijDoKarty(tabId, { typ: przestrzeń.KOMUNIKATY.PING_SKRYPTU_STRONY });
-          if (pong && pong.ok && pong.typ === przestrzeń.KOMUNIKATY.PONG_SKRYPTU_STRONY) { return pong; }
-        } catch (błąd) { ostatniBłąd = błąd; }
-        if (próba === 1) {
-          try { await wstrzyknijSkrypt(tabId); } catch (błądWstrzyknięcia) { ostatniBłąd = błądWstrzyknięcia; }
-        }
-      }
-      throw ostatniBłąd || new Error("Content script BUR nie odpowiedział na PING.");
+      return wykonawcaKart.zapewnijContentScript(tabId, opcjePingSerii);
     }
 
     async function sprawdźKartę(tabId) {
@@ -276,17 +245,14 @@
         typ: przestrzeń.KOMUNIKATY.WYKONAJ_ETAP_WORKFLOW_BUR_DLA_ZADANIA, etap: etap,
         kontekst: zbudujKontekstZadania(zadanie)
       };
-      let odpowiedź;
-      try { odpowiedź = await wyślijDoKarty(zadanie.tabId, wiadomość); }
-      catch (błądWiadomości) {
-        if (etap !== "kontrola_kontekstu") { throw błądWiadomości; }
-        await wstrzyknijSkrypt(zadanie.tabId);
-        odpowiedź = await wyślijDoKarty(zadanie.tabId, wiadomość);
-      }
-      if ((!odpowiedź || !odpowiedź.wynik) && etap === "kontrola_kontekstu") {
-        await wstrzyknijSkrypt(zadanie.tabId);
-        odpowiedź = await wyślijDoKarty(zadanie.tabId, wiadomość);
-      }
+      const odpowiedź = etap === "kontrola_kontekstu"
+        ? await wykonawcaKart.ponów(async function wykonajKontrolę() {
+          await zapewnijContentScript(zadanie.tabId);
+          const wynikWiadomości = await wyślijDoKarty(zadanie.tabId, wiadomość);
+          if (!wynikWiadomości || !wynikWiadomości.wynik) { throw new Error("Karta nie zwróciła kontroli kontekstu."); }
+          return wynikWiadomości;
+        }, { liczbaPrób: 2 })
+        : await wyślijDoKarty(zadanie.tabId, wiadomość);
       const wynik = odpowiedź && odpowiedź.wynik;
       if (!wynik) { throw new Error("Karta nie zwróciła wyniku etapu „" + etap + "”."); }
       const wpis = zadanie.etapy[etap];
@@ -419,8 +385,7 @@
     async function otwórzZadanie(jobId) {
       const zadanie = znajdźZadanie(jobId);
       if (!zadanie || !zadanie.tabId) { throw new Error("Zadanie nie ma otwartej karty."); }
-      if (zależności.aktywujKartę) { await zależności.aktywujKartę(zadanie.tabId); }
-      else { await globalny.chrome.tabs.update(zadanie.tabId, { active: true }); }
+      await wykonawcaKart.aktywujKartę(zadanie.tabId);
       return aktywnaSeria;
     }
 

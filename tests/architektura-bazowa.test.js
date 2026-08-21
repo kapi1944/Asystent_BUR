@@ -8,15 +8,6 @@
     });
   }
 
-  function wyodrębnijTablicęPlików(kod, nazwaStałej) {
-    const wzorzec = new RegExp("const\\s+" + nazwaStałej + "\\s*=\\s*\\[([\\s\\S]*?)\\];");
-    const dopasowanie = kod.match(wzorzec);
-    sprawdzWarunek(Boolean(dopasowanie), "Nie znaleziono listy " + nazwaStałej + ".");
-    return Array.from(dopasowanie[1].matchAll(/[\"']([^\"']+\.js)[\"']/g), function pobierzŚcieżkę(wynik) {
-      return wynik[1];
-    });
-  }
-
   function wyodrębnijSkryptyHtml(html) {
     const dokument = new DOMParser().parseFromString(html, "text/html");
     return Array.from(dokument.querySelectorAll("script[src]"), function pobierzŹródło(skrypt) {
@@ -24,22 +15,25 @@
     });
   }
 
-  test("manifest i programatyczne wstrzykiwanie zachowują tę samą listę content scriptów BUR", function sprawdźListyContentScriptów() {
+  test("manifest jest jedynym źródłem listy content scriptów BUR", function sprawdźŹródłoContentScriptów() {
     return Promise.all([
       pobierzPlik("../manifest.json"),
       pobierzPlik("../panel/panel.js"),
-      pobierzPlik("../background/koordynator-serii-bur.js")
-    ]).then(function porównaj(wyniki) {
+      pobierzPlik("../background/koordynator-serii-bur.js"),
+      pobierzPlik("../background/orchestration/tab-job-runner.js")
+    ]).then(function sprawdź(wyniki) {
       const manifest = JSON.parse(wyniki[0]);
       const wpisBur = manifest.content_scripts.find(function znajdźBur(wpis) {
         return wpis.js.includes("content/bur-content.js");
       });
-      const plikiPanelu = wyodrębnijTablicęPlików(wyniki[1], "plikiContentBur");
-      const plikiKoordynatora = wyodrębnijTablicęPlików(wyniki[2], "PLIKI_CONTENT_BUR");
 
       sprawdzWarunek(Boolean(wpisBur), "Manifest nie zawiera wpisu content scriptów BUR.");
-      sprawdzRownosc(plikiPanelu.join("\n"), wpisBur.js.join("\n"), "Lista panelu różni się od manifestu.");
-      sprawdzRownosc(plikiKoordynatora.join("\n"), wpisBur.js.join("\n"), "Lista koordynatora różni się od manifestu.");
+      sprawdzWarunek(!wyniki[1].includes("plikiContentBur"), "Panel nadal utrzymuje własną listę content scriptów BUR.");
+      sprawdzWarunek(!wyniki[1].includes("scripting.executeScript"), "Panel nadal samodzielnie wstrzykuje content script.");
+      sprawdzWarunek(!wyniki[2].includes("PLIKI_CONTENT_BUR"), "Koordynator nadal utrzymuje własną listę content scriptów BUR.");
+      sprawdzWarunek(!wyniki[2].includes("scripting.executeScript"), "Koordynator nadal samodzielnie wstrzykuje content script.");
+      sprawdzWarunek(wyniki[3].includes("runtime.getManifest()"), "Runner nie pobiera konfiguracji z manifestu.");
+      sprawdzWarunek(wyniki[3].includes("scripting.executeScript"), "Runner nie realizuje scentralizowanego wstrzykiwania.");
     });
   });
 
@@ -54,13 +48,16 @@
       const plikiPanelu = wyodrębnijSkryptyHtml(wyniki[1]);
       const oczekiwanyServiceWorker = [
         "shared/storage/storage-keys.js", "shared/storage/storage-api.js",
+        "shared/messaging/message-types.js", "shared/messaging/message-contract.js",
         "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/szablony-harmonogramow.js",
         "shared/seria-ogloszen-bur.js", "shared/wyszukiwarka-semper.js", "background/klient-semper.js",
-        "background/klient-iist.js", "background/koordynator-serii-bur.js"
+        "background/klient-iist.js", "orchestration/tab-job-runner.js",
+        "background/router-komunikatow.js", "background/koordynator-serii-bur.js"
       ];
       const oczekiwanyPanel = [
         "shared/storage/storage-keys.js", "shared/storage/storage-api.js",
+        "shared/messaging/message-types.js", "shared/messaging/message-contract.js",
         "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/model.js",
         "shared/normalizacja-tytulu.js", "shared/daty.js", "shared/terminy-bur.js",

@@ -3,36 +3,8 @@
   const komunikaty = przestrzeń.KOMUNIKATY;
   const storageApi = przestrzeń.storageApi;
   const kluczeStorage = przestrzeń.KLUCZE_STORAGE;
+  const typyWiadomości = przestrzeń.TYPY_WIADOMOŚCI;
   const komunikatBrakuSkryptu = "Nie znaleziono skryptu strony na tej karcie. Odśwież stronę BUR lub stronę dostawcy albo otwórz obsługiwaną stronę.";
-  const plikiContentBur = [
-    "shared/storage/storage-keys.js",
-    "shared/storage/storage-api.js",
-    "shared/providers/provider-rules.js",
-    "shared/providers/profile-detector.js",
-    "shared/profile-dostawcow.js",
-    "shared/komunikaty.js",
-    "shared/bur/selectors/selector-catalog.js",
-    "shared/bur/dom/field-resolver.js",
-    "shared/bur/forms/field-writer.js",
-    "shared/bur/widgets/select2-adapter.js",
-    "shared/cele-formularza-bur.js",
-    "shared/model-walidacji.js",
-    "shared/normalizacja-tytulu.js",
-    "shared/daty.js",
-    "shared/terminy-bur.js",
-    "shared/stan-operacji-bur.js",
-    "shared/szablony-harmonogramow.js",
-    "shared/seria-ogloszen-bur.js",
-    "shared/bur-program-harmonogram.js",
-    "shared/wyszukiwarka-semper.js",
-    "shared/selektory-bur.js",
-    "shared/walidatory-bur.js",
-    "shared/definicje-pol-bur.js",
-    "shared/przygotowanie-wypelnienia-bur.js",
-    "shared/wypełniacz-bur.js",
-    "content/bur-content.js", "content/workflow-bur-dla-zadania.js"
-  ];
-  const styleContentBur = ["content/bur-highlighter.css"];
   const elementy = {
     statusAkcji: document.getElementById("status-akcji"),
     statusSemper: document.getElementById("status-semper"),
@@ -1402,61 +1374,20 @@
     });
   }
 
-  function sprawdźPołączenieKarty(karta) {
-    return wyślijDoKarty(karta, { typ: komunikaty.PING_SKRYPTU_STRONY }).then(function sprawdźPong(odpowiedź) {
-      if (!odpowiedź || odpowiedź.typ !== komunikaty.PONG_SKRYPTU_STRONY) {
-        throw new Error("Skrypt strony nie odpowiedział poprawnym komunikatem PONG.");
-      }
-
-      return odpowiedź;
-    });
-  }
-
-  function wstrzyknijContentBur(karta) {
-    if (!karta || !karta.id || rozpoznajTypStrony(karta.url) !== "BUR") {
-      return Promise.reject(new Error("Nie można wstrzyknąć skryptu do nieobsługiwanej karty."));
-    }
-
-    if (!chrome.scripting || !chrome.scripting.executeScript) {
-      return Promise.reject(new Error("Brak dostępu do chrome.scripting — przeładuj rozszerzenie."));
-    }
-
-    const wstrzyknięcieCss = chrome.scripting.insertCSS
-      ? chrome.scripting.insertCSS({
-        target: { tabId: karta.id },
-        files: styleContentBur
-      }).catch(function pomińBłądCss() {})
-      : Promise.resolve();
-
-    return wstrzyknięcieCss
-      .then(function wstrzyknijPliki() {
-        return chrome.scripting.executeScript({
-          target: { tabId: karta.id },
-          files: plikiContentBur
-        });
-      })
-      .then(function poczekajNaListener() {
-        return new Promise(function opóźnij(resolve) {
-          setTimeout(resolve, 120);
-        });
-      });
-  }
-
   function zapewnijSkryptStrony(karta) {
-    return sprawdźPołączenieKarty(karta).catch(function spróbujPonownie(pierwszyBłąd) {
-      if (rozpoznajTypStrony(karta && karta.url) !== "BUR") {
-        throw pierwszyBłąd;
-      }
-
-      return wstrzyknijContentBur(karta)
-        .then(function sprawdźPoWstrzyknięciu() {
-          return sprawdźPołączenieKarty(karta);
-        })
-        .catch(function zwróćDokładnyBłąd(błąd) {
-          const szczegóły = błąd && błąd.message ? błąd.message : komunikatBrakuSkryptu;
-          throw new Error("Nie udało się połączyć z formularzem BUR. " + szczegóły);
-        });
-    });
+    if (!karta || !karta.id) { return Promise.reject(new Error("Karta nie ma poprawnego identyfikatora.")); }
+    if (rozpoznajTypStrony(karta.url) !== "BUR") {
+      return wyślijDoKarty(karta, { typ: komunikaty.PING_SKRYPTU_STRONY });
+    }
+    return wyślijDoServiceWorkera({ typ: typyWiadomości.ZAPEWNIJ_CONTENT_SCRIPT_BUR, tabId: karta.id })
+      .then(function sprawdź(wynik) {
+        if (!wynik || !wynik.ok) { throw new Error(wynik && wynik.błąd || komunikatBrakuSkryptu); }
+        return wynik.wynik && wynik.wynik.pong ? wynik.wynik.pong : wynik;
+      })
+      .catch(function zwróćDokładnyBłąd(błąd) {
+        const szczegóły = błąd && błąd.message ? błąd.message : komunikatBrakuSkryptu;
+        throw new Error("Nie udało się połączyć z formularzem BUR. " + szczegóły);
+      });
   }
 
   function bezpiecznieWyślijDoAktywnejKarty(komunikat) {

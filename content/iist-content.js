@@ -4,8 +4,8 @@
   if (!globalny.chrome || !chrome.runtime || !chrome.runtime.onMessage) { return; }
   chrome.runtime.onMessage.addListener(function obsłuż(wiadomość, nadawca, odpowiedz) {
     if (!wiadomość || !wiadomość.typ) { return false; }
-    if (wiadomość.typ === komunikaty.PING_SKRYPTU_STRONY) {
-      odpowiedz({ typ: komunikaty.PONG_SKRYPTU_STRONY, typStrony: "IIST", url: location.href });
+    if (przestrzeń.czyWiadomośćTypu(wiadomość, [komunikaty.PING_SKRYPTU_STRONY, przestrzeń.TYPY_WIADOMOŚCI.PING_BUR])) {
+      odpowiedz(przestrzeń.utwórzOdpowiedźPing(wiadomość, { typStrony: "IIST", url: location.href }));
       return true;
     }
     if (wiadomość.typ !== komunikaty.POBIERZ_DANE_ZE_STRONY && wiadomość.typ !== "POBIERZ_DANE_IIST_ZE_STRONY") { return false; }

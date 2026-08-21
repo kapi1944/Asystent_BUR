@@ -36,6 +36,8 @@
       "js": [
         "shared/storage/storage-keys.js",
         "shared/storage/storage-api.js",
+        "shared/messaging/message-types.js",
+        "shared/messaging/message-contract.js",
         "shared/providers/provider-rules.js",
         "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",
@@ -61,6 +63,8 @@
       "js": [
         "shared/storage/storage-keys.js",
         "shared/storage/storage-api.js",
+        "shared/messaging/message-types.js",
+        "shared/messaging/message-contract.js",
         "shared/providers/provider-rules.js",
         "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",
@@ -84,6 +88,8 @@
       "js": [
         "shared/storage/storage-keys.js",
         "shared/storage/storage-api.js",
+        "shared/messaging/message-types.js",
+        "shared/messaging/message-contract.js",
         "shared/providers/provider-rules.js",
         "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",

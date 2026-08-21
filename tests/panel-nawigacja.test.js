@@ -49,7 +49,7 @@
       const ramka = document.createElement("iframe");
       const konfiguracjaChrome = JSON.stringify(Boolean(czySkryptStronyDostępny));
       const mockChrome = "<base href='../panel/'><script>"
-        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b({});}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.reject(new Error('Brak skryptu'));}},storage:{local:{get:function(a,b){b({});},set:function(a,b){if(b){b();}},remove:function(a,b){if(b){b();}}},session:{get:function(a,b){b({});},set:function(a,b){if(b){b();}}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list',active:true}]);},sendMessage:function(a,b,c){if(!"
+        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b(a&&a.typ==='bur.ensureContentScript'?{ok:true,wynik:{pong:{ok:true,typ:'bur.pong',typStrony:'BUR',wersjaSkryptu:'test'}}}:{});}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.reject(new Error('Brak skryptu'));}},storage:{local:{get:function(a,b){b({});},set:function(a,b){if(b){b();}},remove:function(a,b){if(b){b();}}},session:{get:function(a,b){b({});},set:function(a,b){if(b){b();}}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list',active:true}]);},sendMessage:function(a,b,c){if(!"
         + konfiguracjaChrome
         + "){window.chrome.runtime.lastError={message:'Brak skryptu'};c();window.chrome.runtime.lastError=null;return;}c({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});},onActivated:{addListener:function(){}},onUpdated:{addListener:function(){}}}};"
         + "</script>";
@@ -73,7 +73,7 @@
       const ramka = document.createElement("iframe");
       const mockChrome = "<base href='../panel/'><script>"
         + "window.__stanSesji=" + JSON.stringify(stanSesji || {}) + ";"
-        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b({});}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.resolve();}},storage:{local:{get:function(a,b){b({});},set:function(a,b){b&&b();},remove:function(a,b){b&&b();}},session:{get:function(klucze,b){var wynik={};klucze.forEach(function(k){if(Object.prototype.hasOwnProperty.call(window.__stanSesji,k)){wynik[k]=window.__stanSesji[k];}});b(wynik);},set:function(dane,b){Object.assign(window.__stanSesji,dane);b&&b();},remove:function(klucze,b){klucze.forEach(function(k){delete window.__stanSesji[k];});b&&b();}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list',active:true}]);},sendMessage:function(a,b,c){c({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});},onActivated:{addListener:function(){}},onUpdated:{addListener:function(){}}}};"
+        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){b(a&&a.typ==='bur.ensureContentScript'?{ok:true,wynik:{pong:{ok:true,typ:'bur.pong',typStrony:'BUR',wersjaSkryptu:'test'}}}:{});}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.resolve();}},storage:{local:{get:function(a,b){b({});},set:function(a,b){b&&b();},remove:function(a,b){b&&b();}},session:{get:function(klucze,b){var wynik={};klucze.forEach(function(k){if(Object.prototype.hasOwnProperty.call(window.__stanSesji,k)){wynik[k]=window.__stanSesji[k];}});b(wynik);},set:function(dane,b){Object.assign(window.__stanSesji,dane);b&&b();},remove:function(klucze,b){klucze.forEach(function(k){delete window.__stanSesji[k];});b&&b();}}},tabs:{query:function(){return Promise.resolve([{id:1,url:'https://uslugirozwojowe.parp.gov.pl/list',active:true}]);},sendMessage:function(a,b,c){c({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});},onActivated:{addListener:function(){}},onUpdated:{addListener:function(){}}}};"
         + "</script>";
       ramka.hidden = true;
       ramka.srcdoc = html.replace("<head>", "<head>" + mockChrome);
@@ -259,7 +259,8 @@
       const content = wyniki[1];
       const manifest = wyniki[2];
 
-      sprawdzWarunek(panel.includes("chrome.scripting.executeScript"), "Panel nie ma fallbacku ponownego wstrzyknięcia content scriptu.");
+      sprawdzWarunek(!panel.includes("chrome.scripting.executeScript"), "Panel nie powinien samodzielnie wstrzykiwać content scriptu.");
+      sprawdzWarunek(panel.includes("ZAPEWNIJ_CONTENT_SCRIPT_BUR"), "Panel nie deleguje ensure content scriptu do background.");
       sprawdzWarunek(panel.includes("zapewnijSkryptStrony"), "Panel nie wykonuje handshake przed operacją BUR.");
       sprawdzWarunek(content.includes("__BUR_ASYSTENT_CONTENT_LISTENER_LOADED__"), "Content script nie chroni przed podwójnym listenerem.");
       sprawdzWarunek(content.includes("wersjaSkryptu"), "PING content scriptu nie zwraca wersji.");
