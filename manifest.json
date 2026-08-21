@@ -34,6 +34,8 @@
         "https://www.szkolenia-semper.pl/*"
       ],
       "js": [
+        "shared/providers/provider-rules.js",
+        "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",
         "shared/komunikaty.js",
         "shared/model.js",
@@ -55,6 +57,8 @@
         "https://www.szkoleniaiist.com.pl/*"
       ],
       "js": [
+        "shared/providers/provider-rules.js",
+        "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",
         "shared/komunikaty.js",
         "shared/model.js",
@@ -74,6 +78,8 @@
         "content/bur-highlighter.css"
       ],
       "js": [
+        "shared/providers/provider-rules.js",
+        "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js",
         "shared/komunikaty.js",
         "shared/cele-formularza-bur.js",

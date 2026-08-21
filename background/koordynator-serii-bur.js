@@ -3,6 +3,7 @@
   const KLUCZ_SERII = "aktywnaSeriaOgloszenBur";
   const MAKSYMALNA_LICZBA_PRÓB = 3;
   const PLIKI_CONTENT_BUR = [
+    "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
     "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/cele-formularza-bur.js",
     "shared/model-walidacji.js", "shared/normalizacja-tytulu.js", "shared/daty.js",
     "shared/terminy-bur.js", "shared/stan-operacji-bur.js", "shared/szablony-harmonogramow.js",

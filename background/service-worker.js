@@ -1,4 +1,6 @@
 importScripts(
+  "../shared/providers/provider-rules.js",
+  "../shared/providers/profile-detector.js",
   "../shared/profile-dostawcow.js",
   "../shared/komunikaty.js",
   "../shared/szablony-harmonogramow.js",

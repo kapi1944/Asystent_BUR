@@ -53,11 +53,13 @@
       });
       const plikiPanelu = wyodrębnijSkryptyHtml(wyniki[1]);
       const oczekiwanyServiceWorker = [
+        "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/szablony-harmonogramow.js",
         "shared/seria-ogloszen-bur.js", "shared/wyszukiwarka-semper.js", "background/klient-semper.js",
         "background/klient-iist.js", "background/koordynator-serii-bur.js"
       ];
       const oczekiwanyPanel = [
+        "shared/providers/provider-rules.js", "shared/providers/profile-detector.js",
         "shared/profile-dostawcow.js", "shared/komunikaty.js", "shared/model.js",
         "shared/normalizacja-tytulu.js", "shared/daty.js", "shared/terminy-bur.js",
         "shared/kolejka-terminow-bur.js", "shared/stan-operacji-bur.js", "shared/szablony-harmonogramow.js",

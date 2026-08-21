@@ -1,7 +1,5 @@
 (function zarejestrujSelektoryBur(globalny) {
   const przestrzeń = globalny.BurAsystent || {};
-  const AKTUALNA_PODSTAWA_WPISU_BUR = "Znak Jakości TGLS Quality Alliance";
-  const NIEAKTUALNA_PODSTAWA_WPISU_BUR = "(nieaktualna) Znak Jakości TGLS Quality Alliance";
 
   function pobierzDefinicjęPodstawyWpisuBur() {
     return {
@@ -512,8 +510,6 @@
   przestrzeń.pobierzWartośćPola = pobierzWartośćPola;
   przestrzeń.pobierzTekstSelect2 = pobierzTekstSelect2;
   przestrzeń.pobierzDefinicjęPodstawyWpisuBur = pobierzDefinicjęPodstawyWpisuBur;
-  przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR = AKTUALNA_PODSTAWA_WPISU_BUR;
-  przestrzeń.NIEAKTUALNA_PODSTAWA_WPISU_BUR = NIEAKTUALNA_PODSTAWA_WPISU_BUR;
   przestrzeń.znajdźNatywnePoleWyboruBur = znajdźNatywnePoleWyboruBur;
   przestrzeń.znajdźWidocznyElementSelect2 = znajdźWidocznyElementSelect2;
   przestrzeń.pobierzWartośćQuill = pobierzWartośćQuill;

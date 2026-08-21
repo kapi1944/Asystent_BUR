@@ -3,6 +3,8 @@
   const komunikaty = przestrzeń.KOMUNIKATY;
   const komunikatBrakuSkryptu = "Nie znaleziono skryptu strony na tej karcie. Odśwież stronę BUR lub stronę dostawcy albo otwórz obsługiwaną stronę.";
   const plikiContentBur = [
+    "shared/providers/provider-rules.js",
+    "shared/providers/profile-detector.js",
     "shared/profile-dostawcow.js",
     "shared/komunikaty.js",
     "shared/cele-formularza-bur.js",
