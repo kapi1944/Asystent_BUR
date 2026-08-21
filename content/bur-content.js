@@ -6,6 +6,8 @@
   let timerAutomatycznejWalidacjiBur = null;
   let automatycznaWalidacjaBurWToku = false;
   let ponówAutomatycznąWalidacjęBur = false;
+  let timerAutomatycznejKorektyKompetencji = null;
+  let timerKomunikatuKorektyKompetencji = null;
   const WERSJA_SKRYPTU_BUR = "naprawa-walidacji-przelacznikow-bur-2026-08-06-v3";
   const selektory = {
     edytorProgramu: "#programiharmonogramuslugisekcja-programuslugi-wysiwyg > div.ql-editor",
@@ -1130,6 +1132,42 @@
     return String(wartość || "").replace(/\s+/g, " ").trim();
   }
 
+  function pobierzMiejscowośćAktualnejUsługiBur(dokumentBur, tryb) {
+    if (tryb === "online") {
+      return "";
+    }
+
+    let pole = przestrzen.znajdźPolePoSelektorach(dokumentBur, [
+      "#select2-lokalizacjauslugisekcja-miasto-container",
+      "#lokalizacjauslugisekcja-miasto",
+      "#select2-lokalizacjauslugisekcja-miejscowosc-container",
+      "#lokalizacjauslugisekcja-miejscowosc",
+      "[name*='lokalizacjauslugisekcja'][name*='miasto' i]",
+      "[name*='lokalizacjauslugisekcja'][name*='miejscowosc' i]"
+    ]);
+
+    if (!pole) {
+      const polaPoEtykiecie = Array.from(dokumentBur.querySelectorAll("label")).filter(function znajdźEtykietę(etykieta) {
+        return /^miejscowość\s*\*?$/i.test(String(etykieta.textContent || "").trim());
+      }).map(function pobierzPowiązanePole(etykieta) {
+        return etykieta.htmlFor
+          ? dokumentBur.getElementById(etykieta.htmlFor)
+          : etykieta.querySelector("input, select, textarea");
+      }).filter(Boolean);
+
+      pole = polaPoEtykiecie.length === 1 ? polaPoEtykiecie[0] : null;
+    }
+
+    if (!pole) {
+      pole = przestrzen.znajdźPoleBur(dokumentBur, {
+        sekcja: "Lokalizacja usługi",
+        etykieta: "Miejscowość"
+      });
+    }
+
+    return pole ? przestrzen.pobierzWartośćPola(pole) : "";
+  }
+
   function odczytajAktualnyTerminBur(dokumentBur) {
     const bieżącyDokument = dokumentBur || document;
     const tytuł = pobierzTytułAktualnejUsługiBur(bieżącyDokument);
@@ -1143,17 +1181,14 @@
       "#select2-formularzwstepnysekcja-formaswiadczenia-container",
       "#formularzwstepnysekcja-formaswiadczenia"
     ]);
-    const lokalizacja = pobierzWartośćTerminuBur(bieżącyDokument, [
-      "#select2-lokalizacjauslugisekcja-miasto-container",
-      "#lokalizacjauslugisekcja-miasto",
-      "#lokalizacjauslugisekcja-adres"
-    ]);
+    const tryb = /online/i.test(trybTekst) ? "online" : (/stacjon/i.test(trybTekst) ? "stacjonarna" : "");
+    const lokalizacja = pobierzMiejscowośćAktualnejUsługiBur(bieżącyDokument, tryb);
 
     return {
       tytuł: tytuł,
       dataRozpoczęcia: przestrzen.normalizujDatęTerminu(dataRozpoczęcia),
       dataZakończenia: przestrzen.normalizujDatęTerminu(dataZakończenia),
-      tryb: /online/i.test(trybTekst) ? "online" : (/stacjon/i.test(trybTekst) ? "stacjonarna" : ""),
+      tryb: tryb,
       lokalizacja: lokalizacja,
       url: bieżącyDokument === document ? location.href : ""
     };
@@ -1178,13 +1213,22 @@
       "#select2-formularzwstepnysekcja-formaswiadczenia-container",
       "#lokalizacjauslugisekcja-miasto",
       "#select2-lokalizacjauslugisekcja-miasto-container",
-      "#lokalizacjauslugisekcja-adres"
+      "#lokalizacjauslugisekcja-miejscowosc",
+      "#select2-lokalizacjauslugisekcja-miejscowosc-container",
+      "[name*='lokalizacjauslugisekcja'][name*='miasto' i]",
+      "[name*='lokalizacjauslugisekcja'][name*='miejscowosc' i]"
     ].join(","));
     if (czyPoleTerminu) {
       return true;
     }
 
-    return false;
+    const etykiety = element.labels ? Array.from(element.labels) : [];
+    const czyPoleMiejscowości = etykiety.some(function sprawdźEtykietę(etykieta) {
+      return /miejscowość/i.test(etykieta.textContent || "");
+    });
+    const sekcja = element.closest("section, fieldset, .card, .panel");
+
+    return czyPoleMiejscowości && (!sekcja || /lokalizacja usługi/i.test(sekcja.textContent || ""));
   }
 
   function zaplanujPowiadomienieOTerminieBur(zdarzenie) {
@@ -1537,6 +1581,82 @@
     if (element) { zaplanujAutomatycznąWalidacjęBur(); }
   }
 
+  function znajdźPrzełącznikiKompetencjiDoKorekty(dokument) {
+    const kontenerKompetencji = dokument.querySelector(
+      "#qualificationsZrk .field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji"
+    );
+    const przełącznikKompetencji = kontenerKompetencji
+      ? kontenerKompetencji.querySelector("input[type='checkbox'], [role='switch'], [aria-checked]") || kontenerKompetencji
+      : dokument.querySelector(
+        "#qualificationsZrk input[type='checkbox'][name*='czyUslugaProwadziDoNabyciaKompetencji' i], "
+        + "#qualificationsZrk input[type='checkbox'][id*='czyuslugaprowadzidonabyciakompetencji' i]"
+      );
+    const przełączniki = [{ nazwa: "nabycie kompetencji", element: przełącznikKompetencji }];
+
+    [1, 2, 3].forEach(function dodajPytanie(numerPytania) {
+      const wynik = przestrzen.znajdźPrzełącznikPytaniaKompetencji
+        ? przestrzen.znajdźPrzełącznikPytaniaKompetencji(dokument, numerPytania)
+        : null;
+      przełączniki.push({
+        nazwa: "warunek uznania kompetencji — pytanie " + numerPytania,
+        element: wynik && (wynik.checkbox || wynik.element)
+      });
+    });
+
+    return przełączniki;
+  }
+
+  function pokażKomunikatKorektyKompetencji(nazwyPól) {
+    let komunikat = document.getElementById("bur-asystent-komunikat-korekty-kompetencji");
+    if (!komunikat) {
+      komunikat = document.createElement("div");
+      komunikat.id = "bur-asystent-komunikat-korekty-kompetencji";
+      komunikat.className = "bur-asystent-komunikat-korekty-kompetencji";
+      komunikat.setAttribute("role", "status");
+      komunikat.setAttribute("aria-live", "polite");
+      document.body.appendChild(komunikat);
+    }
+    komunikat.textContent = "BUR Asystent automatycznie ustawił na TAK: " + nazwyPól.join(", ") + ".";
+    komunikat.classList.add("bur-asystent-komunikat-widoczny");
+    globalny.clearTimeout(timerKomunikatuKorektyKompetencji);
+    timerKomunikatuKorektyKompetencji = globalny.setTimeout(function ukryjKomunikat() {
+      komunikat.classList.remove("bur-asystent-komunikat-widoczny");
+    }, 6000);
+  }
+
+  function skorygujPrzełącznikiKompetencji(dokument, czyPokazaćKomunikat) {
+    if (czyListaUsługBur(location.href)) { return []; }
+    const skorygowanePola = [];
+    znajdźPrzełącznikiKompetencjiDoKorekty(dokument).forEach(function skoryguj(pole) {
+      if (!pole.element || przestrzen.pobierzStanPrzełącznika(pole.element) !== "NIE") { return; }
+      if (przestrzen.ustawPrzełącznikTakNie(pole.element, "TAK")) {
+        skorygowanePola.push(pole.nazwa);
+      }
+    });
+    if (czyPokazaćKomunikat !== false && skorygowanePola.length) {
+      pokażKomunikatKorektyKompetencji(skorygowanePola);
+    }
+    return skorygowanePola;
+  }
+
+  function zaplanujAutomatycznąKorektęKompetencji() {
+    if (czyListaUsługBur(location.href)) { return; }
+    globalny.clearTimeout(timerAutomatycznejKorektyKompetencji);
+    timerAutomatycznejKorektyKompetencji = globalny.setTimeout(function wykonajKorektę() {
+      timerAutomatycznejKorektyKompetencji = null;
+      skorygujPrzełącznikiKompetencji(document, true);
+    }, 40);
+  }
+
+  function obserwujPrzełącznikiKompetencji() {
+    new MutationObserver(zaplanujAutomatycznąKorektęKompetencji).observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["checked", "aria-checked"]
+    });
+  }
+
   function obsłużZmianęKontekstuWalidacjiBur(zmiany, obszar) {
     if (obszar !== "local") { return; }
     if (zmiany.ostatnieSzkolenieSemper || zmiany.wybranyTerminSemperIndex) {
@@ -1600,12 +1720,15 @@
   przestrzen.odczytajAktualnyTerminBur = odczytajAktualnyTerminBur;
   przestrzen.odczytajNazweKontaBur = odczytajNazweKontaBur;
   przestrzen.wykryjKontoBur = wykryjKontoBur;
+  przestrzen.skorygujPrzełącznikiKompetencji = skorygujPrzełącznikiKompetencji;
 
   document.addEventListener("input", zaplanujPowiadomienieOTerminieBur, true);
   document.addEventListener("change", zaplanujPowiadomienieOTerminieBur, true);
   document.addEventListener("input", zaplanujAutomatycznąWalidacjęBur, true);
   document.addEventListener("change", zaplanujAutomatycznąWalidacjęBur, true);
   document.addEventListener("click", zaplanujWalidacjęPoKliknięciu, true);
+  document.addEventListener("input", zaplanujAutomatycznąKorektęKompetencji, true);
+  document.addEventListener("change", zaplanujAutomatycznąKorektęKompetencji, true);
   if (chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener(obsłużZmianęKontekstuWalidacjiBur);
   }
@@ -1628,6 +1751,8 @@
   }
   wykryjKontoBur();
   obserwujZmianyKontaBur();
+  obserwujPrzełącznikiKompetencji();
+  zaplanujAutomatycznąKorektęKompetencji();
   zaplanujAutomatycznąWalidacjęBur();
 
   function kluczDziennegoLicznikaKolejkiBur() {

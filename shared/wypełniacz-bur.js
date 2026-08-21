@@ -714,7 +714,7 @@
     if (!pole) { return { ok: false, komunikat: "Nie znaleziono natywnego pola formy świadczenia usługi." }; }
     const normalizuj = przestrzeń.normalizujTekstDoWalidacji || function bezZmian(wartość) { return String(wartość || "").trim(); };
     const dozwolone = czyTerminOnline(termin)
-      ? ["online", "zdalna w czasie rzeczywistym"]
+      ? ["zdalna w czasie rzeczywistym"]
       : ["stacjonarna"];
     const opcje = Array.from(pole.options || []).filter(function pasuje(opcja) {
       return dozwolone.includes(normalizuj(podpisOpcji(opcja)).toLowerCase());
@@ -781,7 +781,7 @@
 
   function wypełnijFormularzWstępny(dokument, kontekst, raport) {
     const termin = kontekst.wybranyTermin || {};
-    const forma = czyTerminOnline(termin) ? "online" : "stacjonarna";
+    const forma = czyTerminOnline(termin) ? "zdalna w czasie rzeczywistym" : "stacjonarna";
     const profil = przestrzeń.pobierzProfilDostawcy(kontekst.profilId || kontekst.szkolenieSemper && kontekst.szkolenieSemper.profilId || "semper") || {};
 
     [

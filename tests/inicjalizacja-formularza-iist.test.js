@@ -12,7 +12,7 @@
       "<form id='formularz-uslugi'>",
       "<select id='formularzwstepnysekcja-rodzajuslugiid'>" + opcje(["Usługa szkoleniowa"]) + "</select>",
       "<select id='formularzwstepnysekcja-podrodzajuslugiid'>" + opcje(["Usługa szkoleniowa"]) + "</select>",
-      "<select id='formularzwstepnysekcja-formaswiadczenia'>" + opcje(["online", "stacjonarna"]) + "</select>",
+      "<select id='formularzwstepnysekcja-formaswiadczenia'>" + opcje(["zdalna w czasie rzeczywistym", "stacjonarna"]) + "</select>",
       "<select id='formularzwstepnysekcja-wariantzajec'>" + opcje(["Zajęcia grupowe"]) + "</select>",
       "<select id='formularzwstepnysekcja-podstawauzyskaniawpisuid'>" + opcje(["Certyfikat systemu zarządzania jakością wg. ISO 9001:2015 (PN-EN ISO 9001:2015) - w zakresie usług szkoleniowych"]) + "</select>",
       "<label id='formularzwstepnysekcja-czyuslugadedykowanaLabel'><input type='checkbox' id='formularzwstepnysekcja-czyuslugadedykowana'><span>NIE</span></label>",
@@ -70,7 +70,7 @@
     sprawdzWarunek(wynik.ok, wynik.komunikat);
     sprawdzRownosc(kolejność.join("|"), ["#formularzwstepnysekcja-rodzajuslugiid", "#formularzwstepnysekcja-podrodzajuslugiid", "#formularzwstepnysekcja-formaswiadczenia", "#formularzwstepnysekcja-wariantzajec", "#formularzwstepnysekcja-podstawauzyskaniawpisuid"].join("|"));
     sprawdzWarunek(stareReferencje.every(function odłączona(element) { return !element.isConnected; }));
-    sprawdzRownosc(dokument.querySelector("#formularzwstepnysekcja-formaswiadczenia").selectedOptions[0].textContent, "online");
+    sprawdzRownosc(dokument.querySelector("#formularzwstepnysekcja-formaswiadczenia").selectedOptions[0].textContent, "zdalna w czasie rzeczywistym");
   });
 
   test("timeout przebudowy AJAX kończy inicjalizację kontrolowanym statusem", async function sprawdź() {

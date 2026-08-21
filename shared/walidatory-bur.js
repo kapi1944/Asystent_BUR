@@ -480,7 +480,7 @@
       czyOstrzeżenie: function sprawdźFormę(aktualnaWartość) {
         const forma = normalizujDoPorównaniaBur(aktualnaWartość);
         return czyTerminOnline
-          ? !forma.includes("online") && !(forma.includes("zdalna") && forma.includes("czasie rzeczywistym"))
+          ? !(forma.includes("zdalna") && forma.includes("czasie rzeczywistym"))
           : !forma.includes("stacjonarna");
       },
       selektorPomocniczy: "#select2-formularzwstepnysekcja-formaswiadczenia-container"

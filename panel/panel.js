@@ -148,6 +148,8 @@
   let wykryteKontoBur = null;
   let czyUżytkownikWybrałZakładkę = false;
   let czyImportHarmonogramuWToku = false;
+  let czyAutomatyczneWyszukiwanieWToku = false;
+  let odciskAutomatycznegoWyszukiwania = "";
   let wybraneIndeksySerii = new Set();
   let odciskTerminówSerii = "";
   let stanSeriiOgłoszeńBur = null;
@@ -1726,7 +1728,10 @@
       }).then(function odświeżPoSynchronizacji() {
         pokażWybórTerminuSemper(terminy, wybranyIndeks);
         odświeżZgodnośćTerminuHarmonogramu();
-        return { terminBur: terminBur, dopasowanie: stanDopasowaniaTerminuBur, wybranyIndeks: wybranyIndeks };
+        const wynikSynchronizacji = { terminBur: terminBur, dopasowanie: stanDopasowaniaTerminuBur, wybranyIndeks: wybranyIndeks };
+        return uruchomAutomatyczneWyszukiwanieDlaBur(terminBur).then(function zwróćSynchronizację() {
+          return wynikSynchronizacji;
+        });
       });
     });
   }
@@ -3086,19 +3091,20 @@
       });
   }
 
-  function szukajLinkuSemper() {
+  function szukajLinkuSemper(frazaAutomatyczna) {
     const czyIist = aktywnyProfilDostawcy === "iist";
+    const czyPodanoFrazęAutomatyczną = typeof frazaAutomatyczna === "string" && Boolean(frazaAutomatyczna.trim());
     wyczyśćWynikiSemper();
     ustawStatus(elementy.statusSemper, "Szukam...", "status-neutralny");
 
-    pobierzFrazeZBurLubInputa()
+    return (czyPodanoFrazęAutomatyczną ? Promise.resolve(frazaAutomatyczna) : pobierzFrazeZBurLubInputa())
       .then(function sprawdźFrazę(fraza) {
         const wartość = przestrzeń.oczyśćLinię(fraza);
 
         if (czyIist ? przestrzeń.czyLinkSzkoleniaIist(wartość) : przestrzeń.czyŁączeSzczegółówSzkolenia(wartość)) {
           elementy.linkLubFrazaSemper.value = czyIist ? przestrzeń.normalizujLinkIist(wartość) : przestrzeń.normalizujŁączeSemper(wartość);
           ustawStatus(elementy.statusSemper, "Wykryto link " + pobierzNazwęAktywnegoProfilu() + ". Kliknij »Uzupełnij z linku«.", "status-ostrzezenie");
-          return null;
+          return { wynik: { ok: true, wynik: { url: elementy.linkLubFrazaSemper.value } } };
         }
 
         if (wartość.length < 3) {
@@ -3113,7 +3119,7 @@
       })
       .then(function pokażWynik(odpowiedź) {
         if (!odpowiedź) {
-          return;
+          return "";
         }
 
         const wynik = odpowiedź.wynik || {};
@@ -3138,28 +3144,30 @@
             czyBłądSieci ? "Nie udało się wyszukać szkolenia na " + pobierzNazwęAktywnegoProfilu() + "." : "Nie znaleziono pewnego linku " + pobierzNazwęAktywnegoProfilu() + ".",
             "status-blad"
           );
-          return;
+          return "";
         }
 
         if (wynik.wynik && wynik.wynik.url) {
           elementy.linkLubFrazaSemper.value = wynik.wynik.url;
           pokażWybraneŁącze(wynik.wynik);
           ustawStatus(elementy.statusSemper, "Znaleziono link " + pobierzNazwęAktywnegoProfilu() + ".", "status-odczytano");
-          return;
+          return wynik.wynik.url;
         }
 
         if (wynik.wybory && wynik.wybory.length) {
           pokażWyborySemper(wynik.wybory);
           ustawStatus(elementy.statusSemper, "Wybierz właściwe szkolenie.", "status-ostrzezenie");
-          return;
+          return "";
         }
 
         ustawStatus(elementy.statusSemper, "Nie znaleziono pewnego linku. Wklej link " + pobierzNazwęAktywnegoProfilu() + " ręcznie.", "status-blad");
+        return "";
       })
       .catch(function pokażBłąd(błąd) {
         diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się wyszukać linku " + pobierzNazwęAktywnegoProfilu() + ".";
         pokażDiagnostykęSemper();
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się wyszukać szkolenia na " + pobierzNazwęAktywnegoProfilu() + ".", "status-blad");
+        return "";
       });
   }
 
@@ -3172,13 +3180,13 @@
 
     if (!(czyIist ? przestrzeń.czyLinkSzkoleniaIist(url) : przestrzeń.czyŁączeSzczegółówSzkolenia(url))) {
       ustawStatus(elementy.statusSemper, czyIist ? "Wklej bezpośredni link do szkolenia na szkoleniaiist.com.pl." : "Wklej poprawny link do szkolenia na szkolenia-semper.pl.", "status-blad");
-      return;
+      return Promise.resolve(null);
     }
 
     elementy.linkLubFrazaSemper.value = url;
     ustawStatus(elementy.statusSemper, "Pobieram dane z " + pobierzNazwęAktywnegoProfilu() + "...", "status-neutralny");
 
-    wyślijDoServiceWorkera({
+    return wyślijDoServiceWorkera({
       typ: czyIist ? komunikaty.IMPORTUJ_SZKOLENIE_Z_LINKU : komunikaty.IMPORTUJ_SEMPER_Z_ŁĄCZA,
       url: url
     })
@@ -3211,7 +3219,6 @@
       })
       .then(function pokażImport(wynikParsera) {
         pokażSzkolenie(wynikParsera);
-        synchronizujAktualnyTerminBur().catch(function pomińBrakFormularzaBur() {});
         pokażWybraneŁącze({
           url: wynikParsera.url || url,
           tytuł: wynikParsera.szkolenie.tytułOryginalny || wynikParsera.szkolenie.tytulOryginalny
@@ -3221,13 +3228,56 @@
           (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []).length ? "Zaimportowano dane, ale część wymaga sprawdzenia." : "Zaimportowano dane z " + pobierzNazwęAktywnegoProfilu() + ".",
           (wynikParsera.ostrzeżenia || wynikParsera.ostrzezenia || []).length ? "status-ostrzezenie" : "status-odczytano"
         );
+        return synchronizujAktualnyTerminBur().then(function zwróćImport() {
+          return wynikParsera;
+        });
       })
       .catch(function pokażBłąd(błąd) {
         diagnostykaSemper.ostatniBłądServiceWorkera = błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.";
         diagnostykaSemper.importZapisałSzkolenie = "nie";
         pokażDiagnostykęSemper();
         ustawStatus(elementy.statusSemper, błąd && błąd.message ? błąd.message : "Nie udało się pobrać danych z linku.", "status-blad");
+        return null;
       });
+  }
+
+  function czyTerminBurGotowyDoAutomatycznegoWyszukiwania(terminBur) {
+    const daty = przestrzeń.pobierzDatyTerminuBur(terminBur);
+    const tytuł = String(terminBur && terminBur.tytuł || "").replace(/\s+/g, " ").trim();
+    const tryb = przestrzeń.normalizujTrybTerminu(terminBur && terminBur.tryb);
+    const maLokalizację = tryb === "online" || Boolean(String(terminBur && terminBur.lokalizacja || "").trim());
+
+    return Boolean(tytuł.length >= 3 && daty.dataRozpoczęcia && daty.dataZakończenia && maLokalizację);
+  }
+
+  function uruchomAutomatyczneWyszukiwanieDlaBur(terminBur) {
+    if (!czyTerminBurGotowyDoAutomatycznegoWyszukiwania(terminBur)) {
+      return Promise.resolve(null);
+    }
+
+    const tytuł = String(terminBur.tytuł || "").replace(/\s+/g, " ").trim();
+    const odcisk = [aktywnyProfilDostawcy, przestrzeń.utwórzOdciskTerminuBur(terminBur), tytuł.toLowerCase()].join("|");
+    if (czyAutomatyczneWyszukiwanieWToku || odciskAutomatycznegoWyszukiwania === odcisk) {
+      return Promise.resolve(null);
+    }
+
+    czyAutomatyczneWyszukiwanieWToku = true;
+    odciskAutomatycznegoWyszukiwania = odcisk;
+    elementy.linkLubFrazaSemper.value = tytuł;
+    diagnostykaSemper.fraza = tytuł;
+    diagnostykaSemper.źródłoFrazy = "tytuł BUR — automatycznie";
+    pokażDiagnostykęSemper();
+    ustawStatus(elementy.statusSemper, "Automatycznie wyszukuję szkolenie na " + pobierzNazwęAktywnegoProfilu() + "...", "status-neutralny");
+
+    return szukajLinkuSemper(tytuł).then(function zaimportujZnalezione(url) {
+      if (!url) {
+        return null;
+      }
+      elementy.linkLubFrazaSemper.value = url;
+      return importujSzkolenieZLinku();
+    }).finally(function zakończAutomatyczneWyszukiwanie() {
+      czyAutomatyczneWyszukiwanieWToku = false;
+    });
   }
 
   function pokażBrakOsóbProwadzącychIist() {

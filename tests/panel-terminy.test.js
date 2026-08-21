@@ -15,7 +15,7 @@
     });
   }
 
-  function utwórzPanelTerminów() {
+  function utwórzPanelTerminów(htmlAutomatycznegoImportu) {
     return fetch("../panel/panel.html").then(function odczytaj(odpowiedź) {
       return odpowiedź.text();
     }).then(function osadź(html) {
@@ -35,10 +35,11 @@
       const ramka = document.createElement("iframe");
       const konfiguracja = "<base href='../panel/'><script>(function(){"
         + "const dane=" + JSON.stringify(dane) + ";"
+        + "const htmlAutomatycznegoImportu=" + JSON.stringify(htmlAutomatycznegoImportu || "") + ";"
         + "let terminBur={tytuł:'Prawo ochrony środowiska w praktyce',dataRozpoczęcia:'2027-06-21',dataZakończenia:'2027-06-22',tryb:'stacjonarna',lokalizacja:'Warszawa',url:'https://uslugirozwojowe.parp.gov.pl/edit/1'};"
-        + "const aktywowane=[],zaktualizowane=[],wiadomości=[];"
-        + "window.__daneTestowe=dane;window.__ustawTerminBur=function(nowy){terminBur=nowy;wiadomości.forEach(function(fn){fn({typ:'ZMIENIONO_AKTUALNY_TERMIN_BUR',wynik:terminBur},{tab:{id:1}});});};"
-        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){if(b){b({});}},onMessage:{addListener:function(fn){wiadomości.push(fn);}}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.resolve();}},"
+        + "const aktywowane=[],zaktualizowane=[],wiadomości=[],wiadomościRuntime=[];"
+        + "window.__daneTestowe=dane;window.__wiadomościRuntime=wiadomościRuntime;window.__ustawTerminBur=function(nowy){terminBur=nowy;wiadomości.forEach(function(fn){fn({typ:'ZMIENIONO_AKTUALNY_TERMIN_BUR',wynik:terminBur},{tab:{id:1}});});};"
+        + "window.chrome={runtime:{lastError:null,sendMessage:function(a,b){wiadomościRuntime.push(a);if(!b){return;}if(htmlAutomatycznegoImportu&&a.typ==='SZUKAJ_ŁĄCZA_SEMPER'){b({wynik:{ok:true,wynik:{url:'https://www.szkolenia-semper.pl/component/trainings/details/szkolenie,411.html',tytuł:'Prawo ochrony środowiska w praktyce'}}});}else if(htmlAutomatycznegoImportu&&a.typ==='IMPORTUJ_SEMPER_Z_ŁĄCZA'){b({wynik:{ok:true,html:htmlAutomatycznegoImportu,url:a.url}});}else{b({});}},onMessage:{addListener:function(fn){wiadomości.push(fn);}}},scripting:{insertCSS:function(){return Promise.resolve();},executeScript:function(){return Promise.resolve();}},"
         + "storage:{local:{get:function(klucze,cb){const wynik={};klucze.forEach(function(k){wynik[k]=dane[k];});cb(wynik);},set:function(nowe,cb){Object.assign(dane,nowe);if(cb){cb();}},remove:function(klucze,cb){klucze.forEach(function(k){delete dane[k];});if(cb){cb();}}},session:{get:function(a,b){b({});},set:function(a,b){if(b){b();}}}},"
         + "tabs:{query:function(){return Promise.resolve([{id:1,url:terminBur.url,active:true}]);},sendMessage:function(id,msg,cb){if(msg.typ==='PING_SKRYPTU_STRONY'){cb({ok:true,typ:'PONG_SKRYPTU_STRONY',typStrony:'BUR',wersjaSkryptu:'test'});}else if(msg.typ==='POBIERZ_AKTUALNY_TERMIN_BUR'){cb({typ:'ODPOWIEDŹ_AKTUALNY_TERMIN_BUR',wynik:terminBur});}else if(msg.typ==='USTAW_TERMIN_BUR'){terminBur=Object.assign({},terminBur,{dataRozpoczęcia:msg.termin.dataStartBur,dataZakończenia:msg.termin.dataKoniecBur,tryb:msg.termin.forma,lokalizacja:msg.termin.miejsce});cb({typ:'ODPOWIEDŹ_USTAW_TERMIN_BUR',wynik:{ok:true,zgodneDaty:true,terminBur:terminBur}});}else if(msg.typ==='SPRAWDŹ_PROGRAM_I_HARMONOGRAM_BUR'){cb({wynik:{}});}else{cb({wynik:{ok:true}});}},onActivated:{addListener:function(fn){aktywowane.push(fn);}},onUpdated:{addListener:function(fn){zaktualizowane.push(fn);}}}};"
         + "})();<\/script>";
@@ -48,7 +49,10 @@
       return new Promise(function gotowy(resolve) {
         ramka.addEventListener("load", function poZaładowaniu() {
           poczekajNa(function dopasowano() {
-            return ramka.contentWindow.__daneTestowe.wybranyTerminSemperIndex === 1;
+            const danePanelu = ramka.contentWindow.__daneTestowe;
+            return htmlAutomatycznegoImportu
+              ? Boolean(danePanelu.ostatnieŁączeSemper && danePanelu.wybranyTerminSemperIndex === 0)
+              : danePanelu.wybranyTerminSemperIndex === 1;
           }).then(function zwróć() { resolve(ramka); });
         }, { once: true });
       });
@@ -72,6 +76,44 @@
       sprawdzRownosc(ramka.contentWindow.getComputedStyle(dokument.querySelector(".pozycja-terminu-semper > span")).whiteSpace, "nowrap");
       sprawdzRownosc(ramka.contentWindow.getComputedStyle(dokument.querySelector(".pozycja-terminu-harmonogramu > span")).whiteSpace, "nowrap");
       ramka.remove();
+    });
+  });
+
+  test("kompletny termin BUR automatycznie uruchamia wyszukiwanie szkolenia", function sprawdź() {
+    return utwórzPanelTerminów().then(function zweryfikuj(ramka) {
+      return poczekajNa(function wysłanoWyszukiwanie() {
+        return ramka.contentWindow.__wiadomościRuntime.some(function jestWyszukiwaniem(wiadomość) {
+          return wiadomość.typ === "SZUKAJ_ŁĄCZA_SEMPER";
+        });
+      }).then(function sprawdźFrazę() {
+        const wiadomość = ramka.contentWindow.__wiadomościRuntime.find(function znajdźWyszukiwanie(pozycja) {
+          return pozycja.typ === "SZUKAJ_ŁĄCZA_SEMPER";
+        });
+        sprawdzRownosc(wiadomość.fraza, "Prawo ochrony środowiska w praktyce");
+        ramka.remove();
+      });
+    });
+  });
+
+  test("automatyczne wyszukiwanie importuje ofertę i dopasowuje termin po lokalizacji", function sprawdź() {
+    const html = [
+      "<html><body><h1>Prawo ochrony środowiska w praktyce</h1><table>",
+      "<tr><th>Termin</th><th>Miejsce</th><th>Czas trwania</th><th>Koszt</th></tr>",
+      "<tr><td>21.06.2027 - 22.06.2027</td><td>Warszawa</td><td>2 dni</td><td>1900 zł netto</td></tr>",
+      "</table></body></html>"
+    ].join("");
+
+    return utwórzPanelTerminów(html).then(function zweryfikuj(ramka) {
+      return poczekajNa(function zaimportowanoIDopasowano() {
+        const dane = ramka.contentWindow.__daneTestowe;
+        return dane.ostatnieŁączeSemper && dane.wybranyTerminSemperIndex === 0;
+      }).then(function sprawdźWynik() {
+        const dane = ramka.contentWindow.__daneTestowe;
+        sprawdzRownosc(dane.ostatnieŁączeSemper, "https://www.szkolenia-semper.pl/component/trainings/details/szkolenie,411.html");
+        sprawdzRownosc(dane.ostatnieSzkolenieSemper.terminy[0].miejsce, "Warszawa");
+        sprawdzRownosc(dane.źródłoWyboruTerminuSemper, "automatyczny");
+        ramka.remove();
+      });
     });
   });
 

@@ -37,6 +37,63 @@
     sprawdzRownosc(wynik.lokalizacja, "");
   });
 
+  test("odczytuje miejscowość po etykiecie w sekcji Lokalizacja usługi", function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Lokalizacja terminu BUR");
+    dokument.body.innerHTML = [
+      "<span id='select2-formularzwstepnysekcja-formaswiadczenia-container'>stacjonarna</span>",
+      "<fieldset><legend>Lokalizacja usługi</legend>",
+      "<div class='form-group'><label for='pole-miejscowosci'>Miejscowość *</label>",
+      "<input id='pole-miejscowosci' value='Gdańsk'></div></fieldset>"
+    ].join("");
+
+    const wynik = window.BurAsystent.odczytajAktualnyTerminBur(dokument);
+
+    sprawdzRownosc(wynik.tryb, "stacjonarna");
+    sprawdzRownosc(wynik.lokalizacja, "Gdańsk");
+  });
+
+  test("ignoruje ukrytą lokalizację dla terminu online", function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("Termin online BUR");
+    dokument.body.innerHTML = [
+      "<span id='select2-formularzwstepnysekcja-formaswiadczenia-container'>online</span>",
+      "<input id='lokalizacjauslugisekcja-miasto' value='Warszawa'>"
+    ].join("");
+
+    const wynik = window.BurAsystent.odczytajAktualnyTerminBur(dokument);
+
+    sprawdzRownosc(wynik.tryb, "online");
+    sprawdzRownosc(wynik.lokalizacja, "");
+  });
+
+  test("zmiana miejscowości znalezionej po etykiecie automatycznie powiadamia panel", function sprawdź() {
+    const kontener = document.createElement("fieldset");
+    window.chrome.runtime = window.chrome.runtime || {};
+    const poprzednieWysyłanie = window.chrome.runtime.sendMessage;
+    let wiadomość = null;
+    kontener.innerHTML = [
+      "<legend>Lokalizacja usługi</legend>",
+      "<label for='nietypowe-pole-miejscowosci'>Miejscowość *</label>",
+      "<input id='nietypowe-pole-miejscowosci' value='Kraków'>"
+    ].join("");
+    document.body.appendChild(kontener);
+    window.chrome.runtime.sendMessage = function zapiszWiadomość(dane) { wiadomość = dane; };
+    kontener.querySelector("input").dispatchEvent(new Event("input", { bubbles: true }));
+
+    return new Promise(function poczekaj(resolve, reject) {
+      setTimeout(function sprawdźWiadomość() {
+        window.chrome.runtime.sendMessage = poprzednieWysyłanie;
+        kontener.remove();
+        try {
+          sprawdzWarunek(Boolean(wiadomość), "Nie wysłano informacji o zmianie miejscowości BUR.");
+          sprawdzRownosc(wiadomość.wynik.lokalizacja, "Kraków");
+          resolve();
+        } catch (błąd) {
+          reject(błąd);
+        }
+      }, 90);
+    });
+  });
+
   test("zmiana daty formularza BUR automatycznie powiadamia panel", function sprawdź() {
     const kontener = document.createElement("div");
     window.chrome.runtime = window.chrome.runtime || {};

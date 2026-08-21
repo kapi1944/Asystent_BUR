@@ -250,8 +250,8 @@
     sprawdźStatus("Maksymalna liczba uczestników", { maksimum: "" }, "online", "błąd");
   });
 
-  test("forma świadczenia zgodna z terminem jest poprawna", function sprawdź() {
-    sprawdźStatus("Forma świadczenia usługi", { forma: "online" }, "online", "poprawne");
+  test("skrót online nie zastępuje wymaganej formy zdalnej w czasie rzeczywistym", function sprawdź() {
+    sprawdźStatus("Forma świadczenia usługi", { forma: "online" }, "online", "ostrzeżenie");
   });
 
   test("zdalna w czasie rzeczywistym jest poprawną formą terminu online", function sprawdź() {

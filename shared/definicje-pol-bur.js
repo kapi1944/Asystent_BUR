@@ -20,7 +20,7 @@
     const wynik = [
       definicja("rodzaj-uslugi", "rodzajUslugi", profil.rodzajUsługiBur || "", "profil " + źródło, { dokładnySelect2: true }),
       definicja("podrodzaj-uslugi", "podrodzajUslugi", profil.podrodzajUsługiBur || "", "profil " + źródło, { dokładnySelect2: true }),
-      definicja("forma-swiadczenia", "formaSwiadczenia", online ? "online" : "stacjonarna", "reguła BUR"),
+      definicja("forma-swiadczenia", "formaSwiadczenia", online ? "zdalna w czasie rzeczywistym" : "stacjonarna", "reguła BUR"),
       definicja("wariant-zajec", "wariantZajec", profil.wariantZajęćBur, "profil " + źródło),
       definicja("podstawa-wpisu", "podstawaWpisu", profil.podstawaWpisuBur || przestrzeń.AKTUALNA_PODSTAWA_WPISU_BUR, "profil " + źródło, { dokładnySelect2: true }),
       definicja("usluga-zamknieta", "uslugaZamknieta", profil.usługaZamkniętaBur, "profil " + źródło),

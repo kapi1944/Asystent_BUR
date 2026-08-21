@@ -22,3 +22,27 @@
   box-shadow: 0 0 18px 7px rgba(124, 58, 237, 0.62) !important;
   transition: outline-color 500ms ease, box-shadow 500ms ease !important;
 }
+
+.bur-asystent-komunikat-korekty-kompetencji {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 2147483647;
+  max-width: min(520px, calc(100vw - 40px));
+  padding: 14px 18px;
+  border: 1px solid #197642;
+  border-radius: 8px;
+  background: #e8f7ee;
+  color: #124d2d;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  font: 600 14px/1.45 Arial, sans-serif;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-12px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.bur-asystent-komunikat-korekty-kompetencji.bur-asystent-komunikat-widoczny {
+  opacity: 1;
+  transform: translateY(0);
+}
