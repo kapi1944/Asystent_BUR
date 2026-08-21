@@ -746,7 +746,7 @@
       pusty.className = "pusta-lista-terminow";
       pusty.textContent = ostatnieTerminyKolejkiBur.length
         ? "Brak terminów kolejki dla wybranego filtra."
-        : "Wklej terminy w zakładce „Terminy”, aby pojawiły się tutaj.";
+        : "Wklej terminy w zakładce „Seria ogłoszeń”, aby pojawiły się tutaj.";
       kontener.appendChild(pusty);
       return;
     }

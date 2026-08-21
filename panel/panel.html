@@ -100,29 +100,6 @@
 
       <section id="karta-terminy" class="karta" data-zakladki="terminy">
         <h2>Terminy <span data-nazwa-zrodla>SEMPER</span></h2>
-        <section class="kolejka-terminow-bur" aria-labelledby="naglowek-kolejki-terminow">
-          <h3 id="naglowek-kolejki-terminow">Kolejka terminów BUR</h3>
-          <div class="liczniki-kolejki-terminow">
-            <span>Dzisiaj dodane: <strong id="kolejka-dzisiaj-dodane">—</strong></span>
-            <span>Łącznie dodane: <strong id="kolejka-lacznie-dodane">—</strong></span>
-          </div>
-          <label class="etykieta" for="kolejka-terminow-wejscie">Wklej terminy</label>
-          <textarea id="kolejka-terminow-wejscie" rows="7" placeholder="2027-07-01-2027-07-02 Wrocław&#10;2027-07-01-2027-07-02 Szkolenie online"></textarea>
-          <div id="kolejka-terminow-podsumowanie" class="podsumowanie-kolejki-terminow"></div>
-          <div id="kolejka-terminow-bledy" class="komunikat ukryty"></div>
-          <details class="podglad-kolejki-terminow" open>
-            <summary>Podgląd rozpoznanych terminów</summary>
-            <div id="kolejka-terminow-podglad"></div>
-          </details>
-          <div class="siatka-przycisków kolejka-akcje">
-            <button id="przycisk-zapisz-kolejke" type="button">Zapisz i przygotuj kolejkę</button>
-            <button id="przycisk-nowe-szkolenie" type="button">Nowe szkolenie</button>
-            <button id="przycisk-resetuj-kolejke" type="button">Reset kolejki</button>
-            <button id="przycisk-skoryguj-dzienny" type="button">Korekta dziennego</button>
-            <button id="przycisk-resetuj-liczniki" type="button">Reset liczników</button>
-          </div>
-          <div id="status-kolejki-terminow" class="komunikat status-neutralny">Otwórz kartę BUR, aby odczytać kolejkę.</div>
-        </section>
         <div id="status-dopasowania-terminu" class="komunikat status-neutralny">Otwórz formularz BUR, aby zsynchronizować termin.</div>
         <div class="filtr-terminow" role="group" aria-label="Filtr terminów SEMPER">
           <button type="button" data-filtr-terminow="wszystkie" aria-pressed="true">Wszystkie</button>
@@ -204,6 +181,29 @@
       <section id="karta-seria-ogloszen" class="karta" data-zakladki="seria">
         <h2>Seria ogłoszeń</h2>
         <p class="opis-akcji">Najpierw przygotuj niezależne karty, a następnie uruchom sekwencyjne wypełnianie. Karty pozostają otwarte i niezapisane.</p>
+        <section class="kolejka-terminow-bur" aria-labelledby="naglowek-kolejki-terminow">
+          <h3 id="naglowek-kolejki-terminow">Kolejka terminów BUR</h3>
+          <div class="liczniki-kolejki-terminow">
+            <span>Dzisiaj dodane: <strong id="kolejka-dzisiaj-dodane">—</strong></span>
+            <span>Łącznie dodane: <strong id="kolejka-lacznie-dodane">—</strong></span>
+          </div>
+          <label class="etykieta" for="kolejka-terminow-wejscie">Wklej terminy</label>
+          <textarea id="kolejka-terminow-wejscie" rows="7" placeholder="2027-07-01-2027-07-02 Wrocław&#10;2027-07-01-2027-07-02 Szkolenie online"></textarea>
+          <div id="kolejka-terminow-podsumowanie" class="podsumowanie-kolejki-terminow"></div>
+          <div id="kolejka-terminow-bledy" class="komunikat ukryty"></div>
+          <details class="podglad-kolejki-terminow" open>
+            <summary>Podgląd rozpoznanych terminów</summary>
+            <div id="kolejka-terminow-podglad"></div>
+          </details>
+          <div class="siatka-przycisków kolejka-akcje">
+            <button id="przycisk-zapisz-kolejke" type="button">Zapisz i przygotuj kolejkę</button>
+            <button id="przycisk-nowe-szkolenie" type="button">Nowe szkolenie</button>
+            <button id="przycisk-resetuj-kolejke" type="button">Reset kolejki</button>
+            <button id="przycisk-skoryguj-dzienny" type="button">Korekta dziennego</button>
+            <button id="przycisk-resetuj-liczniki" type="button">Reset liczników</button>
+          </div>
+          <div id="status-kolejki-terminow" class="komunikat status-neutralny">Otwórz kartę BUR, aby odczytać kolejkę.</div>
+        </section>
         <div class="liczniki-serii" aria-live="polite">
           <span>Wszystkie: <strong id="seria-liczba-wszystkich">0</strong></span>
           <span>Zaznaczone: <strong id="seria-liczba-zaznaczonych">0</strong></span>

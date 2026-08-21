@@ -11,6 +11,7 @@
       dataStart: "06-07-2027",
       dataKoniec: "07-07-2027",
       dataRekrutacji: "05-07-2027",
+      liczbaGodzin: "12",
       grupaDocelowa: "Grupa docelowa obejmuje osoby dorosłe zainteresowane tematem.",
       minimum: "2",
       maksimum: "15",
@@ -57,6 +58,7 @@
       "<label for=\"informacjepodstawowesekcja-datarozpoczeciauslugi\">Data rozpoczęcia usługi</label><input id=\"informacjepodstawowesekcja-datarozpoczeciauslugi\" value=\"" + wartości.dataStart + "\">",
       "<label for=\"informacjepodstawowesekcja-datazakonczeniauslugi\">Data zakończenia usługi</label><input id=\"informacjepodstawowesekcja-datazakonczeniauslugi\" value=\"" + wartości.dataKoniec + "\">",
       "<label for=\"informacjepodstawowesekcja-datazakonczeniarekrutacji\">Data zakończenia rekrutacji</label><input id=\"informacjepodstawowesekcja-datazakonczeniarekrutacji\" value=\"" + wartości.dataRekrutacji + "\">",
+      "<label for=\"informacjepodstawowesekcja-liczbagodzinuslugi\">Liczba godzin usługi</label><input id=\"informacjepodstawowesekcja-liczbagodzinuslugi\" value=\"" + wartości.liczbaGodzin + "\">",
       "<div id=\"informacjepodstawowesekcja-grupadocelowauslugi-wysiwyg\"><div class=\"ql-editor\">" + wartości.grupaDocelowa + "</div></div>",
       "<label for=\"informacjepodstawowesekcja-minimalnaliczbauczestnikow\">Minimalna liczba uczestników</label><input id=\"informacjepodstawowesekcja-minimalnaliczbauczestnikow\" value=\"" + wartości.minimum + "\">",
       "<label for=\"informacjepodstawowesekcja-maksymalnaliczbauczestnikow\">Maksymalna liczba uczestników</label><input id=\"informacjepodstawowesekcja-maksymalnaliczbauczestnikow\" value=\"" + wartości.maksimum + "\">",
@@ -248,6 +250,17 @@
   test("puste wartości uczestników dają błąd", function sprawdź() {
     sprawdźStatus("Minimalna liczba uczestników", { minimum: "" }, "online", "błąd");
     sprawdźStatus("Maksymalna liczba uczestników", { maksimum: "" }, "online", "błąd");
+  });
+
+  test("liczba godzin jest wyliczana według formy i liczby dni", function sprawdź() {
+    sprawdźStatus("Liczba godzin usługi", { liczbaGodzin: "12" }, "online", "poprawne");
+    sprawdźStatus("Liczba godzin usługi", { liczbaGodzin: "16", forma: "stacjonarna" }, "stacjonarna", "poprawne");
+    const dokumentJednodniowy = utwórzDokumentWalidacji({ dataKoniec: "06-07-2027", liczbaGodzin: "8", forma: "stacjonarna" });
+    const kontekstJednodniowy = utwórzKontekst("stacjonarna");
+    kontekstJednodniowy.wybranyTermin.dataKoniecBur = "06-07-2027";
+    sprawdzRownosc(znajdźPozycję(bur.walidujFormularzBur(dokumentJednodniowy, kontekstJednodniowy), "Liczba godzin usługi").status, "poprawne");
+    sprawdźStatus("Liczba godzin usługi", { liczbaGodzin: "8" }, "online", "ostrzeżenie");
+    sprawdźStatus("Liczba godzin usługi", { liczbaGodzin: "" }, "online", "błąd");
   });
 
   test("skrót online nie zastępuje wymaganej formy zdalnej w czasie rzeczywistym", function sprawdź() {

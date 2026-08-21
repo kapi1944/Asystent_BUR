@@ -27,6 +27,8 @@
 
     wynik = poprawWielkaLiterePoOznaczeniuDni(wynik);
     wynik = wynik
+      .replace(/([.!?])\s+[123]\s*(?:-\s*|\s+)dniowe\s+szkolenie\s*\.\s*$/gi, "$1")
+      .replace(/\s*(?:[–-]\s*)?[123]\s*(?:-\s*|\s+)dniowe\s+szkolenie\s*\.\s*$/gi, ".")
       .replace(/\b[123]\s*-\s*dniowe\b/gi, "")
       .replace(/\b[123]\s+dniowe\b/gi, "")
       .replace(/\s*\(noclegi i wyzywienie w cenie szkolenia\)\s*/gi, " ")

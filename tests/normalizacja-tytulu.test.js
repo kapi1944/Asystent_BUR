@@ -15,10 +15,17 @@
     );
   });
 
-  test("usuwa 3-dniowe", function sprawdz() {
+  test("usuwa koncowe wyrazenie 3-dniowe szkolenie", function sprawdz() {
     sprawdzRownosc(
       normalizujTytulBur("Prawo pracy - 3-dniowe szkolenie."),
-      "Prawo pracy - Szkolenie."
+      "Prawo pracy."
+    );
+  });
+
+  test("usuwa koncowe wyrazenie 1-dniowe szkolenie z dlugiego tytulu", function sprawdz() {
+    sprawdzRownosc(
+      normalizujTytulBur("Książka Obiektu Budowlanego i Cyfrowa Książka Obiektu Budowlanego (KOB i c-KOB) w praktyce. Jak prawidłowo dokonywać wpisów w książce obiektu budowlanego i załączać wymagane dokumenty - 1-dniowe szkolenie."),
+      "Książka Obiektu Budowlanego i Cyfrowa Książka Obiektu Budowlanego (KOB i c-KOB) w praktyce. Jak prawidłowo dokonywać wpisów w książce obiektu budowlanego i załączać wymagane dokumenty."
     );
   });
 

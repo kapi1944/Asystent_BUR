@@ -1602,7 +1602,7 @@
     return przełączniki;
   }
 
-  function pokażKomunikatKorektyKompetencji(nazwyPól) {
+  function pokażKomunikatKorektyKompetencji(nazwyPól, liczbaUsuniętychKlauzul, liczbaPrzełącznikówTak) {
     let komunikat = document.getElementById("bur-asystent-komunikat-korekty-kompetencji");
     if (!komunikat) {
       komunikat = document.createElement("div");
@@ -1612,7 +1612,12 @@
       komunikat.setAttribute("aria-live", "polite");
       document.body.appendChild(komunikat);
     }
-    komunikat.textContent = "BUR Asystent automatycznie ustawił na TAK: " + nazwyPól.join(", ") + ".";
+    komunikat.textContent = liczbaUsuniętychKlauzul
+      ? "BUR Asystent automatycznie usunął " + liczbaUsuniętychKlauzul + " "
+        + (liczbaUsuniętychKlauzul === 1 ? "informację" : "informacje")
+        + " o indywidualnej karcie rabatowej. Suwaki kompetencji ustawione na TAK: "
+        + liczbaPrzełącznikówTak + "/4."
+      : "BUR Asystent automatycznie ustawił na TAK: " + nazwyPól.join(", ") + ".";
     komunikat.classList.add("bur-asystent-komunikat-widoczny");
     globalny.clearTimeout(timerKomunikatuKorektyKompetencji);
     timerKomunikatuKorektyKompetencji = globalny.setTimeout(function ukryjKomunikat() {
@@ -1635,12 +1640,106 @@
     return skorygowanePola;
   }
 
+  function normalizujTreśćKlauzuliRabatowej(tekst) {
+    return String(tekst || "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s*%\s*/g, "%")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function czyKlauzulaKartyRabatowej(tekst) {
+    const treść = normalizujTreśćKlauzuliRabatowej(tekst);
+    return /kart\S* rabatow\S*/.test(treść)
+      && /10%znizk\S*/.test(treść)
+      && /kolejn\S* szkoleni\S*/.test(treść);
+  }
+
+  function usuńKlauzuleZTekstu(tekst) {
+    let liczbaUsuniętych = 0;
+    const części = String(tekst || "").split(/(\r?\n+)/);
+    const oczyszczone = części.map(function oczyśćCzęść(część) {
+      if (/^\r?\n+$/.test(część)) { return część; }
+      const zdania = część.split(/(?<=[.!?])\s+/).filter(function zachowajZdanie(zdanie) {
+        if (!czyKlauzulaKartyRabatowej(zdanie)) { return true; }
+        liczbaUsuniętych += 1;
+        return false;
+      });
+      return zdania.join(" ");
+    }).join("").replace(/^[\t ]+|[\t ]+$/gm, "").replace(/\n{3,}/g, "\n\n");
+
+    return { tekst: oczyszczone.trim(), liczbaUsuniętych: liczbaUsuniętych };
+  }
+
+  function powiadomOZmianieTreści(element) {
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  function usuńKlauzuleKartRabatowych(dokument) {
+    let liczbaUsuniętych = 0;
+    const pola = Array.from(dokument.querySelectorAll(".ql-editor, textarea, [contenteditable='true']"));
+
+    pola.forEach(function oczyśćPole(pole) {
+      if (pole.matches("textarea")) {
+        const wynikPola = usuńKlauzuleZTekstu(pole.value);
+        if (!wynikPola.liczbaUsuniętych) { return; }
+        pole.value = wynikPola.tekst;
+        liczbaUsuniętych += wynikPola.liczbaUsuniętych;
+        powiadomOZmianieTreści(pole);
+        return;
+      }
+
+      const bloki = Array.from(pole.querySelectorAll("p, li")).filter(function wybierzNajmniejszyBlok(blok) {
+        return !blok.querySelector("p, li") && blok.closest(".ql-editor, [contenteditable='true']") === pole;
+      });
+      const elementyDoOczyszczenia = bloki.length ? bloki : [pole];
+      let czyZmienionoPole = false;
+
+      elementyDoOczyszczenia.forEach(function oczyśćBlok(blok) {
+        const wynikBloku = usuńKlauzuleZTekstu(blok.textContent || "");
+        if (!wynikBloku.liczbaUsuniętych) { return; }
+        liczbaUsuniętych += wynikBloku.liczbaUsuniętych;
+        czyZmienionoPole = true;
+        if (wynikBloku.tekst) {
+          blok.textContent = wynikBloku.tekst;
+        } else if (blok !== pole) {
+          blok.remove();
+        } else {
+          blok.textContent = "";
+        }
+      });
+
+      if (czyZmienionoPole) {
+        if (pole.classList.contains("ql-editor") && !pole.childNodes.length) {
+          const akapit = dokument.createElement("p");
+          akapit.appendChild(dokument.createElement("br"));
+          pole.appendChild(akapit);
+        }
+        powiadomOZmianieTreści(pole);
+      }
+    });
+
+    return liczbaUsuniętych;
+  }
+
   function zaplanujAutomatycznąKorektęKompetencji() {
     if (czyListaUsługBur(location.href)) { return; }
     globalny.clearTimeout(timerAutomatycznejKorektyKompetencji);
     timerAutomatycznejKorektyKompetencji = globalny.setTimeout(function wykonajKorektę() {
       timerAutomatycznejKorektyKompetencji = null;
-      skorygujPrzełącznikiKompetencji(document, true);
+      const liczbaUsuniętychKlauzul = usuńKlauzuleKartRabatowych(document);
+      const skorygowanePola = skorygujPrzełącznikiKompetencji(document, false);
+      if (liczbaUsuniętychKlauzul) {
+        const liczbaPrzełącznikówTak = znajdźPrzełącznikiKompetencjiDoKorekty(document).filter(function ustawionyNaTak(pole) {
+          return pole.element && przestrzen.pobierzStanPrzełącznika(pole.element) === "TAK";
+        }).length;
+        pokażKomunikatKorektyKompetencji(skorygowanePola, liczbaUsuniętychKlauzul, liczbaPrzełącznikówTak);
+      } else if (skorygowanePola.length) {
+        pokażKomunikatKorektyKompetencji(skorygowanePola, 0, 0);
+      }
     }, 40);
   }
 
@@ -1648,6 +1747,7 @@
     new MutationObserver(zaplanujAutomatycznąKorektęKompetencji).observe(document.body, {
       childList: true,
       subtree: true,
+      characterData: true,
       attributes: true,
       attributeFilter: ["checked", "aria-checked"]
     });
@@ -1717,6 +1817,7 @@
   przestrzen.odczytajNazweKontaBur = odczytajNazweKontaBur;
   przestrzen.wykryjKontoBur = wykryjKontoBur;
   przestrzen.skorygujPrzełącznikiKompetencji = skorygujPrzełącznikiKompetencji;
+  przestrzen.usuńKlauzuleKartRabatowych = usuńKlauzuleKartRabatowych;
 
   document.addEventListener("input", zaplanujPowiadomienieOTerminieBur, true);
   document.addEventListener("change", zaplanujPowiadomienieOTerminieBur, true);

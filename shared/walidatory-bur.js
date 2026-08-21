@@ -22,6 +22,18 @@
     return trafienie ? trafienie[0].replace(",", ".") : "";
   }
 
+  function obliczOczekiwanąLiczbęGodzin(termin) {
+    const zakres = przestrzeń.parsujZakresDatSemper(
+      String(termin.dataStartBur || "") + " do " + String(termin.dataKoniecBur || "")
+    );
+    if (!zakres.dataOd || !zakres.dataDo || zakres.dataDo < zakres.dataOd) {
+      return "";
+    }
+    const liczbaDni = Math.round((zakres.dataDo.getTime() - zakres.dataOd.getTime()) / (24 * 60 * 60 * 1000)) + 1;
+    const liczbaGodzinDziennie = termin.forma === "online" ? 6 : 8;
+    return String(liczbaDni * liczbaGodzinDziennie);
+  }
+
   function czyZgodne(aktualnaWartość, oczekiwanaWartość) {
     const aktualna = normalizujDoPorównaniaBur(aktualnaWartość);
     const oczekiwana = normalizujDoPorównaniaBur(oczekiwanaWartość);
@@ -639,8 +651,26 @@
       selektorPomocniczy: "#informacjepodstawowesekcja-maksymalnaliczbauczestnikow"
     });
 
-    [["Cena netto", "#informacjepodstawowesekcja-cenanettouslugi", pobierzLiczbęZTekstu(termin.cena)], ["Liczba godzin usługi", "#informacjepodstawowesekcja-liczbagodzinuslugi", pobierzLiczbęZTekstu(termin.liczbaGodzin || termin.czasTrwania)]].filter(function maŹródło(dane) { return Boolean(dane[2]); }).forEach(function sprawdźDaneWariantu(dane) {
+    [["Cena netto", "#informacjepodstawowesekcja-cenanettouslugi", pobierzLiczbęZTekstu(termin.cena)]].filter(function maŹródło(dane) { return Boolean(dane[2]); }).forEach(function sprawdźDaneWariantu(dane) {
       sprawdźWartość(pozycje, { dokument: dokument, sekcja: "Informacje podstawowe", pole: dane[0], oczekiwanaWartość: dane[2], definicja: { sekcja: "Informacje podstawowe", etykieta: dane[0], selektory: [dane[1]] }, selektorPomocniczy: dane[1] });
+    });
+
+    const oczekiwanaLiczbaGodzin = obliczOczekiwanąLiczbęGodzin(termin);
+    sprawdźWartość(pozycje, {
+      dokument: dokument,
+      sekcja: "Informacje podstawowe",
+      pole: "Liczba godzin usługi",
+      oczekiwanaWartość: oczekiwanaLiczbaGodzin,
+      definicja: {
+        sekcja: "Informacje podstawowe",
+        etykieta: "Liczba godzin usługi",
+        selektory: ["#informacjepodstawowesekcja-liczbagodzinuslugi"]
+      },
+      czyOstrzeżenie: function sprawdźLiczbęGodzin(aktualnaWartość) {
+        return !oczekiwanaLiczbaGodzin || Number(pobierzLiczbęZTekstu(aktualnaWartość)) !== Number(oczekiwanaLiczbaGodzin);
+      },
+      komunikatOstrzeżenia: "Liczba godzin nie odpowiada regule: online 6 godzin dziennie, stacjonarnie 8 godzin dziennie.",
+      selektorPomocniczy: "#informacjepodstawowesekcja-liczbagodzinuslugi"
     });
 
     if (termin.forma !== "online") {

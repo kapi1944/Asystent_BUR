@@ -44,4 +44,45 @@
           .every(function ustawioneNaTak(pole) { return pole.checked; }));
       });
   });
+
+  test("klauzule o indywidualnej karcie rabatowej są automatycznie usuwane", function sprawdź() {
+    const dokument = document.implementation.createHTMLDocument("test usuwania kart rabatowych");
+    dokument.body.innerHTML = [
+      "<div class='ql-editor' contenteditable='true'>",
+      "<p>Ważna informacja organizacyjna pozostaje bez zmian.</p>",
+      "<p>Otrzymujesz&nbsp;indywidualną&nbsp;kartę&nbsp;rabatową&nbsp;upoważniającą&nbsp;do&nbsp;10%&nbsp;zniżki&nbsp;na&nbsp;wszystkie&nbsp;kolejne&nbsp;szkolenia&nbsp;stacjonarne&nbsp;i&nbsp;online organizowane przez Centrum Organizacji Szkoleń i Konferencji SEMPER.</p>",
+      "<p>Każdy z Uczestników otrzyma indywidualną kartę rabatową upoważniającą do 10 % zniżki na wszystkie kolejne szkolenia otwarte organizowane przez Międzynarodowy Instytut Szkoleń Specjalistycznych IIST.</p>",
+      "</div>"
+    ].join("");
+
+    const liczbaUsuniętych = BurAsystent.usuńKlauzuleKartRabatowych(dokument);
+    const treść = dokument.querySelector(".ql-editor").textContent;
+
+    sprawdzRownosc(liczbaUsuniętych, 2);
+    sprawdzWarunek(treść.includes("Ważna informacja organizacyjna"));
+    sprawdzWarunek(!/kart\S* rabatow/i.test(treść));
+  });
+
+  test("automatyczne usunięcie klauzuli potwierdza cztery suwaki TAK", function sprawdź() {
+    const kontener = document.createElement("div");
+    kontener.innerHTML = [
+      "<div class='ql-editor' contenteditable='true'><p>Każdy uczestnik otrzyma indywidualną kartę rabatową upoważniającą do 10% zniżki na wszystkie kolejne szkolenia otwarte.</p></div>",
+      "<div id='qualificationsZrk'><div class='field-glownyceluslugisekcja-czyuslugaprowadzidonabyciakompetencji'><label><input type='checkbox'><span class='toggler'></span></label></div></div>",
+      "<div id='leadsToAcquisitionOfCompetences'>",
+      "<div class='question-field-section'><label><input id='pytanieformularz-czydokumentzawieraopisefektowuczeniasie_v2-czyzaznaczono' type='checkbox'><span>Pytanie 1.</span><span class='toggler'></span></label></div>",
+      "<div class='question-field-section'><label><input id='pytanieformularz-czydokumentpotwierdzazewalidacjabazujenakryteriachweryfikacji_v2-czyzaznaczono' type='checkbox'><span>Pytanie 2.</span><span class='toggler'></span></label></div>",
+      "<div class='question-field-section'><label><input id='pytanieformularz-czydokumentpotwierdzaseparacjeprocesowksztalceniaiszkolenia_v2-czyzaznaczono' type='checkbox'><span>Pytanie 3.</span><span class='toggler'></span></label></div>",
+      "</div>"
+    ].join("");
+    document.body.appendChild(kontener);
+
+    return new Promise(function poczekajNaKorektę(resolve) { setTimeout(resolve, 120); })
+      .then(function sprawdźWynik() {
+        const komunikat = document.getElementById("bur-asystent-komunikat-korekty-kompetencji");
+        sprawdzWarunek(!kontener.textContent.includes("kartę rabatową"), "Klauzula nie została usunięta automatycznie.");
+        sprawdzWarunek(Array.from(kontener.querySelectorAll("input[type='checkbox']")).every(function zaznaczony(pole) { return pole.checked; }), "Nie wszystkie cztery suwaki ustawiono na TAK.");
+        sprawdzWarunek(Boolean(komunikat) && komunikat.textContent.includes("Suwaki kompetencji ustawione na TAK: 4/4."), "Komunikat nie potwierdza stanu 4/4.");
+      })
+      .finally(function posprzątaj() { kontener.remove(); });
+  });
 })();
