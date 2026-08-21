@@ -74,7 +74,7 @@
       const zakładki = przyciski.map(function pobierzZakładkę(przycisk) { return przycisk.dataset.przelaczZakladke; });
 
       sprawdzRownosc(przyciski.length, 6, "Panel powinien zawierać sześć przycisków nawigacji.");
-      sprawdzRownosc(zakładki.join(","), "semper,terminy,seria,checklista,harmonogram,diagnostyka", "Kolejność zakładek jest niepoprawna.");
+      sprawdzRownosc(zakładki.join(","), "semper,checklista,terminy,seria,harmonogram,diagnostyka", "Kolejność zakładek jest niepoprawna.");
       sprawdzWarunek(/\.zakladki-panelu\s*\{[^}]*flex-direction:\s*column;/s.test(wyniki[1]), "Nawigacja musi być pionowa.");
       sprawdzWarunek(!/\.zakladki-panelu\s*\{[^}]*overflow-x:\s*auto;/s.test(wyniki[1]), "Nawigacja nie może wymagać poziomego przewijania.");
     });
@@ -89,7 +89,7 @@
       sprawdzWarunek(/position:\s*sticky;/.test(regułaNawigacji[1]), "Wrapper nawigacji musi być sticky.");
       sprawdzWarunek(/top:\s*0;/.test(regułaNawigacji[1]), "Sticky navigation musi mieć ustalony top.");
       sprawdzWarunek(/z-index:\s*3;/.test(regułaNawigacji[1]), "Sticky navigation musi pozostać nad przewijaną treścią.");
-      sprawdzWarunek(/background:\s*var\(--panel-drugi\);/.test(regułaNawigacji[1]), "Sticky navigation musi mieć nieprzezroczyste tło.");
+      sprawdzWarunek(/background:\s*var\(--bur-surface-hover\);/.test(regułaNawigacji[1]), "Sticky navigation musi mieć nieprzezroczyste tło.");
       sprawdzWarunek(Boolean(regułaPrzycisków) && /min-height:\s*36px;/.test(regułaPrzycisków[1]), "Przyciski nawigacji powinny mieć kompaktową wysokość 36 px.");
       sprawdzWarunek(/gap:\s*5px;/.test(regułaNawigacji[1]), "Odstęp między przyciskami nawigacji powinien być kompaktowy.");
     });
